@@ -39,7 +39,7 @@ fun ConnectionStatusCard(state: RegistrationState, modifier: Modifier = Modifier
     val extendedColors = LocalExtendedColors.current
 
     AnimatedVisibility(
-        visible = state !is RegistrationState.Idle,
+        visible = state is RegistrationState.Registering || state is RegistrationState.Failed,
         enter = fadeIn(tween(300)) + slideInVertically(
             initialOffsetY = { it / 4 }, animationSpec = tween(300),
         ),

@@ -85,10 +85,9 @@ fun RegistrationScreen(component: RegistrationComponent) {
             ConnectButton(
                 state = registrationState,
                 onConnect = submitAction,
-                onDisconnect = { /* handled by navigation, not shown on this screen when Registered */ },
+                onDisconnect = {},
                 onCancel = component::cancelRegistration,
             )
-            Spacer(Modifier.height(16.dp))
             ConnectionStatusCard(state = registrationState)
         }
     }
