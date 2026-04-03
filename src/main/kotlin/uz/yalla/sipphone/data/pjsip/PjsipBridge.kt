@@ -137,8 +137,9 @@ class PjsipBridge : SipEngine {
         try {
             _registrationState.value = RegistrationState.Registering
 
-            // Cleanup previous account
+            // Cleanup previous account — must delete() to prevent GC finalizer crash
             account?.shutdown()
+            account?.delete()
             account = null
 
             val accountConfig = AccountConfig()
@@ -180,10 +181,14 @@ class PjsipBridge : SipEngine {
             }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             logger.warn { "Unregistration timed out, forcing shutdown" }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Component destroyed mid-unregister — normal during navigation pop
+            logger.debug { "Unregister cancelled (component destroyed)" }
         } catch (e: Exception) {
             logger.error(e) { "Unregister error" }
         } finally {
             acc.shutdown()
+            acc.delete() // SWIG cleanup — prevent GC finalizer from calling native on wrong thread
             account = null
             _registrationState.value = RegistrationState.Idle
         }
@@ -196,6 +201,7 @@ class PjsipBridge : SipEngine {
             pollJob?.join() // wait for poll loop to fully exit
 
             account?.shutdown()
+            account?.delete() // SWIG cleanup before libDestroy
             account = null
 
             try {
