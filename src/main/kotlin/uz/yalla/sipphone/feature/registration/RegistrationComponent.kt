@@ -48,10 +48,17 @@ class RegistrationComponent(
             }
         }
 
-        // Navigate once on successful registration - .first {} completes after one match
+        // Navigate on successful registration.
+        // Uses collect (not first) because component persists in Decompose back stack.
+        // After pop back from Dialer, same component instance is reused — first{} would
+        // already be completed. StateFlow.distinctUntilChanged prevents duplicate emissions.
         scope.launch {
-            sipEngine.registrationState.drop(1).first { it is RegistrationState.Registered }
-            onRegistered()
+            sipEngine.registrationState.collect { state ->
+                if (state is RegistrationState.Registered) {
+                    logger.info { "Navigating to Dialer" }
+                    onRegistered()
+                }
+            }
         }
     }
 
