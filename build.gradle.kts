@@ -14,11 +14,7 @@ dependencies {
     implementation(compose.material3)
     implementation(compose.materialIconsExtended)
 
-    // Credentials persistence
-    implementation("com.russhwolf:multiplatform-settings:1.3.0")
-    implementation("com.russhwolf:multiplatform-settings-no-arg:1.3.0")
-
-    // Coroutines
+    // Coroutines (UDP async operations)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
 
     // Test
