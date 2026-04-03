@@ -5,8 +5,8 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,70 +27,83 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import uz.yalla.sipphone.domain.ConnectionState
+import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.ui.theme.LocalExtendedColors
 
 @Composable
-fun ConnectionStatusCard(state: ConnectionState, modifier: Modifier = Modifier) {
+fun ConnectionStatusCard(state: RegistrationState, modifier: Modifier = Modifier) {
     val extendedColors = LocalExtendedColors.current
+
     AnimatedVisibility(
-        visible = state !is ConnectionState.Idle,
+        visible = state !is RegistrationState.Idle,
         enter = fadeIn(tween(300)) + slideInVertically(
-            initialOffsetY = { it / 4 }, animationSpec = tween(300)
+            initialOffsetY = { it / 4 }, animationSpec = tween(300),
         ),
         exit = fadeOut(tween(200)) + shrinkVertically(tween(200)),
-        modifier = modifier
+        modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         val containerColor by animateColorAsState(
             targetValue = when (state) {
-                is ConnectionState.Registering -> MaterialTheme.colorScheme.secondaryContainer
-                is ConnectionState.Registered -> extendedColors.successContainer
-                is ConnectionState.Failed -> MaterialTheme.colorScheme.errorContainer
-                is ConnectionState.Idle -> Color.Transparent
-            }, animationSpec = tween(300)
+                is RegistrationState.Registering -> MaterialTheme.colorScheme.secondaryContainer
+                is RegistrationState.Registered -> extendedColors.successContainer
+                is RegistrationState.Failed -> MaterialTheme.colorScheme.errorContainer
+                is RegistrationState.Idle -> Color.Transparent
+            }, animationSpec = tween(300),
         )
         val contentColor by animateColorAsState(
             targetValue = when (state) {
-                is ConnectionState.Registering -> MaterialTheme.colorScheme.onSecondaryContainer
-                is ConnectionState.Registered -> extendedColors.onSuccessContainer
-                is ConnectionState.Failed -> MaterialTheme.colorScheme.onErrorContainer
-                is ConnectionState.Idle -> Color.Transparent
-            }, animationSpec = tween(300)
+                is RegistrationState.Registering -> MaterialTheme.colorScheme.onSecondaryContainer
+                is RegistrationState.Registered -> extendedColors.onSuccessContainer
+                is RegistrationState.Failed -> MaterialTheme.colorScheme.onErrorContainer
+                is RegistrationState.Idle -> Color.Transparent
+            }, animationSpec = tween(300),
         )
 
         Card(colors = CardDefaults.cardColors(containerColor = containerColor), modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 when (state) {
-                    is ConnectionState.Registering -> CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp, color = contentColor
+                    is RegistrationState.Registering -> CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp, color = contentColor,
                     )
-                    is ConnectionState.Registered -> Icon(Icons.Filled.CheckCircle, null, tint = contentColor)
-                    is ConnectionState.Failed -> Icon(Icons.Filled.Error, null, tint = contentColor)
-                    is ConnectionState.Idle -> {}
+                    is RegistrationState.Registered -> Icon(
+                        Icons.Filled.CheckCircle,
+                        contentDescription = "Registration successful",
+                        tint = contentColor,
+                    )
+                    is RegistrationState.Failed -> Icon(
+                        Icons.Filled.Error,
+                        contentDescription = "Registration failed",
+                        tint = contentColor,
+                    )
+                    is RegistrationState.Idle -> {}
                 }
                 Column {
                     Text(
                         text = when (state) {
-                            is ConnectionState.Registering -> "Registering..."
-                            is ConnectionState.Registered -> "Registered"
-                            is ConnectionState.Failed -> "Connection Failed"
-                            is ConnectionState.Idle -> ""
+                            is RegistrationState.Registering -> "Registering..."
+                            is RegistrationState.Registered -> "Registered"
+                            is RegistrationState.Failed -> "Connection Failed"
+                            is RegistrationState.Idle -> ""
                         },
-                        style = MaterialTheme.typography.titleSmall, color = contentColor
+                        style = MaterialTheme.typography.titleSmall, color = contentColor,
                     )
                     Text(
                         text = when (state) {
-                            is ConnectionState.Registering -> "Connecting to server..."
-                            is ConnectionState.Registered -> state.server
-                            is ConnectionState.Failed -> state.message
-                            is ConnectionState.Idle -> ""
+                            is RegistrationState.Registering -> "Connecting to server..."
+                            is RegistrationState.Registered -> state.server
+                            is RegistrationState.Failed -> state.message
+                            is RegistrationState.Idle -> ""
                         },
-                        style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.8f)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
