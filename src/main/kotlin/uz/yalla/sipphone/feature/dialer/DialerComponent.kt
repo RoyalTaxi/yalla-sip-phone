@@ -5,6 +5,7 @@ import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -27,14 +28,19 @@ class DialerComponent(
     private val scope = coroutineScope()
 
     init {
+        // Navigate back when registration lost AND no active call
+        // Uses combine so it re-evaluates when either state changes
         scope.launch(ioDispatcher) {
-            registrationEngine.registrationState
-                .drop(1)
-                .first { state ->
-                    val isDisconnected = state is RegistrationState.Idle || state is RegistrationState.Failed
-                    val noActiveCall = callEngine.callState.value is CallState.Idle
-                    isDisconnected && noActiveCall
-                }
+            combine(
+                registrationEngine.registrationState,
+                callEngine.callState,
+            ) { regState, callState ->
+                val isDisconnected = regState is RegistrationState.Idle || regState is RegistrationState.Failed
+                val noActiveCall = callState is CallState.Idle
+                isDisconnected && noActiveCall
+            }
+                .drop(1) // skip initial combined emission
+                .first { it }
             onDisconnected()
         }
     }

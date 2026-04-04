@@ -63,6 +63,7 @@ class PjsipCall : Call {
                     val captureMedia = bridge.getCaptureDevMedia()
                     captureMedia.startTransmit(audioMedia)
                     captureMedia.delete()
+                    audioMedia.delete()
                     logger.info { "Audio media connected for media index $i" }
                     break
                 }

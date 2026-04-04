@@ -12,8 +12,9 @@ class PjsipAccount(private val bridge: PjsipBridge) : Account() {
 
     override fun onRegState(prm: OnRegStateParam) {
         if (bridge.isDestroyed()) return
+        var info: org.pjsip.pjsua2.AccountInfo? = null
         try {
-            val info = getInfo()
+            info = getInfo()
             val code = prm.code
 
             when {
@@ -31,11 +32,11 @@ class PjsipAccount(private val bridge: PjsipBridge) : Account() {
                     logger.warn { "Registration failed: $reason (lastErr=${info.regLastErr})" }
                 }
             }
-
-            info.delete()
         } catch (e: Exception) {
             logger.error(e) { "Error in onRegState callback" }
             bridge.updateRegistrationState(RegistrationState.Failed(message = "Internal error: ${e.message}"))
+        } finally {
+            info?.delete()
         }
     }
 

@@ -50,6 +50,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     override val callState: StateFlow<CallState> = _callState.asStateFlow()
 
     private var currentCall: PjsipCall? = null
+    private var isOutboundCall = false
     private var lastRegisteredServer: String? = null
 
     private lateinit var endpoint: Endpoint
@@ -187,19 +188,19 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     override suspend fun makeCall(number: String): Result<Unit> = withContext(pjDispatcher) {
         if (currentCall != null) return@withContext Result.failure(IllegalStateException("Call already active"))
         val acc = account ?: return@withContext Result.failure(IllegalStateException("Not registered"))
+        val host = extractHost(lastRegisteredServer)
+        if (host.isBlank()) return@withContext Result.failure(IllegalStateException("No server address"))
         try {
             val call = PjsipCall(this@PjsipBridge, acc)
-            val uri = "sip:$number@${extractHost(lastRegisteredServer)}"
+            val uri = "sip:$number@$host"
             val prm = CallOpParam(true)
             call.makeCall(uri, prm)
             prm.delete()
             currentCall = call
-            _callState.value = CallState.Active(
-                remoteNumber = number,
-                remoteName = null,
-                isOutbound = true,
-                isMuted = false,
-                isOnHold = false,
+            isOutboundCall = true
+            _callState.value = CallState.Ringing(
+                callerNumber = number,
+                callerName = null,
             )
             Result.success(Unit)
         } catch (e: Exception) {
@@ -268,7 +269,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
             _callState.value = CallState.Active(
                 remoteNumber = state.callerNumber,
                 remoteName = state.callerName,
-                isOutbound = false,
+                isOutbound = isOutboundCall,
                 isMuted = false,
                 isOnHold = false,
             )
@@ -319,6 +320,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
 
     private fun clearCurrentCall() {
         currentCall = null
+        isOutboundCall = false
         _callState.value = CallState.Idle
     }
 
@@ -340,8 +342,10 @@ class PjsipBridge : RegistrationEngine, CallEngine {
                     call.hangup(prm)
                     prm.delete()
                 } catch (_: Exception) {}
+                try { call.delete() } catch (_: Exception) {}
             }
             currentCall = null
+            isOutboundCall = false
             _callState.value = CallState.Idle
             pollJob?.cancel()
             pollJob?.join()
