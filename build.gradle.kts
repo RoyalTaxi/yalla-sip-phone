@@ -55,6 +55,7 @@ compose.desktop {
         jvmArgs += "-Dpjsip.library.path=${projectDir}/libs"
 
         nativeDistributions {
+            modules("java.naming")
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "YallaSipPhone"
             packageVersion = "1.0.0"
