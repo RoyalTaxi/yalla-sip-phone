@@ -2,6 +2,7 @@ package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.pjsip.pjsua2.Account
+import org.pjsip.pjsua2.OnIncomingCallParam
 import org.pjsip.pjsua2.OnRegStateParam
 import uz.yalla.sipphone.domain.RegistrationState
 
@@ -35,6 +36,15 @@ class PjsipAccount(private val bridge: PjsipBridge) : Account() {
         } catch (e: Exception) {
             logger.error(e) { "Error in onRegState callback" }
             bridge.updateRegistrationState(RegistrationState.Failed(message = "Internal error: ${e.message}"))
+        }
+    }
+
+    override fun onIncomingCall(prm: OnIncomingCallParam) {
+        if (bridge.isDestroyed()) return
+        try {
+            bridge.onIncomingCall(prm.callId)
+        } catch (e: Exception) {
+            logger.error(e) { "Error in onIncomingCall callback" }
         }
     }
 }
