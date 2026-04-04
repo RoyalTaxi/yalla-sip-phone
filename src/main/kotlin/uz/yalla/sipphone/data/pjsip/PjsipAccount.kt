@@ -17,33 +17,24 @@ class PjsipAccount(private val bridge: PjsipBridge) : Account() {
 
             when {
                 code / 100 == 2 && info.regIsActive -> {
-                    bridge.updateRegistrationState(
-                        RegistrationState.Registered(server = info.uri)
-                    )
+                    bridge.updateRegistrationState(RegistrationState.Registered(server = info.uri))
                     logger.info { "Registered: ${info.uri}, expires: ${info.regExpiresSec}s" }
                 }
                 code / 100 == 2 && !info.regIsActive -> {
-                    // Successful unregistration (REGISTER Expires:0 got 200 OK)
                     bridge.updateRegistrationState(RegistrationState.Idle)
                     logger.info { "Unregistered" }
                 }
                 else -> {
                     val reason = "${prm.code} ${prm.reason}"
-                    bridge.updateRegistrationState(
-                        RegistrationState.Failed(message = reason)
-                    )
+                    bridge.updateRegistrationState(RegistrationState.Failed(message = reason))
                     logger.warn { "Registration failed: $reason (lastErr=${info.regLastErr})" }
                 }
             }
 
-            info.delete() // SWIG cleanup
+            info.delete()
         } catch (e: Exception) {
             logger.error(e) { "Error in onRegState callback" }
-            bridge.updateRegistrationState(
-                RegistrationState.Failed(message = "Internal error: ${e.message}")
-            )
+            bridge.updateRegistrationState(RegistrationState.Failed(message = "Internal error: ${e.message}"))
         }
     }
-
-    // Phase 3: override onIncomingCall(prm: OnIncomingCallParam)
 }

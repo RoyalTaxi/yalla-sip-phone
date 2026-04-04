@@ -12,7 +12,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.materialkolor.rememberDynamicColorScheme
 
-// Extended semantic colors not in M3 spec
 data class ExtendedColors(
     val success: Color,
     val onSuccess: Color,
@@ -29,9 +28,8 @@ private val DefaultExtendedColors = ExtendedColors(
 
 val LocalExtendedColors = staticCompositionLocalOf { DefaultExtendedColors }
 
-private val SeedColor = Color(0xFF1A5276) // Professional blue
+private val SeedColor = Color(0xFF1A5276)
 
-// Custom typography
 private val AppTypography = Typography(
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -52,7 +50,6 @@ private val AppTypography = Typography(
         lineHeight = 24.sp,
         letterSpacing = 0.15.sp,
     ),
-    // Phase 3: displayLarge for dial pad number display (tabular figures font)
 )
 
 @Composable
@@ -61,14 +58,12 @@ fun YallaSipPhoneTheme(content: @Composable () -> Unit) {
         seedColor = SeedColor,
         isDark = false,
         isAmoled = false,
-        // Phase 2: Add isDark parameter, detect system theme
     )
 
     MaterialTheme(
         colorScheme = colorScheme,
         typography = AppTypography,
     ) {
-        // Provide extended colors
         CompositionLocalProvider(
             LocalExtendedColors provides DefaultExtendedColors,
             LocalAppTokens provides AppTokens(),

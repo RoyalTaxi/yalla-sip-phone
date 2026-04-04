@@ -4,6 +4,7 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -11,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.FakeSipEngine
+import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -19,7 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 
-@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class RegistrationComponentTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -41,9 +43,8 @@ class RegistrationComponentTest {
     ): Pair<RegistrationComponent, FakeSipEngine> {
         val lifecycle = LifecycleRegistry()
         lifecycle.resume()
-        val context = DefaultComponentContext(lifecycle = lifecycle)
         val component = RegistrationComponent(
-            componentContext = context,
+            componentContext = DefaultComponentContext(lifecycle = lifecycle),
             sipEngine = sipEngine,
             appSettings = appSettings,
             onRegistered = onRegistered,
@@ -68,7 +69,7 @@ class RegistrationComponentTest {
     fun `onRegistered fires once on Registered state`() = runTest {
         var registeredCount = 0
         val engine = FakeSipEngine()
-        val (_, _) = createComponent(sipEngine = engine, onRegistered = { registeredCount++ })
+        createComponent(sipEngine = engine, onRegistered = { registeredCount++ })
         advanceUntilIdle()
 
         engine.simulateRegistered()
@@ -85,7 +86,7 @@ class RegistrationComponentTest {
         component.cancelRegistration()
         advanceUntilIdle()
 
-        assertIs<uz.yalla.sipphone.domain.RegistrationState.Idle>(engine.registrationState.value)
+        assertIs<RegistrationState.Idle>(engine.registrationState.value)
     }
 
     @Test

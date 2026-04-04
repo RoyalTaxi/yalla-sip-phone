@@ -12,9 +12,9 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.decompose.extensions.compose.lifecycle.LifecycleController
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
+import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
-import javax.swing.SwingUtilities
 import org.koin.core.context.startKoin
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.di.appModule
@@ -28,17 +28,12 @@ import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 private val logger = KotlinLogging.logger {}
 
 fun main() {
-    // 1. Start Koin
-    val koin = startKoin {
-        modules(appModule)
-    }.koin
+    val koin = startKoin { modules(appModule) }.koin
 
-    // 2. Init pjsip (with error handling)
     val sipEngine: SipEngine = koin.get()
     val initResult = runBlocking { sipEngine.init() }
 
     if (initResult.isFailure) {
-        // Show error dialog before any Compose window
         javax.swing.JOptionPane.showMessageDialog(
             null,
             "Failed to initialize SIP engine:\n${initResult.exceptionOrNull()?.message}",
@@ -48,10 +43,6 @@ fun main() {
         return
     }
 
-    // No shutdown hook — destroy() called explicitly in onCloseRequest before exitApplication().
-    // Shutdown hooks run during JVM teardown when native memory may already be corrupted.
-
-    // 4. Create Decompose lifecycle + root component (MUST be on EDT for Decompose)
     val lifecycle = LifecycleRegistry()
     val appSettings: AppSettings = koin.get()
     val rootComponent = runOnUiThread {
@@ -66,7 +57,6 @@ fun main() {
         )
     }
 
-    // 5. Launch Compose window
     application {
         val windowState = rememberWindowState(
             size = DpSize(420.dp, 600.dp),
@@ -75,16 +65,12 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                // Destroy pjsip before exit — must complete before JVM teardown
-                runBlocking {
-                    withTimeoutOrNull(3000) { sipEngine.destroy() }
-                }
+                runBlocking { withTimeoutOrNull(3000) { sipEngine.destroy() } }
                 exitApplication()
             },
             title = "Yalla SIP Phone",
             state = windowState,
         ) {
-            // Enforce minimum window size
             LaunchedEffect(Unit) {
                 window.minimumSize = java.awt.Dimension(380, 480)
             }
@@ -99,9 +85,7 @@ fun main() {
 }
 
 private fun <T> runOnUiThread(block: () -> T): T {
-    if (SwingUtilities.isEventDispatchThread()) {
-        return block()
-    }
+    if (SwingUtilities.isEventDispatchThread()) return block()
 
     var error: Throwable? = null
     var result: T? = null

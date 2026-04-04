@@ -8,9 +8,6 @@ import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.SipEngine
 
 val appModule = module {
-    // SipEngine interface -> PjsipBridge implementation
     singleOf(::PjsipBridge) bind SipEngine::class
-
-    // Settings
     singleOf(::AppSettings)
 }

@@ -5,9 +5,11 @@ import org.pjsip.pjsua2.LogEntry
 import org.pjsip.pjsua2.LogWriter
 
 class PjsipLogWriter : LogWriter() {
+
     private val logger = KotlinLogging.logger("pjsip.native")
 
     override fun write(entry: LogEntry) {
+        // Native callback may fire during shutdown when logger is unavailable
         try {
             val msg = entry.msg.trimEnd()
             when (entry.level) {
@@ -17,8 +19,6 @@ class PjsipLogWriter : LogWriter() {
                 4 -> logger.debug { msg }
                 else -> logger.trace { msg }
             }
-        } catch (_: Exception) {
-            // Native callback during shutdown, ignore
-        }
+        } catch (_: Exception) {}
     }
 }

@@ -26,8 +26,6 @@ class RootComponent(
         childFactory = ::createChild,
     )
 
-    // Reserved for Phase 3: incoming call overlay via childSlot()
-
     private fun createChild(screen: Screen, context: ComponentContext): Child =
         when (screen) {
             is Screen.Registration -> Child.Registration(

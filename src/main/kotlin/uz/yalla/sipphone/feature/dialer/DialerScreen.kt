@@ -35,7 +35,6 @@ fun DialerScreen(component: DialerComponent) {
     when (val state = component.registrationState.collectAsState().value) {
         is RegistrationState.Registered -> {
             Column(Modifier.fillMaxSize()) {
-                // TOP: Status bar
                 Surface(tonalElevation = 1.dp) {
                     Row(
                         modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
@@ -51,7 +50,6 @@ fun DialerScreen(component: DialerComponent) {
                     }
                 }
 
-                // CENTER: Future dial pad area
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
@@ -62,14 +60,13 @@ fun DialerScreen(component: DialerComponent) {
                         )
                         Spacer(Modifier.height(tokens.spacingSm))
                         Text(
-                            "Dial pad - Phase 3",
+                            "Dial pad coming soon",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
 
-                // BOTTOM: Actions
                 FilledTonalButton(
                     onClick = component::disconnect,
                     modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),

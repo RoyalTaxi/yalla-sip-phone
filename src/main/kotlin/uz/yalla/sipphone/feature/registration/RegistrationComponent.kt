@@ -2,6 +2,7 @@ package uz.yalla.sipphone.feature.registration
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,6 @@ import kotlinx.coroutines.withContext
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
-import io.github.oshai.kotlinlogging.KotlinLogging
 import uz.yalla.sipphone.domain.SipEngine
 
 private val logger = KotlinLogging.logger {}
@@ -30,11 +30,9 @@ class RegistrationComponent(
 
     val registrationState: StateFlow<RegistrationState> = sipEngine.registrationState
 
-    // Essenty lifecycle-scoped scope. No args = Main.immediate + lifecycle-managed Job
     private val scope = coroutineScope()
 
     init {
-        // Load last-used credentials
         scope.launch(ioDispatcher) {
             appSettings.loadCredentials()?.let { creds ->
                 _formState.value = FormState(
@@ -46,10 +44,8 @@ class RegistrationComponent(
             }
         }
 
-        // Navigate on successful registration.
         // Uses collect (not first) because component persists in Decompose back stack.
-        // After pop back from Dialer, same component instance is reused — first{} would
-        // already be completed. StateFlow.distinctUntilChanged prevents duplicate emissions.
+        // After pop back from Dialer, same instance is reused -- first{} would already be completed.
         scope.launch {
             sipEngine.registrationState.collect { state ->
                 if (state is RegistrationState.Registered) {
