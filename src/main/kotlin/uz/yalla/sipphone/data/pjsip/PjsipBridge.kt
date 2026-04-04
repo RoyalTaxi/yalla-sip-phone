@@ -200,18 +200,17 @@ class PjsipBridge : SipEngine {
         if (!destroyed.compareAndSet(false, true)) return
         withContext(pjDispatcher) {
             pollJob?.cancel()
-            pollJob?.join() // wait for poll loop to fully exit
+            pollJob?.join()
 
-            account?.shutdown()
-            account?.delete() // SWIG cleanup before libDestroy
+            // Don't manually shutdown/delete account or logWriter before libDestroy.
+            // libDestroy handles full native cleanup. Manual delete() frees native memory
+            // while pjsip still references it (pending transactions on unreachable server),
+            // causing SIGSEGV in libDestroy.
             account = null
-
-            logWriter?.delete()
             logWriter = null
 
             try {
                 endpoint.libDestroy()
-                endpoint.delete() // release SWIG pointer
             } catch (e: Exception) {
                 logger.error(e) { "Error during pjsip destroy" }
             }
@@ -219,6 +218,6 @@ class PjsipBridge : SipEngine {
             _registrationState.value = RegistrationState.Idle
         }
         scope.cancel()
-        (pjDispatcher as CloseableCoroutineDispatcher).close()
+        pjDispatcher.close()
     }
 }
