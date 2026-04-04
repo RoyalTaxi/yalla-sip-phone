@@ -84,6 +84,7 @@ fun main() {
         )
 
         // Switch window properties based on active screen
+        // Note: minimumSize is set inside Window composable below
         LaunchedEffect(isMainScreen) {
             if (isMainScreen) {
                 windowState.placement = WindowPlacement.Maximized
@@ -131,11 +132,17 @@ fun main() {
             alwaysOnTop = isMainScreen,
             resizable = isMainScreen,
         ) {
+            // Set minimum size — must happen before windowState.size change takes effect
+            // For login→main: minimumSize increases after maximize
+            // For main→login: minimumSize must DECREASE first so 420x520 is allowed
             LaunchedEffect(isMainScreen) {
                 if (isMainScreen) {
                     window.minimumSize = java.awt.Dimension(1280, 720)
                 } else {
-                    window.minimumSize = java.awt.Dimension(420, 520)
+                    window.minimumSize = java.awt.Dimension(380, 180)
+                    // Force resize after minimumSize is lowered
+                    window.setSize(420, 520)
+                    window.setLocationRelativeTo(null) // center on screen
                 }
             }
 
