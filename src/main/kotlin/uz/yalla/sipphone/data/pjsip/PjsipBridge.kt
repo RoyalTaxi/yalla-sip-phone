@@ -202,10 +202,11 @@ class PjsipBridge : SipEngine {
             pollJob?.cancel()
             pollJob?.join()
 
-            // Don't manually shutdown/delete account or logWriter before libDestroy.
-            // libDestroy handles full native cleanup. Manual delete() frees native memory
-            // while pjsip still references it (pending transactions on unreachable server),
-            // causing SIGSEGV in libDestroy.
+            // shutdown() removes account from pjsua's internal list (pjsua_acc_del).
+            // Without this, libDestroy iterates accounts, triggers callbacks that crash
+            // on GC-freed Account objects. DON'T call delete() — that frees native memory
+            // while pending transactions still reference it.
+            try { account?.shutdown() } catch (_: Exception) {}
             account = null
             logWriter = null
 
