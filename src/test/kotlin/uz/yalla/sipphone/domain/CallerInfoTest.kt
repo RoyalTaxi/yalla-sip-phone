@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class RemoteUriParserTest {
+class CallerInfoTest {
 
     @Test
     fun `parses display name and number from standard URI`() {

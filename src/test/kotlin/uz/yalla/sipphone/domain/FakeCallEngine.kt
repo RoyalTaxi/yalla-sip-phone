@@ -3,7 +3,9 @@ package uz.yalla.sipphone.domain
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class FakeCallEngine : CallEngine {
+class FakeCallEngine(
+    var makeCallResult: Result<Unit> = Result.success(Unit),
+) : CallEngine {
 
     private val _callState = MutableStateFlow<CallState>(CallState.Idle)
     override val callState = _callState.asStateFlow()
@@ -16,7 +18,7 @@ class FakeCallEngine : CallEngine {
 
     override suspend fun makeCall(number: String): Result<Unit> {
         lastCallNumber = number
-        return Result.success(Unit)
+        return makeCallResult
     }
 
     override suspend fun answerCall() {

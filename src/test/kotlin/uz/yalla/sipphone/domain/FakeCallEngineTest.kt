@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 class FakeCallEngineTest {
 
@@ -85,5 +86,14 @@ class FakeCallEngineTest {
     fun `makeCall returns success by default`() = runTest {
         val engine = FakeCallEngine()
         assertTrue(engine.makeCall("102").isSuccess)
+    }
+
+    @Test
+    fun `makeCall returns configured failure`() = runTest {
+        val engine = FakeCallEngine(
+            makeCallResult = Result.failure(IllegalStateException("Not registered"))
+        )
+        val result = engine.makeCall("102")
+        assertFalse(result.isSuccess)
     }
 }
