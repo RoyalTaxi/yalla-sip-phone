@@ -23,10 +23,10 @@ data class AppTokens(
     val cornerLarge: Dp = 16.dp,
 
     // Window
-    val windowWidth: Dp = 420.dp,
-    val windowHeight: Dp = 600.dp,
-    val windowMinWidth: Dp = 380.dp,
-    val windowMinHeight: Dp = 480.dp,
+    val windowWidth: Dp = 800.dp,
+    val windowHeight: Dp = 300.dp,
+    val windowMinWidth: Dp = 700.dp,
+    val windowMinHeight: Dp = 200.dp,
 )
 
 val LocalAppTokens = staticCompositionLocalOf { AppTokens() }

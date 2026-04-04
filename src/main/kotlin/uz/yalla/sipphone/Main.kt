@@ -61,7 +61,7 @@ fun main() {
 
     application {
         val windowState = rememberWindowState(
-            size = DpSize(420.dp, 600.dp),
+            size = DpSize(800.dp, 300.dp),
             position = WindowPosition(Alignment.Center),
         )
 
@@ -74,7 +74,7 @@ fun main() {
             state = windowState,
         ) {
             LaunchedEffect(Unit) {
-                window.minimumSize = java.awt.Dimension(380, 480)
+                window.minimumSize = java.awt.Dimension(700, 200)
             }
 
             LifecycleController(lifecycle, windowState)
