@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.ui.strings.Strings
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 
 @Composable
 fun ConnectButton(
@@ -25,29 +27,40 @@ fun ConnectButton(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
+    val tokens = LocalAppTokens.current
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End),
+    ) {
         when (state) {
             is RegistrationState.Idle -> {
-                Button(onClick = onConnect, modifier = Modifier.fillMaxWidth()) { Text("Connect") }
+                Button(onClick = onConnect, modifier = Modifier.fillMaxWidth()) {
+                    Text(Strings.BUTTON_CONNECT)
+                }
             }
             is RegistrationState.Registering -> {
-                OutlinedButton(onClick = onCancel) { Text("Cancel") }
+                OutlinedButton(onClick = onCancel) { Text(Strings.BUTTON_CANCEL) }
                 Button(onClick = {}, enabled = false) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp), strokeWidth = 2.dp,
+                            modifier = Modifier.size(tokens.progressSmall),
+                            strokeWidth = tokens.progressStrokeSmall,
                             color = MaterialTheme.colorScheme.onPrimary,
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Connecting...")
+                        Spacer(Modifier.width(tokens.spacingSm))
+                        Text(Strings.BUTTON_CONNECTING)
                     }
                 }
             }
             is RegistrationState.Registered -> {
-                OutlinedButton(onClick = onDisconnect, modifier = Modifier.fillMaxWidth()) { Text("Disconnect") }
+                OutlinedButton(onClick = onDisconnect, modifier = Modifier.fillMaxWidth()) {
+                    Text(Strings.BUTTON_DISCONNECT)
+                }
             }
             is RegistrationState.Failed -> {
-                Button(onClick = onConnect, modifier = Modifier.fillMaxWidth()) { Text("Retry") }
+                Button(onClick = onConnect, modifier = Modifier.fillMaxWidth()) {
+                    Text(Strings.BUTTON_RETRY)
+                }
             }
         }
     }

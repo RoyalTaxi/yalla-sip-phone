@@ -1,7 +1,10 @@
 package uz.yalla.sipphone.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 
 data class AppTokens(
@@ -22,11 +25,41 @@ data class AppTokens(
     val cornerMedium: Dp = 12.dp,
     val cornerLarge: Dp = 16.dp,
 
-    // Window
-    val windowWidth: Dp = 800.dp,
-    val windowHeight: Dp = 300.dp,
-    val windowMinWidth: Dp = 700.dp,
-    val windowMinHeight: Dp = 200.dp,
-)
+    // Shapes
+    val shapeSmall: Shape = RoundedCornerShape(8.dp),
+    val shapeMedium: Shape = RoundedCornerShape(12.dp),
+
+    // Window sizes
+    val registrationWindowSize: DpSize = DpSize(420.dp, 520.dp),
+    val dialerWindowSize: DpSize = DpSize(800.dp, 180.dp),
+    val windowMinWidth: Dp = 380.dp,
+    val windowMinHeight: Dp = 180.dp,
+
+    // Icons
+    val iconSmall: Dp = 16.dp,
+    val iconMedium: Dp = 24.dp,
+
+    // Indicators
+    val indicatorDot: Dp = 8.dp,
+    val indicatorDotSmall: Dp = 7.dp,
+    val dividerThickness: Dp = 1.dp,
+    val dividerHeight: Dp = 32.dp,
+
+    // Progress
+    val progressSmall: Dp = 18.dp,
+    val progressStrokeSmall: Dp = 2.dp,
+
+    // Alpha
+    val alphaDisabled: Float = 0.6f,
+    val alphaHint: Float = 0.7f,
+
+    // Animation
+    val animFast: Int = 200,
+    val animMedium: Int = 300,
+    val animSlow: Int = 350,
+) {
+    fun minimumAwtDimension(): java.awt.Dimension =
+        java.awt.Dimension(windowMinWidth.value.toInt(), windowMinHeight.value.toInt())
+}
 
 val LocalAppTokens = staticCompositionLocalOf { AppTokens() }

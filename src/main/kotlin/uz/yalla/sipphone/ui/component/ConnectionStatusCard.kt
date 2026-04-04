@@ -32,18 +32,21 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.ui.strings.Strings
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalExtendedColors
 
 @Composable
 fun ConnectionStatusCard(state: RegistrationState, modifier: Modifier = Modifier) {
+    val tokens = LocalAppTokens.current
     val extendedColors = LocalExtendedColors.current
 
     AnimatedVisibility(
         visible = state is RegistrationState.Registering || state is RegistrationState.Failed,
-        enter = fadeIn(tween(300)) + slideInVertically(
-            initialOffsetY = { it / 4 }, animationSpec = tween(300),
+        enter = fadeIn(tween(tokens.animMedium)) + slideInVertically(
+            initialOffsetY = { it / 4 }, animationSpec = tween(tokens.animMedium),
         ),
-        exit = fadeOut(tween(200)) + shrinkVertically(tween(200)),
+        exit = fadeOut(tween(tokens.animFast)) + shrinkVertically(tween(tokens.animFast)),
         modifier = modifier.semantics { liveRegion = LiveRegionMode.Polite },
     ) {
         val containerColor by animateColorAsState(
@@ -52,7 +55,7 @@ fun ConnectionStatusCard(state: RegistrationState, modifier: Modifier = Modifier
                 is RegistrationState.Registered -> extendedColors.successContainer
                 is RegistrationState.Failed -> MaterialTheme.colorScheme.errorContainer
                 is RegistrationState.Idle -> Color.Transparent
-            }, animationSpec = tween(300),
+            }, animationSpec = tween(tokens.animMedium),
         )
         val contentColor by animateColorAsState(
             targetValue = when (state) {
@@ -60,27 +63,27 @@ fun ConnectionStatusCard(state: RegistrationState, modifier: Modifier = Modifier
                 is RegistrationState.Registered -> extendedColors.onSuccessContainer
                 is RegistrationState.Failed -> MaterialTheme.colorScheme.onErrorContainer
                 is RegistrationState.Idle -> Color.Transparent
-            }, animationSpec = tween(300),
+            }, animationSpec = tween(tokens.animMedium),
         )
 
         Card(colors = CardDefaults.cardColors(containerColor = containerColor), modifier = Modifier.fillMaxWidth()) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(tokens.spacingMd),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 when (state) {
                     is RegistrationState.Registering -> CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp), strokeWidth = 2.5.dp, color = contentColor,
+                        modifier = Modifier.size(tokens.iconMedium), strokeWidth = 2.5.dp, color = contentColor,
                     )
                     is RegistrationState.Registered -> Icon(
                         Icons.Filled.CheckCircle,
-                        contentDescription = "Registration successful",
+                        contentDescription = Strings.REG_STATUS_REGISTERED,
                         tint = contentColor,
                     )
                     is RegistrationState.Failed -> Icon(
                         Icons.Filled.Error,
-                        contentDescription = "Registration failed",
+                        contentDescription = Strings.REG_STATUS_FAILED,
                         tint = contentColor,
                     )
                     is RegistrationState.Idle -> {}
@@ -88,16 +91,16 @@ fun ConnectionStatusCard(state: RegistrationState, modifier: Modifier = Modifier
                 Column {
                     Text(
                         text = when (state) {
-                            is RegistrationState.Registering -> "Registering..."
-                            is RegistrationState.Registered -> "Registered"
-                            is RegistrationState.Failed -> "Connection Failed"
+                            is RegistrationState.Registering -> Strings.REG_STATUS_REGISTERING
+                            is RegistrationState.Registered -> Strings.REG_STATUS_REGISTERED
+                            is RegistrationState.Failed -> Strings.REG_STATUS_FAILED
                             is RegistrationState.Idle -> ""
                         },
                         style = MaterialTheme.typography.titleSmall, color = contentColor,
                     )
                     Text(
                         text = when (state) {
-                            is RegistrationState.Registering -> "Connecting to server..."
+                            is RegistrationState.Registering -> Strings.REG_DETAIL_CONNECTING
                             is RegistrationState.Registered -> state.server
                             is RegistrationState.Failed -> state.error.displayMessage
                             is RegistrationState.Idle -> ""

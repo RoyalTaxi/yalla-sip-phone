@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
@@ -24,7 +23,6 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -57,8 +55,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalExtendedColors
+import uz.yalla.sipphone.util.formatDuration
 
 @Composable
 fun DialerScreen(component: DialerComponent) {
@@ -70,7 +70,6 @@ fun DialerScreen(component: DialerComponent) {
     var isInputFocused by remember { mutableStateOf(false) }
     var callDuration by remember { mutableLongStateOf(0L) }
 
-    // Call timer — UI concern
     LaunchedEffect(callState) {
         if (callState is CallState.Active) {
             callDuration = 0
@@ -102,14 +101,14 @@ fun DialerScreen(component: DialerComponent) {
                         }
                     },
             ) {
-                // Status bar
                 Surface(tonalElevation = 1.dp) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = tokens.spacingMd, vertical = tokens.spacingSm),
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = tokens.spacingMd, vertical = tokens.spacingSm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Box(
-                            Modifier.size(8.dp).clip(CircleShape)
+                            Modifier.size(tokens.indicatorDot).clip(CircleShape)
                                 .background(LocalExtendedColors.current.success),
                         )
                         Spacer(Modifier.width(tokens.spacingSm))
@@ -120,7 +119,6 @@ fun DialerScreen(component: DialerComponent) {
                     }
                 }
 
-                // Main content — state-driven
                 when (val state = callState) {
                     is CallState.Idle -> IdleRow(
                         phoneNumber = phoneNumber,
@@ -128,13 +126,11 @@ fun DialerScreen(component: DialerComponent) {
                         onCall = { if (phoneNumber.isNotBlank()) component.makeCall(phoneNumber) },
                         onDisconnect = component::disconnect,
                         onFocusChanged = { isInputFocused = it },
-                        tokens = tokens,
                     )
                     is CallState.Ringing -> if (state.isOutbound) {
                         OutboundRingingRow(
                             callerNumber = state.callerNumber,
                             onCancel = component::hangupCall,
-                            tokens = tokens,
                         )
                     } else {
                         RingingRow(
@@ -142,7 +138,6 @@ fun DialerScreen(component: DialerComponent) {
                             callerName = state.callerName,
                             onAnswer = component::answerCall,
                             onReject = component::hangupCall,
-                            tokens = tokens,
                         )
                     }
                     is CallState.Active -> ActiveCallRow(
@@ -154,7 +149,6 @@ fun DialerScreen(component: DialerComponent) {
                         onToggleMute = component::toggleMute,
                         onToggleHold = component::toggleHold,
                         onHangup = component::hangupCall,
-                        tokens = tokens,
                     )
                     is CallState.Ending -> EndingRow()
                 }
@@ -163,7 +157,7 @@ fun DialerScreen(component: DialerComponent) {
         else -> {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "Connection lost \u2014 returning...",
+                    Strings.STATUS_CONNECTION_LOST,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -179,47 +173,40 @@ private fun IdleRow(
     onCall: () -> Unit,
     onDisconnect: () -> Unit,
     onFocusChanged: (Boolean) -> Unit,
-    tokens: uz.yalla.sipphone.ui.theme.AppTokens,
 ) {
+    val tokens = LocalAppTokens.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm),
     ) {
-        // Status
         Text(
-            "READY",
+            Strings.STATUS_READY,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 1.sp,
         )
-
-        // Phone input
         OutlinedTextField(
             value = phoneNumber,
             onValueChange = onPhoneNumberChange,
             modifier = Modifier
                 .weight(1f)
                 .onFocusChanged { onFocusChanged(it.isFocused) },
-            placeholder = { Text("Phone number") },
+            placeholder = { Text(Strings.PLACEHOLDER_PHONE) },
             singleLine = true,
-            shape = RoundedCornerShape(8.dp),
+            shape = tokens.shapeSmall,
         )
-
-        // Call button
         Button(
             onClick = onCall,
             enabled = phoneNumber.isNotBlank(),
-            shape = RoundedCornerShape(8.dp),
+            shape = tokens.shapeSmall,
         ) {
-            Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("Call")
+            Icon(Icons.Filled.Call, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
+            Spacer(Modifier.width(tokens.spacingXs))
+            Text(Strings.BUTTON_CALL)
         }
-
-        // Disconnect
         TextButton(onClick = onDisconnect) {
-            Text("Disconnect", style = MaterialTheme.typography.labelSmall)
+            Text(Strings.BUTTON_DISCONNECT, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -228,20 +215,20 @@ private fun IdleRow(
 private fun OutboundRingingRow(
     callerNumber: String,
     onCancel: () -> Unit,
-    tokens: uz.yalla.sipphone.ui.theme.AppTokens,
 ) {
+    val tokens = LocalAppTokens.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "CALLING\u2026",
+                Strings.STATUS_CALLING,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary,
                 letterSpacing = 1.5.sp,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(tokens.spacingXs))
             Text(
                 callerNumber,
                 style = MaterialTheme.typography.titleMedium,
@@ -250,14 +237,14 @@ private fun OutboundRingingRow(
         }
         OutlinedButton(
             onClick = onCancel,
-            shape = RoundedCornerShape(8.dp),
+            shape = tokens.shapeSmall,
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = MaterialTheme.colorScheme.error,
             ),
         ) {
-            Icon(Icons.Filled.CallEnd, contentDescription = null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("Cancel")
+            Icon(Icons.Filled.CallEnd, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
+            Spacer(Modifier.width(tokens.spacingXs))
+            Text(Strings.BUTTON_CANCEL)
         }
     }
 }
@@ -268,21 +255,20 @@ private fun RingingRow(
     callerName: String?,
     onAnswer: () -> Unit,
     onReject: () -> Unit,
-    tokens: uz.yalla.sipphone.ui.theme.AppTokens,
 ) {
+    val tokens = LocalAppTokens.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Left: caller info
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "INCOMING CALL",
+                Strings.STATUS_INCOMING_CALL,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.tertiary,
                 letterSpacing = 1.5.sp,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(tokens.spacingXs))
             Text(
                 callerNumber,
                 style = MaterialTheme.typography.titleMedium,
@@ -297,31 +283,30 @@ private fun RingingRow(
             }
         }
 
-        // Right: answer + reject
         Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
             Button(
                 onClick = onAnswer,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = LocalExtendedColors.current.success,
                 ),
-                shape = RoundedCornerShape(8.dp),
+                shape = tokens.shapeSmall,
             ) {
-                Icon(Icons.Filled.Phone, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Phone, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
                 Spacer(Modifier.width(6.dp))
-                Text("Answer")
+                Text(Strings.BUTTON_ANSWER)
                 Text(
-                    " (Space)",
+                    Strings.STATUS_SPACE_HINT,
                     style = MaterialTheme.typography.labelSmall,
-                    color = LocalExtendedColors.current.onSuccess.copy(alpha = 0.7f),
+                    color = LocalExtendedColors.current.onSuccess.copy(alpha = tokens.alphaHint),
                 )
             }
             OutlinedButton(
                 onClick = onReject,
-                shape = RoundedCornerShape(8.dp),
+                shape = tokens.shapeSmall,
             ) {
-                Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Reject")
+                Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
+                Spacer(Modifier.width(tokens.spacingXs))
+                Text(Strings.BUTTON_REJECT)
             }
         }
     }
@@ -337,30 +322,29 @@ private fun ActiveCallRow(
     onToggleMute: () -> Unit,
     onToggleHold: () -> Unit,
     onHangup: () -> Unit,
-    tokens: uz.yalla.sipphone.ui.theme.AppTokens,
 ) {
+    val tokens = LocalAppTokens.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Left: status + caller info + timer
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
-                    Modifier.size(7.dp).clip(CircleShape).background(
+                    Modifier.size(tokens.indicatorDotSmall).clip(CircleShape).background(
                         if (isOnHold) MaterialTheme.colorScheme.tertiary
                         else LocalExtendedColors.current.success,
                     ),
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    if (isOnHold) "ON HOLD" else "ACTIVE",
+                    if (isOnHold) Strings.STATUS_ON_HOLD else Strings.STATUS_ACTIVE,
                     style = MaterialTheme.typography.labelSmall,
                     color = if (isOnHold) MaterialTheme.colorScheme.tertiary
                     else LocalExtendedColors.current.success,
                     letterSpacing = 1.sp,
                 )
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(tokens.spacingSm))
                 Text(
                     formatDuration(duration),
                     style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
@@ -368,7 +352,7 @@ private fun ActiveCallRow(
                     else MaterialTheme.colorScheme.onSurface,
                 )
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(tokens.spacingXs))
             Text(
                 remoteNumber,
                 style = MaterialTheme.typography.titleMedium,
@@ -383,64 +367,59 @@ private fun ActiveCallRow(
             }
         }
 
-        // Right: mute + hold + divider + end
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm),
         ) {
-            // Mute
             OutlinedButton(
                 onClick = onToggleMute,
-                shape = RoundedCornerShape(8.dp),
+                shape = tokens.shapeSmall,
                 colors = if (isMuted) ButtonDefaults.outlinedButtonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                 ) else ButtonDefaults.outlinedButtonColors(),
             ) {
-                Icon(Icons.Filled.MicOff, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text(if (isMuted) "Unmute" else "Mute")
+                Icon(Icons.Filled.MicOff, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
+                Spacer(Modifier.width(tokens.spacingXs))
+                Text(if (isMuted) Strings.BUTTON_UNMUTE else Strings.BUTTON_MUTE)
             }
 
-            // Hold / Resume
             if (isOnHold) {
                 Button(
                     onClick = onToggleHold,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = tokens.shapeSmall,
                 ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Resume")
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
+                    Spacer(Modifier.width(tokens.spacingXs))
+                    Text(Strings.BUTTON_RESUME)
                 }
             } else {
                 OutlinedButton(
                     onClick = onToggleHold,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = tokens.shapeSmall,
                 ) {
-                    Icon(Icons.Filled.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Hold")
+                    Icon(Icons.Filled.Pause, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
+                    Spacer(Modifier.width(tokens.spacingXs))
+                    Text(Strings.BUTTON_HOLD)
                 }
             }
 
-            // Vertical divider
             Box(
                 Modifier
-                    .width(1.dp)
-                    .height(32.dp)
+                    .width(tokens.dividerThickness)
+                    .height(tokens.dividerHeight)
                     .background(MaterialTheme.colorScheme.outlineVariant),
             )
 
-            // End call
             OutlinedButton(
                 onClick = onHangup,
-                shape = RoundedCornerShape(8.dp),
+                shape = tokens.shapeSmall,
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
             ) {
-                Icon(Icons.Filled.CallEnd, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("End")
+                Icon(Icons.Filled.CallEnd, contentDescription = null, modifier = Modifier.size(tokens.iconSmall))
+                Spacer(Modifier.width(tokens.spacingXs))
+                Text(Strings.BUTTON_END)
             }
         }
     }
@@ -448,20 +427,15 @@ private fun ActiveCallRow(
 
 @Composable
 private fun EndingRow() {
+    val tokens = LocalAppTokens.current
     Box(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(tokens.spacingMd),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            "Ending call...",
+            Strings.STATUS_ENDING_CALL,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-}
-
-private fun formatDuration(seconds: Long): String {
-    val minutes = seconds / 60
-    val secs = seconds % 60
-    return "%02d:%02d".format(minutes, secs)
 }

@@ -25,6 +25,8 @@ import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.ui.component.ConnectButton
+import uz.yalla.sipphone.ui.strings.Strings
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.component.ConnectionStatusCard
 import uz.yalla.sipphone.ui.component.SipCredentialsForm
 
@@ -40,8 +42,10 @@ fun RegistrationScreen(component: RegistrationComponent) {
         else -> false
     }
 
+    val tokens = LocalAppTokens.current
+
     val formAlpha by animateFloatAsState(
-        targetValue = if (formEnabled) 1f else 0.6f, animationSpec = tween(300),
+        targetValue = if (formEnabled) 1f else tokens.alphaDisabled, animationSpec = tween(tokens.animMedium),
     )
 
     val submitAction = {
@@ -66,7 +70,7 @@ fun RegistrationScreen(component: RegistrationComponent) {
                 .verticalScroll(rememberScrollState()),
         ) {
             Text(
-                "SIP Registration",
+                Strings.REGISTRATION_TITLE,
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
