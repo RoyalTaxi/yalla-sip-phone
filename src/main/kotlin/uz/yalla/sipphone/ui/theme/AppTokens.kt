@@ -53,10 +53,22 @@ data class AppTokens(
     val alphaDisabled: Float = 0.6f,
     val alphaHint: Float = 0.7f,
 
+    // Toolbar
+    val toolbarHeight: Dp = 56.dp,
+    val toolbarDividerHeight: Dp = 1.dp,
+
+    // Call quality
+    val qualityDotSize: Dp = 12.dp,
+
     // Animation
     val animFast: Int = 200,
     val animMedium: Int = 300,
     val animSlow: Int = 350,
+
+    // Window sizes (extended)
+    val loginWindowSize: DpSize = DpSize(420.dp, 520.dp),
+    val mainWindowMinWidth: Dp = 1280.dp,
+    val mainWindowMinHeight: Dp = 720.dp,
 ) {
     fun minimumAwtDimension(): java.awt.Dimension =
         java.awt.Dimension(windowMinWidth.value.toInt(), windowMinHeight.value.toInt())

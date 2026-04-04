@@ -28,8 +28,6 @@ private val DefaultExtendedColors = ExtendedColors(
 
 val LocalExtendedColors = staticCompositionLocalOf { DefaultExtendedColors }
 
-private val SeedColor = Color(0xFF1A5276)
-
 private val AppTypography = Typography(
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -53,11 +51,22 @@ private val AppTypography = Typography(
 )
 
 @Composable
-fun YallaSipPhoneTheme(content: @Composable () -> Unit) {
+fun YallaSipPhoneTheme(
+    isDark: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val seedColor = Color(0xFF562DF8) // Yalla purple
     val colorScheme = rememberDynamicColorScheme(
-        seedColor = SeedColor,
-        isDark = false,
+        seedColor = seedColor,
+        isDark = isDark,
         isAmoled = false,
+    )
+    val yallaColors = if (isDark) YallaColors.Dark else YallaColors.Light
+    val extendedColors = ExtendedColors(
+        success = yallaColors.callReady,
+        onSuccess = Color.White,
+        successContainer = if (isDark) Color(0xFF1B5E20) else Color(0xFFD4EDDA),
+        onSuccessContainer = if (isDark) Color(0xFFA5D6A7) else Color(0xFF155724),
     )
 
     MaterialTheme(
@@ -65,8 +74,9 @@ fun YallaSipPhoneTheme(content: @Composable () -> Unit) {
         typography = AppTypography,
     ) {
         CompositionLocalProvider(
-            LocalExtendedColors provides DefaultExtendedColors,
+            LocalExtendedColors provides extendedColors,
             LocalAppTokens provides AppTokens(),
+            LocalYallaColors provides yallaColors,
             content = content,
         )
     }
