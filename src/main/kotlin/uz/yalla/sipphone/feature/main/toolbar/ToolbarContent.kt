@@ -129,13 +129,13 @@ fun ToolbarContent(
             CallQualityIndicator(callState = callState)
         }
 
-        // Bottom border
+        // Bottom border — visible separator between toolbar and webview
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(tokens.toolbarDividerHeight)
-                .background(colors.backgroundTertiary),
+                .height(2.dp)
+                .background(colors.borderDisabled),
         )
     }
 }
