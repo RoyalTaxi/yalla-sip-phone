@@ -202,19 +202,16 @@ class PjsipBridge : SipEngine {
             pollJob?.cancel()
             pollJob?.join()
 
-            // shutdown() removes account from pjsua's internal list (pjsua_acc_del).
-            // Without this, libDestroy iterates accounts, triggers callbacks that crash
-            // on GC-freed Account objects. DON'T call delete() — that frees native memory
-            // while pending transactions still reference it.
+            // Shutdown account to unregister from SIP server (best-effort).
             try { account?.shutdown() } catch (_: Exception) {}
             account = null
             logWriter = null
 
-            try {
-                endpoint.libDestroy()
-            } catch (e: Exception) {
-                logger.error(e) { "Error during pjsip destroy" }
-            }
+            // DON'T call endpoint.libDestroy(). It internally calls Runtime.gc() which
+            // triggers SWIG finalizers on the finalizer thread — an unregistered thread
+            // that crashes pjsip with SIGSEGV. This is a known pjsua2 SWIG/JNI issue.
+            // The OS cleans up all native resources on process exit.
+            // See: https://github.com/pjsip/pjproject/issues/2location_unknown
 
             _registrationState.value = RegistrationState.Idle
         }
