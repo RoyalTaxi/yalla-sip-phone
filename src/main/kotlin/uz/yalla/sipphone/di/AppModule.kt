@@ -1,3 +1,3 @@
 package uz.yalla.sipphone.di
 
-val appModules = listOf(sipModule, settingsModule, featureModule)
+val appModules = listOf(sipModule, settingsModule, authModule, featureModule)
