@@ -8,10 +8,7 @@ class FakeRegistrationEngine : RegistrationEngine {
     private val _registrationState = MutableStateFlow<RegistrationState>(RegistrationState.Idle)
     override val registrationState = _registrationState.asStateFlow()
 
-    var initCalled = false
     var lastCredentials: SipCredentials? = null
-
-    override suspend fun init() = Result.success(Unit).also { initCalled = true }
 
     override suspend fun register(credentials: SipCredentials): Result<Unit> {
         lastCredentials = credentials
@@ -23,10 +20,6 @@ class FakeRegistrationEngine : RegistrationEngine {
         _registrationState.value = RegistrationState.Idle
     }
 
-    override suspend fun destroy() {
-        _registrationState.value = RegistrationState.Idle
-    }
-
     fun simulateRegistered(server: String = "sip:102@192.168.0.22") {
         _registrationState.value = RegistrationState.Registered(server)
     }
@@ -35,5 +28,19 @@ class FakeRegistrationEngine : RegistrationEngine {
         _registrationState.value = RegistrationState.Failed(
             SipError.fromSipStatus(403, message)
         )
+    }
+}
+
+class FakeSipStackLifecycle : SipStackLifecycle {
+    var initializeCalled = false
+    var shutdownCalled = false
+
+    override suspend fun initialize(): Result<Unit> {
+        initializeCalled = true
+        return Result.success(Unit)
+    }
+
+    override suspend fun shutdown() {
+        shutdownCalled = true
     }
 }

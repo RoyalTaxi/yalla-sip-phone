@@ -6,9 +6,11 @@ import uz.yalla.sipphone.data.pjsip.PjsipBridge
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.RegistrationEngine
+import uz.yalla.sipphone.domain.SipStackLifecycle
 
 val appModule = module {
     single { PjsipBridge() }
+    single<SipStackLifecycle> { get<PjsipBridge>() }
     single<RegistrationEngine> { get<PjsipBridge>() }
     single<CallEngine> { get<PjsipBridge>() }
     singleOf(::AppSettings)

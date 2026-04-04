@@ -57,26 +57,6 @@ class FakeRegistrationEngineTest {
     }
 
     @Test
-    fun `destroy transitions to Idle`() = runTest {
-        val engine = FakeRegistrationEngine()
-        engine.simulateRegistered()
-
-        engine.destroy()
-
-        assertIs<RegistrationState.Idle>(engine.registrationState.value)
-    }
-
-    @Test
-    fun `init sets initCalled flag`() = runTest {
-        val engine = FakeRegistrationEngine()
-
-        val result = engine.init()
-
-        assertTrue(result.isSuccess)
-        assertTrue(engine.initCalled)
-    }
-
-    @Test
     fun `register stores last credentials`() = runTest {
         val engine = FakeRegistrationEngine()
         val creds = SipCredentials("10.0.0.1", 5080, "user1", "secret")
@@ -106,5 +86,23 @@ class FakeRegistrationEngineTest {
 
         engine.unregister()
         assertIs<RegistrationState.Idle>(engine.registrationState.value)
+    }
+}
+
+class FakeSipStackLifecycleTest {
+
+    @Test
+    fun `initialize sets flag and returns success`() = runTest {
+        val lifecycle = FakeSipStackLifecycle()
+        val result = lifecycle.initialize()
+        assertTrue(result.isSuccess)
+        assertTrue(lifecycle.initializeCalled)
+    }
+
+    @Test
+    fun `shutdown sets flag`() = runTest {
+        val lifecycle = FakeSipStackLifecycle()
+        lifecycle.shutdown()
+        assertTrue(lifecycle.shutdownCalled)
     }
 }

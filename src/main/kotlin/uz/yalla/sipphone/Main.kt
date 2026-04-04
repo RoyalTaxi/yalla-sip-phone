@@ -20,6 +20,7 @@ import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.di.appModule
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.RegistrationEngine
+import uz.yalla.sipphone.domain.SipStackLifecycle
 import uz.yalla.sipphone.feature.dialer.DialerComponent
 import uz.yalla.sipphone.feature.registration.RegistrationComponent
 import uz.yalla.sipphone.navigation.RootComponent
@@ -31,9 +32,10 @@ private val logger = KotlinLogging.logger {}
 fun main() {
     val koin = startKoin { modules(appModule) }.koin
 
+    val sipLifecycle: SipStackLifecycle = koin.get()
     val registrationEngine: RegistrationEngine = koin.get()
     val callEngine: CallEngine = koin.get()
-    val initResult = runBlocking { registrationEngine.init() }
+    val initResult = runBlocking { sipLifecycle.initialize() }
 
     if (initResult.isFailure) {
         javax.swing.JOptionPane.showMessageDialog(
@@ -47,7 +49,7 @@ fun main() {
 
     // Ensure cleanup on Ctrl+C / kill signal (prevents stale server registrations)
     Runtime.getRuntime().addShutdownHook(Thread {
-        runBlocking { withTimeoutOrNull(3000) { registrationEngine.destroy() } }
+        runBlocking { withTimeoutOrNull(3000) { sipLifecycle.shutdown() } }
     })
 
     val lifecycle = LifecycleRegistry()
@@ -72,7 +74,7 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                runBlocking { withTimeoutOrNull(3000) { registrationEngine.destroy() } }
+                runBlocking { withTimeoutOrNull(3000) { sipLifecycle.shutdown() } }
                 exitApplication()
             },
             title = "Yalla SIP Phone",

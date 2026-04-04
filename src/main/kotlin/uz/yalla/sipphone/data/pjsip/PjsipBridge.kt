@@ -33,13 +33,14 @@ import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.domain.SipError
+import uz.yalla.sipphone.domain.SipStackLifecycle
 import uz.yalla.sipphone.domain.parseRemoteUri
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
-class PjsipBridge : RegistrationEngine, CallEngine {
+class PjsipBridge : SipStackLifecycle, RegistrationEngine, CallEngine {
 
     private val destroyed = AtomicBoolean(false)
     private val pjDispatcher = newSingleThreadContext("pjsip-event-loop")
@@ -70,7 +71,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
         _registrationState.value = state
     }
 
-    override suspend fun init(): Result<Unit> = withContext(pjDispatcher) {
+    override suspend fun initialize(): Result<Unit> = withContext(pjDispatcher) {
         try {
             loadNativeLibrary()
             initEndpoint()
@@ -399,7 +400,7 @@ class PjsipBridge : RegistrationEngine, CallEngine {
         return if (atIndex >= 0) uri.substring(atIndex + 1) else uri
     }
 
-    override suspend fun destroy() {
+    override suspend fun shutdown() {
         if (!destroyed.compareAndSet(false, true)) return
         withContext(pjDispatcher) {
             // 1. Hangup active call
