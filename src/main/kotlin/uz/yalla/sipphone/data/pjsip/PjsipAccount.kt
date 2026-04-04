@@ -5,46 +5,46 @@ import org.pjsip.pjsua2.Account
 import org.pjsip.pjsua2.OnIncomingCallParam
 import org.pjsip.pjsua2.OnRegStateParam
 import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipError
 
 private val logger = KotlinLogging.logger {}
 
-class PjsipAccount(private val bridge: PjsipBridge) : Account() {
+class PjsipAccount(private val accountManager: PjsipAccountManager) : Account() {
 
     override fun onRegState(prm: OnRegStateParam) {
-        if (bridge.isDestroyed()) return
+        if (accountManager.isAccountDestroyed()) return
         var info: org.pjsip.pjsua2.AccountInfo? = null
         try {
             info = getInfo()
             val code = prm.code
-
             when {
-                code / 100 == 2 && info.regIsActive -> {
-                    bridge.updateRegistrationState(RegistrationState.Registered(server = info.uri))
+                code / 100 == SipConstants.STATUS_CLASS_SUCCESS && info.regIsActive -> {
+                    accountManager.updateRegistrationState(RegistrationState.Registered(server = info.uri))
                     logger.info { "Registered: ${info.uri}, expires: ${info.regExpiresSec}s" }
                 }
-                code / 100 == 2 && !info.regIsActive -> {
-                    bridge.updateRegistrationState(RegistrationState.Idle)
+                code / 100 == SipConstants.STATUS_CLASS_SUCCESS && !info.regIsActive -> {
+                    accountManager.updateRegistrationState(RegistrationState.Idle)
                     logger.info { "Unregistered" }
                 }
                 else -> {
-                    val reason = prm.reason
-                    bridge.updateRegistrationState(RegistrationState.Failed(SipError.fromSipStatus(prm.code, reason)))
-                    logger.warn { "Registration failed: ${prm.code} $reason (lastErr=${info.regLastErr})" }
+                    val error = SipError.fromSipStatus(prm.code, prm.reason)
+                    accountManager.updateRegistrationState(RegistrationState.Failed(error = error))
+                    logger.warn { "Registration failed: ${prm.code} ${prm.reason} (lastErr=${info.regLastErr})" }
                 }
             }
         } catch (e: Exception) {
             logger.error(e) { "Error in onRegState callback" }
-            bridge.updateRegistrationState(RegistrationState.Failed(SipError.fromException(e)))
+            accountManager.updateRegistrationState(RegistrationState.Failed(error = SipError.fromException(e)))
         } finally {
             info?.delete()
         }
     }
 
     override fun onIncomingCall(prm: OnIncomingCallParam) {
-        if (bridge.isDestroyed()) return
+        if (accountManager.isAccountDestroyed()) return
         try {
-            bridge.onIncomingCall(prm.callId)
+            accountManager.handleIncomingCall(prm.callId)
         } catch (e: Exception) {
             logger.error(e) { "Error in onIncomingCall callback" }
         }
