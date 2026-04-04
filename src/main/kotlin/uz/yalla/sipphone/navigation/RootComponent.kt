@@ -21,11 +21,12 @@ class RootComponent(
 
     private val navigation = StackNavigation<Screen>()
     private var currentAuthResult: AuthResult? = null
+    private var loginSessionCounter = 0
 
     val childStack: Value<ChildStack<Screen, Child>> = childStack(
         source = navigation,
         serializer = Screen.serializer(),
-        initialConfiguration = Screen.Login,
+        initialConfiguration = Screen.Login(),
         handleBackButton = false,
         childFactory = ::createChild,
     )
@@ -41,7 +42,7 @@ class RootComponent(
             is Screen.Main -> Child.Main(
                 factory.createMain(context, currentAuthResult!!) {
                     currentAuthResult = null
-                    navigation.navigate { listOf(Screen.Login) }
+                    navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
                 },
             )
             // Keep old screens working for back-compat
