@@ -189,51 +189,40 @@ class DialerComponent(
 
 ## DialerScreen UI
 
+### Layout: Compact Horizontal Panel
+
+Desktop-optimized single-row toolbar layout. Wide screen — use horizontal space, not vertical.
+
+**Structure:** Left pane = info (number, name, status+timer). Right pane = action buttons in a horizontal row. Each state ~60px tall.
+
+**Text Hierarchy (highest to lowest priority/size):**
+1. Phone number — 18px bold. Operator looks up number in CRM first.
+2. Caller name — 13px regular. Secondary, may not exist for external calls.
+3. Status label — 10px caps badge (READY / INCOMING / ACTIVE / ON HOLD). Color-coded dot.
+4. Timer — 13px monospace, inline with status label. Not a hero element.
+
 ### UX Principles
 
 Designed for call center operators working long shifts under pressure:
 
-1. **Hidden > Disabled** — each state shows ONLY relevant controls. Max 3 buttons visible at once. Reduces cognitive load (Hick's Law).
-2. **Warm off-white base** — reduces eye strain vs pure white for 8+ hour shifts.
-3. **Amber for ringing signal** — not red. Red raises heart rate and stress. Amber signals without adding pressure (Yerkes-Dodson Law).
-4. **End Call on separate row** — prevents accidental hangup when reaching for Mute/Hold under stress (Fitts's Law + stress-reduced motor precision).
-5. **End Call outlined, not filled red** — deliberate action, not impulse. Filled red invites panic clicks.
-6. **Answer button 2x wider than Reject** — 90% inbound, expected action gets bigger target.
-7. **Large buttons (48dp+)** — stress reduces motor precision, bigger targets = fewer misclicks.
-8. **Timer large, monospace** — visible in peripheral vision, no layout shift.
-9. **Hold timer greyed** — visual cue that time is "paused", reduces time anxiety.
+1. **Hidden > Disabled** — each state shows ONLY relevant controls. Max 3 buttons visible at once (Hick's Law).
+2. **Warm off-white base** — reduces eye strain for 8+ hour shifts.
+3. **Amber for ringing signal** — not red. Red raises heart rate (Yerkes-Dodson Law).
+4. **End Call separated** — vertical divider before End button. Prevents accidental hangup (Fitts's Law).
+5. **End Call outlined, not filled red** — deliberate action, not impulse.
+6. **Icon + label on every button** — icon for fast pattern recognition, label for certainty.
+7. **Muted state visual** — Unmute button gets tinted background to show active mute.
+8. **Hold timer greyed** — visual "paused" cue.
 
 ### Four UI States
 
-**Idle:**
-- Status bar: registered indicator (green dot + server address)
-- Call zone: "READY" text, minimal
-- Phone input + Call button (enabled)
-- No action buttons visible
-- Disconnect link at bottom
+**Idle:** Single row — green dot + "READY" label | phone input field | Call button (icon + label) | Disconnect link
 
-**Ringing (Incoming):**
-- Status bar: unchanged
-- Call zone: warm amber background, "INCOMING CALL" label, caller name (bold, large), phone number, Answer + Reject buttons
-- Answer: filled green, 2x width, shows "(Space)" hint
-- Reject: outlined, subdued
-- Phone input: hidden
-- No other buttons visible
+**Ringing:** Single row with amber left border — "INCOMING CALL" label, phone number (bold), name | Answer button (green, icon + label + Space hint) + Reject button (outlined, X icon + label)
 
-**Active Call:**
-- Status bar: unchanged
-- Call zone: green dot + "ACTIVE" label, caller name, phone number, timer (large monospace mm:ss)
-- Safe actions row: Mute + Hold (outlined, equal width)
-- Separate row: End Call (outlined, muted red text)
-- Phone input: hidden
+**Active Call:** Single row — green dot + "ACTIVE" + timer (inline) | phone number (bold), name | Mute + Hold buttons (outlined, icon + label) | vertical divider | End button (outlined red, icon + label)
 
-**On Hold:**
-- Same as Active but:
-- Amber dot + "ON HOLD" label
-- Timer text greyed out (visual "paused" cue)
-- Hold button becomes "Resume" (filled primary)
-- Mute still available
-- End Call still separate row
+**On Hold:** Same as Active but — amber dot + "ON HOLD" + timer (greyed) | Mute + Resume (filled primary, play icon) | divider | End
 
 ### Space Hotkey
 
