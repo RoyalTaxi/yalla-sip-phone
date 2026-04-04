@@ -13,13 +13,13 @@ import kotlinx.coroutines.withContext
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
-import uz.yalla.sipphone.domain.SipEngine
+import uz.yalla.sipphone.domain.RegistrationEngine
 
 private val logger = KotlinLogging.logger {}
 
 class RegistrationComponent(
     componentContext: ComponentContext,
-    private val sipEngine: SipEngine,
+    private val sipEngine: RegistrationEngine,
     private val appSettings: AppSettings,
     private val onRegistered: () -> Unit,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,

@@ -7,22 +7,22 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import uz.yalla.sipphone.domain.RegistrationState
-import uz.yalla.sipphone.domain.SipEngine
+import uz.yalla.sipphone.domain.RegistrationEngine
 
 class DialerComponent(
     componentContext: ComponentContext,
-    private val sipEngine: SipEngine,
+    private val registrationEngine: RegistrationEngine,
     private val onDisconnected: () -> Unit,
 ) : ComponentContext by componentContext {
 
-    val registrationState: StateFlow<RegistrationState> = sipEngine.registrationState
+    val registrationState: StateFlow<RegistrationState> = registrationEngine.registrationState
 
     private val scope = coroutineScope()
 
     init {
         // Navigate back once on disconnect - .first {} fires once
         scope.launch {
-            sipEngine.registrationState
+            registrationEngine.registrationState
                 .drop(1) // skip current value (Registered)
                 .first { it is RegistrationState.Idle || it is RegistrationState.Failed }
             onDisconnected()
@@ -30,6 +30,6 @@ class DialerComponent(
     }
 
     fun disconnect() {
-        scope.launch { sipEngine.unregister() }
+        scope.launch { registrationEngine.unregister() }
     }
 }

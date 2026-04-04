@@ -18,7 +18,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.di.appModule
-import uz.yalla.sipphone.domain.SipEngine
+import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.feature.dialer.DialerComponent
 import uz.yalla.sipphone.feature.registration.RegistrationComponent
 import uz.yalla.sipphone.navigation.RootComponent
@@ -30,7 +30,7 @@ private val logger = KotlinLogging.logger {}
 fun main() {
     val koin = startKoin { modules(appModule) }.koin
 
-    val sipEngine: SipEngine = koin.get()
+    val sipEngine: RegistrationEngine = koin.get()
     val initResult = runBlocking { sipEngine.init() }
 
     if (initResult.isFailure) {

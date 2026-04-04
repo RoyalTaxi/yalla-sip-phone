@@ -26,13 +26,13 @@ import org.pjsip.pjsua2.pjsip_transport_type_e
 import org.pjsip.pjsua2.pjsua_stun_use
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipCredentials
-import uz.yalla.sipphone.domain.SipEngine
+import uz.yalla.sipphone.domain.RegistrationEngine
 import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
 @OptIn(ExperimentalCoroutinesApi::class, DelicateCoroutinesApi::class)
-class PjsipBridge : SipEngine {
+class PjsipBridge : RegistrationEngine {
 
     private val destroyed = AtomicBoolean(false)
     private val pjDispatcher = newSingleThreadContext("pjsip-event-loop")
