@@ -12,8 +12,7 @@ import uz.yalla.sipphone.feature.registration.RegistrationComponent
 
 class RootComponent(
     componentContext: ComponentContext,
-    private val registrationFactory: (ComponentContext, onRegistered: () -> Unit) -> RegistrationComponent,
-    private val dialerFactory: (ComponentContext, onDisconnected: () -> Unit) -> DialerComponent,
+    private val factory: ComponentFactory,
 ) : ComponentContext by componentContext {
 
     private val navigation = StackNavigation<Screen>()
@@ -29,10 +28,10 @@ class RootComponent(
     private fun createChild(screen: Screen, context: ComponentContext): Child =
         when (screen) {
             is Screen.Registration -> Child.Registration(
-                registrationFactory(context) { navigation.pushNew(Screen.Dialer) }
+                factory.createRegistration(context) { navigation.pushNew(Screen.Dialer) }
             )
             is Screen.Dialer -> Child.Dialer(
-                dialerFactory(context) { navigation.pop() }
+                factory.createDialer(context) { navigation.pop() }
             )
         }
 

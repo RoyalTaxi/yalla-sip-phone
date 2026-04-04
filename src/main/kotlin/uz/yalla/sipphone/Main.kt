@@ -16,13 +16,10 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
-import uz.yalla.sipphone.data.settings.AppSettings
-import uz.yalla.sipphone.di.appModule
-import uz.yalla.sipphone.domain.CallEngine
-import uz.yalla.sipphone.domain.RegistrationEngine
+import uz.yalla.sipphone.di.appModules
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipStackLifecycle
-import uz.yalla.sipphone.feature.dialer.DialerComponent
-import uz.yalla.sipphone.feature.registration.RegistrationComponent
+import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.RootComponent
 import uz.yalla.sipphone.navigation.RootContent
 import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
@@ -30,12 +27,14 @@ import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 private val logger = KotlinLogging.logger {}
 
 fun main() {
-    val koin = startKoin { modules(appModule) }.koin
+    Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+        logger.error(throwable) { "Uncaught exception on ${thread.name}" }
+    }
 
-    val sipLifecycle: SipStackLifecycle = koin.get()
-    val registrationEngine: RegistrationEngine = koin.get()
-    val callEngine: CallEngine = koin.get()
-    val initResult = runBlocking { sipLifecycle.initialize() }
+    val koin = startKoin { modules(appModules) }.koin
+
+    val lifecycle: SipStackLifecycle = koin.get()
+    val initResult = runBlocking { lifecycle.initialize() }
 
     if (initResult.isFailure) {
         javax.swing.JOptionPane.showMessageDialog(
@@ -47,22 +46,18 @@ fun main() {
         return
     }
 
-    // Ensure cleanup on Ctrl+C / kill signal (prevents stale server registrations)
     Runtime.getRuntime().addShutdownHook(Thread {
-        runBlocking { withTimeoutOrNull(3000) { sipLifecycle.shutdown() } }
+        runBlocking {
+            withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
+        }
     })
 
-    val lifecycle = LifecycleRegistry()
-    val appSettings: AppSettings = koin.get()
+    val decomposeLifecycle = LifecycleRegistry()
+    val factory: ComponentFactory = koin.get()
     val rootComponent = runOnUiThread {
         RootComponent(
-            componentContext = DefaultComponentContext(lifecycle = lifecycle),
-            registrationFactory = { ctx, onRegistered ->
-                RegistrationComponent(ctx, registrationEngine, appSettings, onRegistered)
-            },
-            dialerFactory = { ctx, onDisconnected ->
-                DialerComponent(ctx, registrationEngine, callEngine, onDisconnected)
-            },
+            componentContext = DefaultComponentContext(lifecycle = decomposeLifecycle),
+            factory = factory,
         )
     }
 
@@ -74,7 +69,9 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                runBlocking { withTimeoutOrNull(3000) { sipLifecycle.shutdown() } }
+                runBlocking {
+                    withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
+                }
                 exitApplication()
             },
             title = "Yalla SIP Phone",
@@ -84,7 +81,7 @@ fun main() {
                 window.minimumSize = java.awt.Dimension(380, 180)
             }
 
-            LifecycleController(lifecycle, windowState)
+            LifecycleController(decomposeLifecycle, windowState)
 
             YallaSipPhoneTheme {
                 RootContent(rootComponent, windowState)
