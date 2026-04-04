@@ -83,18 +83,6 @@ fun main() {
             position = WindowPosition(Alignment.Center),
         )
 
-        // Switch window properties based on active screen
-        // Note: minimumSize is set inside Window composable below
-        LaunchedEffect(isMainScreen) {
-            if (isMainScreen) {
-                windowState.placement = WindowPlacement.Maximized
-            } else {
-                windowState.placement = WindowPlacement.Floating
-                windowState.size = DpSize(420.dp, 520.dp)
-                windowState.position = WindowPosition(Alignment.Center)
-            }
-        }
-
         // Prevent minimize on main screen
         LaunchedEffect(isMainScreen, windowState.isMinimized) {
             if (isMainScreen && windowState.isMinimized) {
@@ -132,17 +120,17 @@ fun main() {
             alwaysOnTop = isMainScreen,
             resizable = isMainScreen,
         ) {
-            // Set minimum size — must happen before windowState.size change takes effect
-            // For login→main: minimumSize increases after maximize
-            // For main→login: minimumSize must DECREASE first so 420x520 is allowed
+            // ALL window property changes in one place, correct order
             LaunchedEffect(isMainScreen) {
                 if (isMainScreen) {
                     window.minimumSize = java.awt.Dimension(1280, 720)
+                    windowState.placement = WindowPlacement.Maximized
                 } else {
+                    // Order matters: reset min size FIRST, then resize
                     window.minimumSize = java.awt.Dimension(380, 180)
-                    // Force resize after minimumSize is lowered
                     window.setSize(420, 520)
-                    window.setLocationRelativeTo(null) // center on screen
+                    window.setLocationRelativeTo(null)
+                    windowState.placement = WindowPlacement.Floating
                 }
             }
 
