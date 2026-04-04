@@ -89,7 +89,13 @@ class PjsipBridge : RegistrationEngine, CallEngine {
     private fun loadNativeLibrary() {
         val libDir = System.getProperty("pjsip.library.path")
         if (libDir != null) {
-            System.load("$libDir/libpjsua2.jnilib")
+            val osName = System.getProperty("os.name").lowercase()
+            val libName = when {
+                osName.contains("mac") || osName.contains("darwin") -> "libpjsua2.jnilib"
+                osName.contains("win") -> "pjsua2.dll"
+                else -> "libpjsua2.so" // Linux
+            }
+            System.load("$libDir/$libName")
         } else {
             System.loadLibrary("pjsua2")
         }
