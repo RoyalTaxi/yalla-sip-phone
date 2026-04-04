@@ -61,7 +61,7 @@ fun main() {
 
     application {
         val windowState = rememberWindowState(
-            size = DpSize(800.dp, 300.dp),
+            size = DpSize(420.dp, 520.dp),
             position = WindowPosition(Alignment.Center),
         )
 
@@ -74,13 +74,13 @@ fun main() {
             state = windowState,
         ) {
             LaunchedEffect(Unit) {
-                window.minimumSize = java.awt.Dimension(700, 200)
+                window.minimumSize = java.awt.Dimension(380, 180)
             }
 
             LifecycleController(lifecycle, windowState)
 
             YallaSipPhoneTheme {
-                RootContent(rootComponent)
+                RootContent(rootComponent, windowState)
             }
         }
     }
