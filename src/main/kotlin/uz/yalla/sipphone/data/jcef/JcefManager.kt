@@ -42,15 +42,32 @@ class JcefManager {
         logger.info { "Initializing JCEF..." }
 
         SwingUtilities.invokeAndWait {
-            // Use JetBrains' JCefAppConfig to auto-detect Chromium paths (icudtl.dat, locales, etc.)
+            // Use JetBrains' JCefAppConfig to auto-detect Chromium framework path
             val config = JCefAppConfig.getInstance()
+            val frameworkPath = JCefAppConfig.getJbrFrameworkPathOSX()
+            val resourcesPath = if (frameworkPath != null) "$frameworkPath/Resources" else null
+
             val settings = config.cefSettings.apply {
                 windowless_rendering_enabled = false
                 log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING
                 if (debugPort > 0) {
                     remote_debugging_port = debugPort
                 }
+                // Explicitly set resources path — JCefAppConfig leaves it null outside IntelliJ
+                // macOS uses .lproj/locale.pak format, no separate locales dir needed
+                if (resourcesPath != null) {
+                    resources_dir_path = resourcesPath
+                }
+                if (frameworkPath != null) {
+                    browser_subprocess_path = frameworkPath.replace(
+                        "Chromium Embedded Framework.framework",
+                        "jcef Helper.app/Contents/MacOS/jcef Helper",
+                    )
+                }
             }
+
+            logger.info { "JCEF framework: $frameworkPath" }
+            logger.info { "JCEF resources: $resourcesPath" }
 
             CefApp.startup(config.appArgs)
             cefApp = CefApp.getInstance(settings)
