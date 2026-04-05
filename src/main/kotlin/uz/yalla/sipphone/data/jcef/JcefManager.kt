@@ -59,8 +59,8 @@ class JcefManager {
                 }
             }
 
-            // Use useMessageLoop for proper CEF event integration on macOS
             builder.addJcefArgs("--disable-gpu-compositing")
+            builder.addJcefArgs("--off-screen-rendering-enabled=false")
             builder.setAppHandler(object : MavenCefAppHandlerAdapter() {})
 
             logger.info { "Building CefApp via jcefmaven (first run downloads ~100MB Chromium)..." }
