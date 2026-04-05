@@ -80,13 +80,8 @@ compose.desktop {
     application {
         mainClass = "uz.yalla.sipphone.MainKt"
 
-        jvmArgs += "--add-opens=java.desktop/sun.awt=ALL-UNNAMED"
-
-        // macOS-only: lwawt modules don't exist on Windows/Linux
-        if (System.getProperty("os.name").lowercase().contains("mac")) {
-            jvmArgs += "--add-opens=java.desktop/sun.lwawt=ALL-UNNAMED"
-            jvmArgs += "--add-opens=java.desktop/sun.lwawt.macosx=ALL-UNNAMED"
-        }
+        // JVM args for packaged app — no --add-opens here, handled in hotRun tasks only
+        // jpackage on Windows crashes with --add-opens in .cfg file
 
         nativeDistributions {
             modules("java.naming")
