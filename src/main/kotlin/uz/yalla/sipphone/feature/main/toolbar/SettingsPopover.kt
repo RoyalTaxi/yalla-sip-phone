@@ -3,6 +3,7 @@ package uz.yalla.sipphone.feature.main.toolbar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
@@ -21,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -37,12 +40,15 @@ fun SettingsPopover(
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
-        IconButton(onClick = { expanded = true }) {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+        ) {
             Icon(
                 imageVector = Icons.Filled.Settings,
                 contentDescription = Strings.SETTINGS_TITLE,
                 modifier = Modifier.size(tokens.iconMedium),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = colors.textSubtle,
             )
         }
 
@@ -66,11 +72,11 @@ fun SettingsPopover(
                             text = if (isDarkTheme) Strings.SETTINGS_THEME_DARK
                             else Strings.SETTINGS_THEME_LIGHT,
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = colors.textSubtle,
                         )
                         Switch(
                             checked = isDarkTheme,
-                            onCheckedChange = { onThemeToggle() },
+                            onCheckedChange = null,
                         )
                     }
                 },
@@ -97,17 +103,18 @@ fun SettingsPopover(
             HorizontalDivider()
 
             // Version
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = "v1.0.0",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                },
-                onClick = {},
-                enabled = false,
-            )
+            Box(
+                modifier = Modifier.padding(
+                    horizontal = tokens.spacingMd,
+                    vertical = tokens.spacingSm,
+                ),
+            ) {
+                Text(
+                    text = "v1.0.0",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textSubtle,
+                )
+            }
         }
     }
 }

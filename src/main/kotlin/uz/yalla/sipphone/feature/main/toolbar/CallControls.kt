@@ -142,7 +142,7 @@ fun CallControls(
                     border = if (callState.isMuted) {
                         BorderStroke(1.dp, colors.callMuted)
                     } else {
-                        ButtonDefaults.outlinedButtonBorder(enabled = true)
+                        BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
                     },
                 ) {
                     Icon(
