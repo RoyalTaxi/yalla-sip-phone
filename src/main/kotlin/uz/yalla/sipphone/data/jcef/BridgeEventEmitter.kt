@@ -148,6 +148,23 @@ class BridgeEventEmitter(
         }
     };
 
+    // CefMessageRouter's yallaSipQuery uses callbacks, not Promises.
+    // Wrap in Promise for clean API.
+    function query(command, params) {
+        return new Promise(function(resolve, reject) {
+            window.yallaSipQuery({
+                request: JSON.stringify({ command: command, params: params || {} }),
+                onSuccess: function(response) {
+                    try { resolve(JSON.parse(response)); }
+                    catch(e) { resolve(response); }
+                },
+                onFailure: function(errorCode, errorMessage) {
+                    reject(new Error(errorMessage || 'Bridge error ' + errorCode));
+                }
+            });
+        });
+    }
+
     window.YallaSIP = {
         on: function(event, handler) {
             if (!listeners[event]) listeners[event] = [];
@@ -162,46 +179,16 @@ class BridgeEventEmitter(
             var idx = listeners[event].indexOf(handler);
             if (idx >= 0) listeners[event].splice(idx, 1);
         },
-        ready: function() {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: '_ready' }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        makeCall: function(number) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'makeCall', params: { number: number } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        answer: function(callId) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'answer', params: { callId: callId } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        reject: function(callId) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'reject', params: { callId: callId } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        hangup: function(callId) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'hangup', params: { callId: callId } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        setMute: function(callId, muted) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'setMute', params: { callId: callId, muted: String(muted) } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        setHold: function(callId, onHold) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'setHold', params: { callId: callId, onHold: String(onHold) } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        setAgentStatus: function(status) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'setAgentStatus', params: { status: status } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        getState: function() {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'getState' }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        getVersion: function() {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'getVersion' }) })
-                .then(function(r) { return JSON.parse(r); });
-        }
+        ready: function() { return query('_ready'); },
+        makeCall: function(number) { return query('makeCall', { number: number }); },
+        answer: function(callId) { return query('answer', { callId: callId }); },
+        reject: function(callId) { return query('reject', { callId: callId }); },
+        hangup: function(callId) { return query('hangup', { callId: callId }); },
+        setMute: function(callId, muted) { return query('setMute', { callId: callId, muted: String(muted) }); },
+        setHold: function(callId, onHold) { return query('setHold', { callId: callId, onHold: String(onHold) }); },
+        setAgentStatus: function(status) { return query('setAgentStatus', { status: status }); },
+        getState: function() { return query('getState'); },
+        getVersion: function() { return query('getVersion'); }
     };
 
     console.log('[YallaSIP] Bridge script injected, version pending handshake');
