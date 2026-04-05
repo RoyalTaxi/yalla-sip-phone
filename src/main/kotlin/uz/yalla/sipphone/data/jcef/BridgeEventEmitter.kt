@@ -5,6 +5,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.encodeToString
 import org.cef.browser.CefBrowser
 import uz.yalla.sipphone.domain.AgentInfo
+import uz.yalla.sipphone.domain.SipConstants
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -21,7 +22,7 @@ class BridgeEventEmitter(
 
     // Agent info for init payload — set before browser loads
     var agentInfo: AgentInfo = AgentInfo("", "")
-    var version: String = "1.0.0"
+    var version: String = SipConstants.APP_VERSION
     var capabilities: List<String> = listOf("call", "agentStatus", "callQuality")
 
     fun nextSeq(): Int = seqCounter.incrementAndGet()

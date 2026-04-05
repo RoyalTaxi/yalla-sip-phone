@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -107,7 +108,7 @@ fun SettingsPopover(
 
                             // Version
                             Text(
-                                text = "v1.0.0",
+                                text = SipConstants.APP_VERSION_DISPLAY,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = dlgColors.textSubtle,
                                 modifier = Modifier.padding(vertical = dlgTokens.spacingSm),

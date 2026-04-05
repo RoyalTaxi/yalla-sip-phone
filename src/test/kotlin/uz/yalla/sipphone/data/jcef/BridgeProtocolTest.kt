@@ -2,6 +2,7 @@
 package uz.yalla.sipphone.data.jcef
 
 import kotlinx.serialization.json.Json
+import uz.yalla.sipphone.domain.SipConstants
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -58,13 +59,13 @@ class BridgeProtocolTest {
     @Test
     fun `serialize init payload`() {
         val init = BridgeInitPayload(
-            version = "1.0.0",
+            version = SipConstants.APP_VERSION,
             capabilities = listOf("call", "agentStatus", "callQuality"),
             agent = BridgeAgent(id = "agent-042", name = "Alisher"),
             bufferedEvents = emptyList(),
         )
         val jsonStr = json.encodeToString(BridgeInitPayload.serializer(), init)
-        assertTrue(jsonStr.contains("1.0.0"))
+        assertTrue(jsonStr.contains(SipConstants.APP_VERSION))
         assertTrue(jsonStr.contains("Alisher"))
     }
 }

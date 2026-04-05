@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
@@ -16,6 +17,7 @@ import org.cef.callback.CefQueryCallback
 import org.cef.handler.CefMessageRouterHandlerAdapter
 import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.domain.CallEngine
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.PhoneNumberValidator
 import uz.yalla.sipphone.domain.RegistrationEngine
@@ -28,6 +30,7 @@ class BridgeRouter(
     private val registrationEngine: RegistrationEngine,
     private val security: BridgeSecurity,
     private val auditLog: BridgeAuditLog,
+    private val agentStatusProvider: () -> String,
     private val onAgentStatusChange: (AgentStatus) -> Unit,
     private val onReady: () -> String, // returns init payload JSON
 ) {
@@ -48,6 +51,7 @@ class BridgeRouter(
     fun getMessageRouter(): CefMessageRouter? = messageRouter
 
     fun dispose() {
+        scope.cancel()
         messageRouter?.dispose()
         messageRouter = null
     }
@@ -236,7 +240,7 @@ class BridgeRouter(
 
         val state = BridgeState(
             connection = BridgeConnectionState(state = connectionState, attempt = 0),
-            agentStatus = "ready", // TODO: get from toolbar component
+            agentStatus = agentStatusProvider(),
             call = call,
         )
 
@@ -246,7 +250,7 @@ class BridgeRouter(
 
     private fun handleGetVersion(): CommandResult {
         val info = BridgeVersionInfo(
-            version = "1.0.0",
+            version = SipConstants.APP_VERSION,
             capabilities = listOf("call", "agentStatus", "callQuality"),
         )
         val json = bridgeJson.encodeToString(info)

@@ -42,6 +42,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -186,7 +187,7 @@ fun LoginScreen(component: LoginComponent) {
 
             // Version
             Text(
-                text = "v1.0.0",
+                text = SipConstants.APP_VERSION_DISPLAY,
                 color = colors.textSubtle,
                 style = MaterialTheme.typography.bodySmall,
             )
