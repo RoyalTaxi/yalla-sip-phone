@@ -10,6 +10,19 @@ plugins {
 group = "uz.yalla.sipphone"
 version = "1.0.0"
 
+// JBR-JCEF toolchain configured via gradle.properties org.gradle.java.home
+
+// Add JCEF module from JBR to compilation and runtime classpath
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        freeCompilerArgs.add("-Xadd-modules=jcef")
+    }
+}
+
+tasks.withType<JavaExec>().configureEach {
+    jvmArgs("--add-modules", "jcef")
+}
+
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
