@@ -10,19 +10,6 @@ plugins {
 group = "uz.yalla.sipphone"
 version = "1.0.0"
 
-// JBR-JCEF toolchain configured via gradle.properties org.gradle.java.home
-
-// Add JCEF module from JBR to compilation and runtime classpath
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions {
-        freeCompilerArgs.add("-Xadd-modules=jcef")
-    }
-}
-
-tasks.withType<JavaExec>().configureEach {
-    jvmArgs("--add-modules", "jcef")
-}
-
 dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
@@ -53,6 +40,9 @@ dependencies {
     // Settings persistence
     implementation("com.russhwolf:multiplatform-settings-no-arg:1.3.0")
 
+    // JCEF — Chromium embedded browser (auto-downloads native binaries)
+    implementation("me.friwi:jcefmaven:122.1.10")
+
     // pjsip JNI bindings
     implementation(files("libs/pjsua2.jar"))
 
@@ -66,6 +56,13 @@ compose.desktop {
         mainClass = "uz.yalla.sipphone.MainKt"
 
         jvmArgs += "-Dpjsip.library.path=${projectDir}/libs"
+
+        // Required for jcefmaven on macOS with JDK 16+
+        jvmArgs += listOf(
+            "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
+            "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
+            "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
+        )
 
         nativeDistributions {
             modules("java.naming")

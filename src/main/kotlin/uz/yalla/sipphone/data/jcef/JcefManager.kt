@@ -1,16 +1,17 @@
 package uz.yalla.sipphone.data.jcef
 
-import com.jetbrains.cef.JCefAppConfig
 import io.github.oshai.kotlinlogging.KotlinLogging
+import me.friwi.jcefmaven.CefAppBuilder
+import me.friwi.jcefmaven.MavenCefAppHandlerAdapter
 import org.cef.CefApp
 import org.cef.CefClient
 import org.cef.CefSettings
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
-import org.cef.browser.CefRendering
 import org.cef.handler.CefLifeSpanHandlerAdapter
 import org.cef.handler.CefLoadHandlerAdapter
 import org.cef.network.CefRequest
+import java.io.File
 import javax.swing.SwingUtilities
 
 private val logger = KotlinLogging.logger {}
@@ -42,35 +43,21 @@ class JcefManager {
         logger.info { "Initializing JCEF..." }
 
         SwingUtilities.invokeAndWait {
-            // Use JetBrains' JCefAppConfig to auto-detect Chromium framework path
-            val config = JCefAppConfig.getInstance()
-            val frameworkPath = JCefAppConfig.getJbrFrameworkPathOSX()
-            val resourcesPath = if (frameworkPath != null) "$frameworkPath/Resources" else null
+            val builder = CefAppBuilder()
+            builder.setInstallDir(File("jcef-bundle"))
 
-            val settings = config.cefSettings.apply {
+            builder.cefSettings.apply {
                 windowless_rendering_enabled = false
                 log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING
                 if (debugPort > 0) {
                     remote_debugging_port = debugPort
                 }
-                // Explicitly set resources path — JCefAppConfig leaves it null outside IntelliJ
-                // macOS uses .lproj/locale.pak format, no separate locales dir needed
-                if (resourcesPath != null) {
-                    resources_dir_path = resourcesPath
-                }
-                if (frameworkPath != null) {
-                    browser_subprocess_path = frameworkPath.replace(
-                        "Chromium Embedded Framework.framework",
-                        "jcef Helper.app/Contents/MacOS/jcef Helper",
-                    )
-                }
             }
 
-            logger.info { "JCEF framework: $frameworkPath" }
-            logger.info { "JCEF resources: $resourcesPath" }
+            builder.setAppHandler(object : MavenCefAppHandlerAdapter() {})
 
-            CefApp.startup(config.appArgs)
-            cefApp = CefApp.getInstance(settings)
+            logger.info { "Building CefApp via jcefmaven (first run downloads ~100MB Chromium)..." }
+            cefApp = builder.build()
             cefClient = cefApp!!.createClient()
 
             // Block all popup windows — dispatcher UI must stay in our single browser
@@ -102,7 +89,7 @@ class JcefManager {
         isBrowserClosed = false
 
         SwingUtilities.invokeAndWait {
-            browser = client.createBrowser(url, CefRendering.DEFAULT, false)
+            browser = client.createBrowser(url, false, false)
         }
 
         logger.info { "Browser created for URL: $url" }
