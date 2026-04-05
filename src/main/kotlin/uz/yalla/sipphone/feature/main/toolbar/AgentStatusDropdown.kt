@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -24,8 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
+import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
 /** Parse "#RRGGBB" hex string to Compose [Color]. */
 private fun parseHexColor(hex: String): Color {
@@ -41,11 +46,14 @@ fun AgentStatusDropdown(
     modifier: Modifier = Modifier,
 ) {
     val tokens = LocalAppTokens.current
+    val colors = LocalYallaColors.current
     var expanded by remember { mutableStateOf(false) }
 
     Box(modifier = modifier) {
         Row(
             modifier = Modifier
+                .pointerHoverIcon(PointerIcon.Hand)
+                .clip(tokens.shapeSmall)
                 .clickable { expanded = true }
                 .padding(horizontal = tokens.spacingSm, vertical = tokens.spacingXs),
             verticalAlignment = Alignment.CenterVertically,
@@ -53,20 +61,20 @@ fun AgentStatusDropdown(
         ) {
             Box(
                 Modifier
-                    .size(tokens.qualityDotSize)
+                    .size(tokens.indicatorDot)
                     .clip(CircleShape)
                     .background(parseHexColor(currentStatus.colorHex)),
             )
             Text(
                 text = currentStatus.displayName,
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurface,
+                color = colors.textBase,
             )
             Icon(
                 imageVector = Icons.Filled.ArrowDropDown,
                 contentDescription = null,
                 modifier = Modifier.size(tokens.iconSmall),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = colors.textSubtle,
             )
         }
 
@@ -83,7 +91,7 @@ fun AgentStatusDropdown(
                         ) {
                             Box(
                                 Modifier
-                                    .size(tokens.qualityDotSize)
+                                    .size(tokens.indicatorDot)
                                     .clip(CircleShape)
                                     .background(parseHexColor(status.colorHex)),
                             )
@@ -97,6 +105,7 @@ fun AgentStatusDropdown(
                         onStatusSelected(status)
                         expanded = false
                     },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
         }

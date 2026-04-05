@@ -35,6 +35,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -96,6 +98,7 @@ fun LoginScreen(component: LoginComponent) {
                         Icon(
                             if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                             contentDescription = null,
+                            modifier = Modifier.size(tokens.iconMedium),
                         )
                     }
                 },
@@ -117,7 +120,7 @@ fun LoginScreen(component: LoginComponent) {
                 enabled = !isLoading,
                 isError = errorMessage != null,
                 modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
+                shape = tokens.shapeMedium,
             )
 
             // Error message
@@ -136,8 +139,9 @@ fun LoginScreen(component: LoginComponent) {
             Button(
                 onClick = { component.login(password) },
                 enabled = !isLoading && password.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+                    .pointerHoverIcon(PointerIcon.Hand),
+                shape = tokens.shapeMedium,
                 colors = ButtonDefaults.buttonColors(containerColor = colors.brandPrimary),
             ) {
                 if (isLoading) {
@@ -156,7 +160,10 @@ fun LoginScreen(component: LoginComponent) {
             Spacer(modifier = Modifier.height(tokens.spacingMd))
 
             // Manual connection link
-            TextButton(onClick = { showManualDialog = true }) {
+            TextButton(
+                onClick = { showManualDialog = true },
+                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            ) {
                 Text(
                     text = Strings.LOGIN_MANUAL_CONNECTION,
                     color = colors.textSubtle,
@@ -211,10 +218,11 @@ private fun ManualConnectionDialog(
                     value = server,
                     onValueChange = { server = it },
                     label = { Text(Strings.LABEL_SERVER) },
-                    placeholder = { Text(Strings.PLACEHOLDER_SERVER, style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.5f)) },
+                    placeholder = { Text(Strings.PLACEHOLDER_SERVER, style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f)) },
                     singleLine = true,
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = tokens.shapeMedium,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
                     OutlinedTextField(
@@ -224,15 +232,17 @@ private fun ManualConnectionDialog(
                         singleLine = true,
                         enabled = !isLoading,
                         modifier = Modifier.width(100.dp),
+                        shape = tokens.shapeMedium,
                     )
                     OutlinedTextField(
                         value = username,
                         onValueChange = { username = it },
                         label = { Text(Strings.LABEL_USERNAME) },
-                        placeholder = { Text(Strings.PLACEHOLDER_USERNAME, style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.5f)) },
+                        placeholder = { Text(Strings.PLACEHOLDER_USERNAME, style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f)) },
                         singleLine = true,
                         enabled = !isLoading,
                         modifier = Modifier.weight(1f),
+                        shape = tokens.shapeMedium,
                     )
                 }
                 OutlinedTextField(
@@ -243,6 +253,7 @@ private fun ManualConnectionDialog(
                     singleLine = true,
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
+                    shape = tokens.shapeMedium,
                 )
             }
         },
@@ -250,6 +261,7 @@ private fun ManualConnectionDialog(
             Button(
                 onClick = { onConnect(server, port.toIntOrNull() ?: 5060, username, password) },
                 enabled = !isLoading && server.isNotEmpty() && username.isNotEmpty(),
+                shape = tokens.shapeMedium,
             ) {
                 Text(Strings.BUTTON_CONNECT)
             }

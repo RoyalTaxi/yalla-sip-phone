@@ -22,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import uz.yalla.sipphone.domain.CallState
@@ -70,7 +69,7 @@ fun ToolbarContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(tokens.toolbarHeight)
-                .padding(horizontal = tokens.spacingSm),
+                .padding(horizontal = tokens.spacingMd),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Zone A: Agent Status Dropdown
@@ -118,6 +117,8 @@ fun ToolbarContent(
                 onToggleHold = component::toggleHold,
             )
 
+            Spacer(Modifier.width(tokens.spacingSm))
+
             // Zone D: Settings gear (40dp)
             SettingsPopover(
                 isDarkTheme = isDarkTheme,
@@ -125,7 +126,9 @@ fun ToolbarContent(
                 onLogout = onLogout,
             )
 
-            // Zone E: Call quality indicator (48dp)
+            Spacer(Modifier.width(tokens.spacingXs))
+
+            // Zone E: Call quality indicator (56dp)
             CallQualityIndicator(callState = callState)
         }
 
@@ -134,7 +137,7 @@ fun ToolbarContent(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(2.dp)
+                .height(tokens.toolbarDividerHeight)
                 .background(colors.borderDisabled),
         )
     }

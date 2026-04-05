@@ -10,12 +10,12 @@ class MockAuthRepository : AuthRepository {
         return if (password == "test123") {
             Result.success(
                 LoginResponse(
-                    sipServer = "192.168.30.103",
+                    sipServer = "192.168.0.22",
                     sipPort = 5060,
                     sipUsername = "101",
-                    sipPassword = "secret",
+                    sipPassword = "1234qwerQQ",
                     sipTransport = "UDP",
-                    dispatcherUrl = "https://dispatcher.yalla.uz/panel",
+                    dispatcherUrl = "http://192.168.0.234:5173/orders",
                     agentId = "agent-042",
                     agentName = "Alisher",
                 ).toAuthResult()

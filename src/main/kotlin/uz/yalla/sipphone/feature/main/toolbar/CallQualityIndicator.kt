@@ -43,9 +43,9 @@ fun CallQualityIndicator(
         CallQuality.POOR -> colors.callMuted
     }
 
-    // Reserve space always (48dp), but only show content during active call
+    // Reserve space always (56dp), but only show content during active call
     Box(
-        modifier = modifier.width(48.dp),
+        modifier = modifier.width(56.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -62,7 +62,7 @@ fun CallQualityIndicator(
             Text(
                 text = quality.label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.textSubtle,
             )
         }
     }

@@ -1,5 +1,6 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +23,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
@@ -53,6 +57,7 @@ fun CallControls(
                 Button(
                     onClick = onCall,
                     enabled = !phoneInputEmpty,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     shape = tokens.shapeSmall,
                 ) {
                     Icon(
@@ -69,6 +74,7 @@ fun CallControls(
                 if (!callState.isOutbound) {
                     Button(
                         onClick = onAnswer,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = LocalExtendedColors.current.success,
                         ),
@@ -84,10 +90,12 @@ fun CallControls(
                     }
                     OutlinedButton(
                         onClick = onReject,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         shape = tokens.shapeSmall,
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = colors.errorText,
                         ),
+                        border = BorderStroke(1.dp, colors.errorIndicator),
                     ) {
                         Icon(
                             Icons.Filled.Close,
@@ -100,10 +108,12 @@ fun CallControls(
                 } else {
                     OutlinedButton(
                         onClick = onHangup,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         shape = tokens.shapeSmall,
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = colors.errorText,
                         ),
+                        border = BorderStroke(1.dp, colors.errorIndicator),
                     ) {
                         Icon(
                             Icons.Filled.CallEnd,
@@ -119,14 +129,20 @@ fun CallControls(
             is CallState.Active -> {
                 OutlinedButton(
                     onClick = onToggleMute,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     shape = tokens.shapeSmall,
                     colors = if (callState.isMuted) {
                         ButtonDefaults.outlinedButtonColors(
-                            containerColor = colors.callMuted.copy(alpha = 0.12f),
+                            containerColor = colors.callMuted.copy(alpha = 0.15f),
                             contentColor = colors.callMuted,
                         )
                     } else {
                         ButtonDefaults.outlinedButtonColors()
+                    },
+                    border = if (callState.isMuted) {
+                        BorderStroke(1.dp, colors.callMuted)
+                    } else {
+                        ButtonDefaults.outlinedButtonBorder(enabled = true)
                     },
                 ) {
                     Icon(
@@ -141,6 +157,7 @@ fun CallControls(
                 if (callState.isOnHold) {
                     Button(
                         onClick = onToggleHold,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         shape = tokens.shapeSmall,
                     ) {
                         Icon(
@@ -154,6 +171,7 @@ fun CallControls(
                 } else {
                     OutlinedButton(
                         onClick = onToggleHold,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                         shape = tokens.shapeSmall,
                     ) {
                         Icon(
@@ -168,10 +186,12 @@ fun CallControls(
 
                 OutlinedButton(
                     onClick = onHangup,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
                     shape = tokens.shapeSmall,
                     colors = ButtonDefaults.outlinedButtonColors(
                         contentColor = colors.errorText,
                     ),
+                    border = BorderStroke(1.dp, colors.errorIndicator),
                 ) {
                     Icon(
                         Icons.Filled.CallEnd,

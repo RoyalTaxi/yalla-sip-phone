@@ -26,8 +26,9 @@ data class AppTokens(
     val cornerLarge: Dp = 16.dp,
 
     // Shapes
-    val shapeSmall: Shape = RoundedCornerShape(8.dp),
-    val shapeMedium: Shape = RoundedCornerShape(12.dp),
+    val shapeSmall: Shape = RoundedCornerShape(cornerSmall),
+    val shapeMedium: Shape = RoundedCornerShape(cornerMedium),
+    val shapeLarge: Shape = RoundedCornerShape(cornerLarge),
 
     // Window sizes
     val registrationWindowSize: DpSize = DpSize(420.dp, 520.dp),
@@ -55,7 +56,7 @@ data class AppTokens(
 
     // Toolbar
     val toolbarHeight: Dp = 56.dp,
-    val toolbarDividerHeight: Dp = 1.dp,
+    val toolbarDividerHeight: Dp = 2.dp,
 
     // Call quality
     val qualityDotSize: Dp = 12.dp,
