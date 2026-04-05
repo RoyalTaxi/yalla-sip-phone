@@ -1,0 +1,255 @@
+package uz.yalla.sipphone.data.jcef
+
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.encodeToString
+import org.cef.CefClient
+import org.cef.browser.CefBrowser
+import org.cef.browser.CefFrame
+import org.cef.browser.CefMessageRouter
+import org.cef.browser.CefMessageRouter.CefMessageRouterConfig
+import org.cef.callback.CefQueryCallback
+import org.cef.handler.CefMessageRouterHandlerAdapter
+import uz.yalla.sipphone.domain.AgentStatus
+import uz.yalla.sipphone.domain.CallEngine
+import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.domain.PhoneNumberValidator
+import uz.yalla.sipphone.domain.RegistrationEngine
+import uz.yalla.sipphone.domain.RegistrationState
+
+private val logger = KotlinLogging.logger {}
+
+class BridgeRouter(
+    private val callEngine: CallEngine,
+    private val registrationEngine: RegistrationEngine,
+    private val security: BridgeSecurity,
+    private val auditLog: BridgeAuditLog,
+    private val onAgentStatusChange: (AgentStatus) -> Unit,
+    private val onReady: () -> String, // returns init payload JSON
+) {
+    private var messageRouter: CefMessageRouter? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    fun install(client: CefClient) {
+        val config = CefMessageRouterConfig().apply {
+            jsQueryFunction = "yallaSipQuery"
+            jsCancelFunction = "yallaSipQueryCancel"
+        }
+        messageRouter = CefMessageRouter.create(config)
+        messageRouter!!.addHandler(RouterHandler(), false)
+        client.addMessageRouter(messageRouter!!)
+        logger.info { "BridgeRouter installed" }
+    }
+
+    fun getMessageRouter(): CefMessageRouter? = messageRouter
+
+    fun dispose() {
+        messageRouter?.dispose()
+        messageRouter = null
+    }
+
+    private inner class RouterHandler : CefMessageRouterHandlerAdapter() {
+        override fun onQuery(
+            browser: CefBrowser,
+            frame: CefFrame,
+            queryId: Long,
+            request: String,
+            persistent: Boolean,
+            callback: CefQueryCallback,
+        ): Boolean {
+            scope.launch {
+                try {
+                    val cmd = bridgeJson.decodeFromString<BridgeCommand>(request)
+
+                    // Rate limit check (skip for _ready)
+                    if (cmd.command != "_ready" && !security.checkRateLimit(cmd.command)) {
+                        val result = CommandResult.error("RATE_LIMITED", "Too many requests", true)
+                        callback.success(bridgeJson.encodeToString(result))
+                        return@launch
+                    }
+
+                    auditLog.logCommand(cmd.command, cmd.params, "processing")
+
+                    val result = withTimeout(30_000) {
+                        dispatch(cmd)
+                    }
+
+                    val json = bridgeJson.encodeToString(result)
+                    auditLog.logCommand(
+                        cmd.command,
+                        cmd.params,
+                        if (result.success) "OK" else result.error?.code ?: "ERROR",
+                    )
+                    callback.success(json)
+                } catch (e: Exception) {
+                    logger.error(e) { "Bridge command failed: $request" }
+                    val result = CommandResult.error("INTERNAL_ERROR", e.message ?: "Unknown error", false)
+                    callback.success(bridgeJson.encodeToString(result))
+                }
+            }
+            return true
+        }
+    }
+
+    private suspend fun dispatch(cmd: BridgeCommand): CommandResult {
+        return when (cmd.command) {
+            "_ready" -> handleReady()
+            "makeCall" -> handleMakeCall(cmd.params)
+            "answer" -> handleAnswer(cmd.params)
+            "reject" -> handleReject(cmd.params)
+            "hangup" -> handleHangup(cmd.params)
+            "setMute" -> handleSetMute(cmd.params)
+            "setHold" -> handleSetHold(cmd.params)
+            "setAgentStatus" -> handleSetAgentStatus(cmd.params)
+            "getState" -> handleGetState()
+            "getVersion" -> handleGetVersion()
+            else -> CommandResult.error("INTERNAL_ERROR", "Unknown command: ${cmd.command}", false)
+        }
+    }
+
+    private fun handleReady(): CommandResult {
+        val initJson = onReady()
+        logger.info { "Bridge handshake complete" }
+        return CommandResult(success = true, data = mapOf("_raw" to initJson))
+    }
+
+    private suspend fun handleMakeCall(params: Map<String, String>): CommandResult {
+        val number = params["number"]
+            ?: return CommandResult.error("INVALID_NUMBER", "Missing number", true)
+        val validation = PhoneNumberValidator.validate(number)
+        if (validation.isFailure) {
+            return CommandResult.error(
+                "INVALID_NUMBER",
+                validation.exceptionOrNull()?.message ?: "Invalid",
+                true,
+            )
+        }
+        if (callEngine.callState.value !is CallState.Idle) {
+            return CommandResult.error("ALREADY_IN_CALL", "Active call exists", false)
+        }
+        if (registrationEngine.registrationState.value !is RegistrationState.Registered) {
+            return CommandResult.error("NOT_REGISTERED", "SIP not connected", false)
+        }
+        val result = callEngine.makeCall(validation.getOrThrow())
+        return if (result.isSuccess) {
+            val callId = (callEngine.callState.value as? CallState.Ringing)?.callId ?: "unknown"
+            CommandResult.success(mapOf("callId" to callId))
+        } else {
+            CommandResult.error(
+                "INTERNAL_ERROR",
+                result.exceptionOrNull()?.message ?: "Call failed",
+                false,
+            )
+        }
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private suspend fun handleAnswer(params: Map<String, String>): CommandResult {
+        if (callEngine.callState.value !is CallState.Ringing) {
+            return CommandResult.error("NO_INCOMING_CALL", "No incoming call", false)
+        }
+        callEngine.answerCall()
+        return CommandResult.success()
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private suspend fun handleReject(params: Map<String, String>): CommandResult {
+        if (callEngine.callState.value !is CallState.Ringing) {
+            return CommandResult.error("NO_INCOMING_CALL", "No incoming call", false)
+        }
+        callEngine.hangupCall()
+        return CommandResult.success()
+    }
+
+    @Suppress("UNUSED_PARAMETER")
+    private suspend fun handleHangup(params: Map<String, String>): CommandResult {
+        val state = callEngine.callState.value
+        if (state is CallState.Idle) {
+            return CommandResult.error("NO_ACTIVE_CALL", "No call to hangup", false)
+        }
+        callEngine.hangupCall()
+        return CommandResult.success()
+    }
+
+    private suspend fun handleSetMute(params: Map<String, String>): CommandResult {
+        val callId = params["callId"]
+            ?: return CommandResult.error("NO_ACTIVE_CALL", "Missing callId", false)
+        val muted = params["muted"]?.toBooleanStrictOrNull()
+            ?: return CommandResult.error("INTERNAL_ERROR", "Missing muted", false)
+        callEngine.setMute(callId, muted)
+        return CommandResult.success(mapOf("isMuted" to muted.toString()))
+    }
+
+    private suspend fun handleSetHold(params: Map<String, String>): CommandResult {
+        val callId = params["callId"]
+            ?: return CommandResult.error("NO_ACTIVE_CALL", "Missing callId", false)
+        val onHold = params["onHold"]?.toBooleanStrictOrNull()
+            ?: return CommandResult.error("INTERNAL_ERROR", "Missing onHold", false)
+        callEngine.setHold(callId, onHold)
+        return CommandResult.success(mapOf("isOnHold" to onHold.toString()))
+    }
+
+    private fun handleSetAgentStatus(params: Map<String, String>): CommandResult {
+        val statusStr = params["status"]
+            ?: return CommandResult.error("INTERNAL_ERROR", "Missing status", false)
+        val status = AgentStatus.entries.find { it.name.equals(statusStr, ignoreCase = true) }
+            ?: return CommandResult.error("INTERNAL_ERROR", "Invalid status: $statusStr", false)
+        onAgentStatusChange(status)
+        return CommandResult.success(mapOf("status" to status.name.lowercase()))
+    }
+
+    private fun handleGetState(): CommandResult {
+        val callState = callEngine.callState.value
+        val regState = registrationEngine.registrationState.value
+
+        val connectionState = when (regState) {
+            is RegistrationState.Registered -> "connected"
+            is RegistrationState.Registering -> "reconnecting"
+            else -> "disconnected"
+        }
+
+        val call = when (callState) {
+            is CallState.Ringing -> BridgeCallState(
+                callId = callState.callId,
+                number = callState.callerNumber,
+                direction = if (callState.isOutbound) "outbound" else "inbound",
+                state = if (callState.isOutbound) "outgoing" else "incoming",
+                isMuted = false,
+                isOnHold = false,
+                duration = 0,
+            )
+            is CallState.Active -> BridgeCallState(
+                callId = callState.callId,
+                number = callState.remoteNumber,
+                direction = if (callState.isOutbound) "outbound" else "inbound",
+                state = if (callState.isOnHold) "on_hold" else "active",
+                isMuted = callState.isMuted,
+                isOnHold = callState.isOnHold,
+                duration = 0,
+            )
+            else -> null
+        }
+
+        val state = BridgeState(
+            connection = BridgeConnectionState(state = connectionState, attempt = 0),
+            agentStatus = "ready", // TODO: get from toolbar component
+            call = call,
+        )
+
+        val json = bridgeJson.encodeToString(state)
+        return CommandResult(success = true, data = mapOf("_raw" to json))
+    }
+
+    private fun handleGetVersion(): CommandResult {
+        val info = BridgeVersionInfo(
+            version = "1.0.0",
+            capabilities = listOf("call", "agentStatus", "callQuality"),
+        )
+        val json = bridgeJson.encodeToString(info)
+        return CommandResult(success = true, data = mapOf("_raw" to json))
+    }
+}
