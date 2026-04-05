@@ -1,21 +1,25 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,15 +32,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -48,6 +45,14 @@ private fun parseHexColor(hex: String): Color {
     return Color(argb.toInt())
 }
 
+/**
+ * Agent status selector that expands inline (no popup) to avoid z-order issues
+ * with heavyweight SwingPanel (JCEF browser).
+ *
+ * Collapsed: colored dot + status name + arrow.
+ * Expanded: horizontal row of colored dots (one per status) with tooltips.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgentStatusDropdown(
     currentStatus: AgentStatus,
@@ -58,82 +63,88 @@ fun AgentStatusDropdown(
     val colors = LocalYallaColors.current
     var expanded by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .pointerHoverIcon(PointerIcon.Hand)
-                .clip(tokens.shapeSmall)
-                .clickable { expanded = true }
-                .padding(horizontal = tokens.spacingXs, vertical = 2.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
-        ) {
-            Box(
-                Modifier
-                    .size(tokens.indicatorDot)
-                    .clip(CircleShape)
-                    .background(parseHexColor(currentStatus.colorHex)),
-            )
-            Text(
-                text = currentStatus.displayName,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = colors.textBase,
-            )
-            Icon(
-                imageVector = Icons.Filled.ArrowDropDown,
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                tint = colors.textSubtle,
-            )
-        }
-
-        if (expanded) {
-            Popup(
-                onDismissRequest = { expanded = false },
-                popupPositionProvider = object : PopupPositionProvider {
-                    override fun calculatePosition(
-                        anchorBounds: IntRect,
-                        windowSize: IntSize,
-                        layoutDirection: LayoutDirection,
-                        popupContentSize: IntSize,
-                    ): IntOffset = IntOffset(anchorBounds.left, anchorBounds.bottom)
-                },
-                properties = PopupProperties(focusable = true),
+    AnimatedContent(
+        targetState = expanded,
+        modifier = modifier,
+        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        label = "agent-status-toggle",
+    ) { isExpanded ->
+        if (isExpanded) {
+            // Expanded: inline row of status dots
+            Row(
+                modifier = Modifier
+                    .clip(tokens.shapeSmall)
+                    .background(colors.backgroundBase)
+                    .padding(horizontal = tokens.spacingXs, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
             ) {
-                Surface(
-                    shape = tokens.shapeMedium,
-                    shadowElevation = tokens.elevationMedium,
-                    color = colors.backgroundBase,
-                ) {
-                    Column(modifier = Modifier.widthIn(min = 160.dp)) {
-                        AgentStatus.entries.forEach { status ->
-                            Row(
-                                modifier = Modifier
-                                    .pointerHoverIcon(PointerIcon.Hand)
-                                    .clickable {
-                                        onStatusSelected(status)
-                                        expanded = false
-                                    }
-                                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm),
-                            ) {
-                                Box(
-                                    Modifier
-                                        .size(tokens.indicatorDot)
-                                        .clip(CircleShape)
-                                        .background(parseHexColor(status.colorHex)),
+                AgentStatus.entries.forEach { status ->
+                    val statusColor = parseHexColor(status.colorHex)
+                    val isCurrentStatus = status == currentStatus
+
+                    TooltipBox(
+                        positionProvider = androidx.compose.material3.TooltipDefaults.rememberPlainTooltipPositionProvider(),
+                        tooltip = { PlainTooltip { Text(status.displayName) } },
+                        state = rememberTooltipState(),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .pointerHoverIcon(PointerIcon.Hand)
+                                .clip(CircleShape)
+                                .then(
+                                    if (isCurrentStatus) {
+                                        Modifier
+                                            .background(statusColor.copy(alpha = 0.2f), CircleShape)
+                                            .padding(3.dp)
+                                    } else {
+                                        Modifier.padding(3.dp)
+                                    },
                                 )
-                                Text(
-                                    text = status.displayName,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = colors.textBase,
-                                )
-                            }
+                                .clickable {
+                                    onStatusSelected(status)
+                                    expanded = false
+                                },
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(if (isCurrentStatus) 12.dp else tokens.indicatorDot)
+                                    .clip(CircleShape)
+                                    .background(statusColor),
+                            )
                         }
                     }
                 }
+            }
+        } else {
+            // Collapsed: dot + name + arrow
+            Row(
+                modifier = Modifier
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clip(tokens.shapeSmall)
+                    .clickable { expanded = true }
+                    .padding(horizontal = tokens.spacingXs, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(tokens.spacingXs),
+            ) {
+                Box(
+                    Modifier
+                        .size(tokens.indicatorDot)
+                        .clip(CircleShape)
+                        .background(parseHexColor(currentStatus.colorHex)),
+                )
+                Text(
+                    text = currentStatus.displayName,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = colors.textBase,
+                )
+                Icon(
+                    imageVector = Icons.Filled.ArrowDropDown,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = colors.textSubtle,
+                )
             }
         }
     }

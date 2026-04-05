@@ -10,13 +10,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,17 +28,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
+/**
+ * Settings button that opens an AlertDialog instead of a Popup.
+ * AlertDialog creates a real OS-level dialog window, which avoids z-order
+ * issues with heavyweight SwingPanel (JCEF browser).
+ */
 @Composable
 fun SettingsPopover(
     isDarkTheme: Boolean,
@@ -65,36 +64,23 @@ fun SettingsPopover(
         }
 
         if (expanded) {
-            Popup(
+            AlertDialog(
                 onDismissRequest = { expanded = false },
-                popupPositionProvider = object : PopupPositionProvider {
-                    override fun calculatePosition(
-                        anchorBounds: IntRect,
-                        windowSize: IntSize,
-                        layoutDirection: LayoutDirection,
-                        popupContentSize: IntSize,
-                    ): IntOffset = IntOffset(
-                        x = anchorBounds.right - popupContentSize.width,
-                        y = anchorBounds.bottom,
+                title = {
+                    Text(
+                        text = Strings.SETTINGS_TITLE,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colors.textBase,
                     )
                 },
-                properties = PopupProperties(focusable = true),
-            ) {
-                Surface(
-                    shape = tokens.shapeMedium,
-                    shadowElevation = tokens.elevationMedium,
-                    color = colors.backgroundBase,
-                ) {
+                text = {
                     Column(modifier = Modifier.widthIn(min = 200.dp)) {
                         // Theme toggle row
                         Row(
                             modifier = Modifier
                                 .pointerHoverIcon(PointerIcon.Hand)
                                 .clickable { onThemeToggle() }
-                                .padding(
-                                    horizontal = tokens.spacingMd,
-                                    vertical = tokens.spacingSm,
-                                ),
+                                .padding(vertical = tokens.spacingSm),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm),
                         ) {
@@ -118,31 +104,9 @@ fun SettingsPopover(
 
                         HorizontalDivider()
 
-                        // Logout
-                        Text(
-                            text = Strings.SETTINGS_LOGOUT,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = colors.errorText,
-                            modifier = Modifier
-                                .pointerHoverIcon(PointerIcon.Hand)
-                                .clickable {
-                                    expanded = false
-                                    onLogout()
-                                }
-                                .padding(
-                                    horizontal = tokens.spacingMd,
-                                    vertical = tokens.spacingSm,
-                                ),
-                        )
-
-                        HorizontalDivider()
-
                         // Version
                         Box(
-                            modifier = Modifier.padding(
-                                horizontal = tokens.spacingMd,
-                                vertical = tokens.spacingSm,
-                            ),
+                            modifier = Modifier.padding(vertical = tokens.spacingSm),
                         ) {
                             Text(
                                 text = "v1.0.0",
@@ -151,8 +115,26 @@ fun SettingsPopover(
                             )
                         }
                     }
-                }
-            }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            expanded = false
+                            onLogout()
+                        },
+                    ) {
+                        Text(
+                            text = Strings.SETTINGS_LOGOUT,
+                            color = colors.errorText,
+                        )
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { expanded = false }) {
+                        Text("Close")
+                    }
+                },
+            )
         }
     }
 }
