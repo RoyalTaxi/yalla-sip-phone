@@ -97,7 +97,7 @@ class PjsipCallManager(
     }
 
     /**
-     * Mute: uses stopTransmit/startTransmit on capture media instead of adjustRxLevel.
+     * Mute fix: uses stopTransmit/startTransmit on capture media instead of adjustRxLevel.
      * The adjustRxLevel approach was unreliable. startTransmit/stopTransmit directly controls
      * whether our microphone audio reaches the remote call media.
      *
@@ -106,8 +106,64 @@ class PjsipCallManager(
     suspend fun toggleMute() {
         val state = _callState.value
         if (state !is CallState.Active) return
-        applyMuteState(call = currentCall ?: return, muted = !state.isMuted)
-        _callState.value = state.copy(isMuted = !state.isMuted)
+        val call = currentCall ?: return
+        try {
+            val callInfo = call.getInfo()
+            val mediaCount = callInfo.media.size
+            try {
+                for (i in 0 until mediaCount) {
+                    val mediaInfo = callInfo.media[i]
+                    if (mediaInfo.type == org.pjsip.pjsua2.pjmedia_type.PJMEDIA_TYPE_AUDIO &&
+                        mediaInfo.status == org.pjsip.pjsua2.pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
+                    ) {
+                        val audioMedia = call.getAudioMedia(i)
+                        val captureMedia = audioMediaProvider.getCaptureDevMedia()
+                        if (state.isMuted) {
+                            captureMedia.startTransmit(audioMedia)
+                        } else {
+                            captureMedia.stopTransmit(audioMedia)
+                        }
+                        break
+                    }
+                }
+            } finally {
+                callInfo.delete()
+            }
+            _callState.value = state.copy(isMuted = !state.isMuted)
+        } catch (e: Exception) {
+            logger.error(e) { "toggleMute failed" }
+        }
+    }
+
+    /**
+     * Hold fix: holdInProgress guard prevents PJ_EINVALIDOP when a re-INVITE is still in-flight.
+     */
+    suspend fun toggleHold() {
+        val state = _callState.value
+        if (state !is CallState.Active) return
+        if (holdInProgress) {
+            logger.warn { "Hold/resume operation already in progress, ignoring" }
+            return
+        }
+        val call = currentCall ?: return
+        holdInProgress = true
+        try {
+            val prm = CallOpParam()
+            try {
+                if (state.isOnHold) {
+                    prm.opt.flag = 0
+                    call.reinvite(prm)
+                } else {
+                    call.setHold(prm)
+                }
+            } finally {
+                prm.delete()
+            }
+            _callState.value = state.copy(isOnHold = !state.isOnHold)
+        } catch (e: Exception) {
+            holdInProgress = false
+            logger.error(e) { "toggleHold failed" }
+        }
     }
 
     suspend fun setMute(callId: String, muted: Boolean) {
@@ -118,44 +174,7 @@ class PjsipCallManager(
             return
         }
         if (state.isMuted == muted) return
-        applyMuteState(call = currentCall ?: return, muted = muted)
-        _callState.value = state.copy(isMuted = muted)
-    }
-
-    /**
-     * Hold: holdInProgress guard prevents PJ_EINVALIDOP when a re-INVITE is still in-flight.
-     */
-    suspend fun toggleHold() {
-        val state = _callState.value
-        if (state !is CallState.Active) return
-        if (holdInProgress) {
-            logger.warn { "Hold/resume operation already in progress, ignoring" }
-            return
-        }
-        applyHoldState(call = currentCall ?: return, onHold = !state.isOnHold)
-        _callState.value = state.copy(isOnHold = !state.isOnHold)
-    }
-
-    suspend fun setHold(callId: String, onHold: Boolean) {
-        val state = _callState.value
-        if (state !is CallState.Active) return
-        if (state.callId != callId) {
-            logger.warn { "setHold: callId mismatch (expected=${state.callId}, got=$callId)" }
-            return
-        }
-        if (state.isOnHold == onHold) return
-        if (holdInProgress) {
-            logger.warn { "Hold/resume operation already in progress, ignoring" }
-            return
-        }
-        applyHoldState(call = currentCall ?: return, onHold = onHold)
-        _callState.value = state.copy(isOnHold = onHold)
-    }
-
-    /**
-     * Common mute logic: iterates call audio media and starts/stops capture transmission.
-     */
-    private fun applyMuteState(call: PjsipCall, muted: Boolean) {
+        val call = currentCall ?: return
         try {
             val callInfo = call.getInfo()
             val mediaCount = callInfo.media.size
@@ -178,15 +197,25 @@ class PjsipCallManager(
             } finally {
                 callInfo.delete()
             }
+            _callState.value = state.copy(isMuted = muted)
         } catch (e: Exception) {
-            logger.error(e) { "applyMuteState failed (muted=$muted)" }
+            logger.error(e) { "setMute failed" }
         }
     }
 
-    /**
-     * Common hold logic: sends hold or reinvite with holdInProgress guard.
-     */
-    private fun applyHoldState(call: PjsipCall, onHold: Boolean) {
+    suspend fun setHold(callId: String, onHold: Boolean) {
+        val state = _callState.value
+        if (state !is CallState.Active) return
+        if (state.callId != callId) {
+            logger.warn { "setHold: callId mismatch (expected=${state.callId}, got=$callId)" }
+            return
+        }
+        if (state.isOnHold == onHold) return
+        if (holdInProgress) {
+            logger.warn { "Hold/resume operation already in progress, ignoring" }
+            return
+        }
+        val call = currentCall ?: return
         holdInProgress = true
         try {
             val prm = CallOpParam()
@@ -200,9 +229,10 @@ class PjsipCallManager(
             } finally {
                 prm.delete()
             }
+            _callState.value = state.copy(isOnHold = onHold)
         } catch (e: Exception) {
             holdInProgress = false
-            logger.error(e) { "applyHoldState failed (onHold=$onHold)" }
+            logger.error(e) { "setHold failed" }
         }
     }
 

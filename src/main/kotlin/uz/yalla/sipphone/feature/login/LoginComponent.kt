@@ -18,6 +18,13 @@ import uz.yalla.sipphone.domain.SipCredentials
 
 private val logger = KotlinLogging.logger {}
 
+sealed interface LoginState {
+    data object Idle : LoginState
+    data object Loading : LoginState
+    data class Error(val message: String) : LoginState
+    data class Authenticated(val authResult: AuthResult) : LoginState
+}
+
 class LoginComponent(
     componentContext: ComponentContext,
     private val authRepository: AuthRepository,
@@ -69,11 +76,11 @@ class LoginComponent(
         }
     }
 
-    fun manualConnect(server: String, port: Int, username: String, password: String, dispatcherUrl: String = "") {
+    fun manualConnect(server: String, port: Int, username: String, password: String) {
         val credentials = SipCredentials(server = server, port = port, username = username, password = password)
         lastAuthResult = AuthResult(
             sipCredentials = credentials,
-            dispatcherUrl = dispatcherUrl,
+            dispatcherUrl = "",
             agent = AgentInfo("manual", username),
         )
         _loginState.value = LoginState.Loading

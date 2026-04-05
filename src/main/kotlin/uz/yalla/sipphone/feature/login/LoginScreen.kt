@@ -42,7 +42,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -175,9 +174,9 @@ fun LoginScreen(component: LoginComponent) {
             if (showManualDialog) {
                 ManualConnectionDialog(
                     isLoading = isLoading,
-                    onConnect = { server, port, username, pwd, url ->
+                    onConnect = { server, port, username, pwd ->
                         showManualDialog = false
-                        component.manualConnect(server, port, username, pwd, url)
+                        component.manualConnect(server, port, username, pwd)
                     },
                     onDismiss = { showManualDialog = false },
                 )
@@ -187,7 +186,7 @@ fun LoginScreen(component: LoginComponent) {
 
             // Version
             Text(
-                text = SipConstants.APP_VERSION_DISPLAY,
+                text = "v1.0.0",
                 color = colors.textSubtle,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -198,7 +197,7 @@ fun LoginScreen(component: LoginComponent) {
 @Composable
 private fun ManualConnectionDialog(
     isLoading: Boolean,
-    onConnect: (server: String, port: Int, username: String, password: String, dispatcherUrl: String) -> Unit,
+    onConnect: (server: String, port: Int, username: String, password: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tokens = LocalAppTokens.current
@@ -207,7 +206,6 @@ private fun ManualConnectionDialog(
     var port by remember { mutableStateOf("5060") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var dispatcherUrl by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -257,21 +255,11 @@ private fun ManualConnectionDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = tokens.shapeMedium,
                 )
-                OutlinedTextField(
-                    value = dispatcherUrl,
-                    onValueChange = { dispatcherUrl = it },
-                    label = { Text("Dispatcher URL") },
-                    placeholder = { Text("http://192.168.0.234:5173/orders", style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f)) },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = tokens.shapeMedium,
-                )
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConnect(server, port.toIntOrNull() ?: 5060, username, password, dispatcherUrl) },
+                onClick = { onConnect(server, port.toIntOrNull() ?: 5060, username, password) },
                 enabled = !isLoading && server.isNotEmpty() && username.isNotEmpty(),
                 shape = tokens.shapeMedium,
             ) {

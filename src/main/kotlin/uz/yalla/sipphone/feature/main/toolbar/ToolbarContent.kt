@@ -208,14 +208,13 @@ private fun ZoneBContent(
                 cursorBrush = if (isFocused) SolidColor(colors.brandPrimary) else SolidColor(Color.Transparent),
                 decorationBox = { innerTextField ->
                     Box(
-                        modifier = Modifier
+                        Modifier
                             .fillMaxWidth()
                             .background(
                                 if (isFocused) colors.backgroundBase else colors.backgroundBase.copy(alpha = 0.5f),
                                 shape = RoundedCornerShape(6.dp),
                             )
                             .padding(horizontal = 8.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.CenterStart,
                     ) {
                         if (phoneInput.isEmpty()) {
                             Text(

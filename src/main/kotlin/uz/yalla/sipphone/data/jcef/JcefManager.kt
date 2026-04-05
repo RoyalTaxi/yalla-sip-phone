@@ -26,7 +26,6 @@ class JcefManager {
     private var cefApp: CefApp? = null
     private var cefClient: CefClient? = null
     private var browser: CefBrowser? = null
-    private var messageLoopTimer: javax.swing.Timer? = null
 
     @Volatile
     private var isBrowserClosed = false
@@ -47,14 +46,9 @@ class JcefManager {
             val builder = CefAppBuilder()
             builder.setInstallDir(File("jcef-bundle"))
 
-            val cacheDir = File(System.getProperty("user.home"), ".yalla-sip-phone/cef-cache")
-            cacheDir.mkdirs()
-
             builder.cefSettings.apply {
                 windowless_rendering_enabled = false
                 log_severity = CefSettings.LogSeverity.LOGSEVERITY_WARNING
-                root_cache_path = cacheDir.absolutePath
-                cache_path = File(cacheDir, "default").absolutePath
                 if (debugPort > 0) {
                     remote_debugging_port = debugPort
                 }
@@ -65,18 +59,6 @@ class JcefManager {
             logger.info { "Building CefApp via jcefmaven (first run downloads ~100MB Chromium)..." }
             cefApp = builder.build()
             cefClient = cefApp!!.createClient()
-
-            // Compose Desktop's Skiko renderer monopolizes EDT, preventing CEF's internal
-            // message loop timer from firing. Manually pump CEF events every 10ms.
-            messageLoopTimer = javax.swing.Timer(10) {
-                try {
-                    val method = CefApp::class.java.getDeclaredMethod("N_DoMessageLoopWork")
-                    method.isAccessible = true
-                    method.invoke(cefApp)
-                } catch (_: Exception) {}
-            }
-            messageLoopTimer?.start()
-            logger.info { "CEF message loop pump started" }
 
             // Block all popup windows — dispatcher UI must stay in our single browser
             cefClient!!.addLifeSpanHandler(object : CefLifeSpanHandlerAdapter() {
@@ -106,10 +88,7 @@ class JcefManager {
         val client = cefClient ?: throw IllegalStateException("JCEF not initialized — call initialize() first")
         isBrowserClosed = false
 
-        val create = {
-            browser = client.createBrowser(url, false, false)
-            browser!!.createImmediately()
-        }
+        val create = { browser = client.createBrowser(url, false, false) }
         if (SwingUtilities.isEventDispatchThread()) create() else SwingUtilities.invokeAndWait(create)
 
         logger.info { "Browser created for URL: $url" }
@@ -176,9 +155,6 @@ class JcefManager {
 
         val shutdownWork = Runnable {
             try {
-                messageLoopTimer?.stop()
-                messageLoopTimer = null
-
                 browser?.let { b ->
                     b.stopLoad()
                     b.close(true)

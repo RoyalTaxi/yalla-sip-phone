@@ -1,11 +1,13 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -19,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,7 +35,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
-import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -105,7 +107,7 @@ fun SettingsPopover(
 
                             // Version
                             Text(
-                                text = SipConstants.APP_VERSION_DISPLAY,
+                                text = "v1.0.0",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = dlgColors.textSubtle,
                                 modifier = Modifier.padding(vertical = dlgTokens.spacingSm),

@@ -68,11 +68,6 @@ compose.desktop {
 
         jvmArgs += "-Dpjsip.library.path=${projectDir}/libs"
 
-        // Force OpenGL on Windows only (Direct3D crashes with JCEF SwingPanel)
-        if (System.getProperty("os.name").lowercase().contains("win")) {
-            jvmArgs += "-Dskiko.renderApi=OPENGL"
-        }
-
         // Required for jcefmaven on macOS with JDK 16+
         jvmArgs += listOf(
             "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",

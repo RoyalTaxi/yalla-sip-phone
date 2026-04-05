@@ -1,35 +1,18 @@
 package uz.yalla.sipphone
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
-import androidx.compose.ui.window.rememberDialogState
 import androidx.compose.ui.window.rememberWindowState
-import uz.yalla.sipphone.ui.theme.LocalAppTokens
-import uz.yalla.sipphone.ui.theme.LocalYallaColors
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.decompose.extensions.compose.lifecycle.LifecycleController
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
@@ -118,61 +101,26 @@ fun main() {
             Strings.APP_TITLE
         }
 
-        var showLogoutConfirm by remember { mutableStateOf(false) }
-
-        // Logout confirmation as a real OS dialog window (above alwaysOnTop main window)
-        if (showLogoutConfirm) {
-            DialogWindow(
-                onCloseRequest = { showLogoutConfirm = false },
-                title = Strings.SETTINGS_LOGOUT_CONFIRM_TITLE,
-                state = rememberDialogState(size = DpSize(340.dp, 180.dp)),
-                resizable = false,
-                alwaysOnTop = true,
-            ) {
-                YallaSipPhoneTheme(isDark = isDarkTheme) {
-                    val dlgColors = LocalYallaColors.current
-                    val dlgTokens = LocalAppTokens.current
-                    Surface(color = dlgColors.backgroundBase, modifier = Modifier.fillMaxSize()) {
-                        Column(
-                            modifier = Modifier.padding(dlgTokens.spacingLg),
-                            verticalArrangement = Arrangement.SpaceBetween,
-                        ) {
-                            Text(
-                                text = Strings.SETTINGS_LOGOUT_CONFIRM,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = dlgColors.textBase,
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(dlgTokens.spacingSm, Alignment.End),
-                            ) {
-                                OutlinedButton(onClick = { showLogoutConfirm = false }) {
-                                    Text("Cancel")
-                                }
-                                Button(
-                                    onClick = {
-                                        showLogoutConfirm = false
-                                        runBlocking {
-                                            withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
-                                        }
-                                        jcefManager.shutdown()
-                                        exitApplication()
-                                    },
-                                    colors = ButtonDefaults.buttonColors(containerColor = dlgColors.errorIndicator),
-                                ) {
-                                    Text("Logout")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
         Window(
             onCloseRequest = {
                 if (isMainScreen) {
-                    showLogoutConfirm = true
+                    // Create dialog with alwaysOnTop to appear above our alwaysOnTop window
+                    val pane = javax.swing.JOptionPane(
+                        Strings.SETTINGS_LOGOUT_CONFIRM,
+                        javax.swing.JOptionPane.QUESTION_MESSAGE,
+                        javax.swing.JOptionPane.YES_NO_OPTION,
+                    )
+                    val dialog = pane.createDialog(null, Strings.SETTINGS_LOGOUT_CONFIRM_TITLE)
+                    dialog.isAlwaysOnTop = true
+                    dialog.isVisible = true
+                    val confirm = pane.value as? Int ?: javax.swing.JOptionPane.NO_OPTION
+                    if (confirm == javax.swing.JOptionPane.YES_OPTION) {
+                        runBlocking {
+                            withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
+                        }
+                        jcefManager.shutdown()
+                        exitApplication()
+                    }
                 } else {
                     exitApplication()
                 }
