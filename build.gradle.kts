@@ -4,6 +4,7 @@ plugins {
     kotlin("jvm") version "2.1.20"
     id("org.jetbrains.compose") version "1.8.2"
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
+    id("org.jetbrains.compose.hot-reload") version "1.0.0"
     kotlin("plugin.serialization") version "2.1.20"
 }
 
