@@ -88,9 +88,8 @@ class JcefManager {
         val client = cefClient ?: throw IllegalStateException("JCEF not initialized — call initialize() first")
         isBrowserClosed = false
 
-        SwingUtilities.invokeAndWait {
-            browser = client.createBrowser(url, false, false)
-        }
+        val create = { browser = client.createBrowser(url, false, false) }
+        if (SwingUtilities.isEventDispatchThread()) create() else SwingUtilities.invokeAndWait(create)
 
         logger.info { "Browser created for URL: $url" }
         return browser!!
