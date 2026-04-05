@@ -80,8 +80,8 @@ compose.desktop {
     application {
         mainClass = "uz.yalla.sipphone.MainKt"
 
-        // JVM args for packaged app — no --add-opens here, handled in hotRun tasks only
-        // jpackage on Windows crashes with --add-opens in .cfg file
+        // pjsip native lib path — for dev mode (gradlew run)
+        jvmArgs += "-Dpjsip.library.path=${projectDir}/libs"
 
         nativeDistributions {
             includeAllModules = true
