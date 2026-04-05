@@ -111,3 +111,16 @@ compose.desktop {
         }
     }
 }
+
+// Fix JCEF helper executable permissions after packaging (macOS strips +x from app-resources)
+tasks.matching { it.name == "createDistributable" || it.name == "packageDmg" }.configureEach {
+    doLast {
+        val appDir = layout.buildDirectory.dir("compose/binaries/main/app").get().asFile
+        appDir.walkTopDown()
+            .filter { it.name.startsWith("jcef Helper") && it.isFile && it.parentFile.name == "MacOS" }
+            .forEach { helper ->
+                helper.setExecutable(true)
+                logger.lifecycle("Fixed +x permission: ${helper.absolutePath}")
+            }
+    }
+}
