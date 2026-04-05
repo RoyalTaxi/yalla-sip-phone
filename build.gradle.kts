@@ -84,7 +84,7 @@ compose.desktop {
         // jpackage on Windows crashes with --add-opens in .cfg file
 
         nativeDistributions {
-            modules("java.naming")
+            includeAllModules = true
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "YallaSipPhone"
             packageVersion = "1.0.0"
