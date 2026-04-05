@@ -153,29 +153,38 @@ class JcefManager {
         val app = cefApp ?: return
         logger.info { "Shutting down JCEF..." }
 
-        val isEdtAlive = !isBrowserClosed && SwingUtilities.isEventDispatchThread()
-            || runCatching { SwingUtilities.invokeAndWait {} }.isSuccess
+        val shutdownWork = Runnable {
+            try {
+                browser?.let { b ->
+                    b.stopLoad()
+                    b.close(true)
+                    isBrowserClosed = true
+                }
+                browser = null
 
-        if (!isEdtAlive) {
-            logger.warn { "EDT not available, skipping graceful JCEF shutdown" }
-            cefApp = null
-            cefClient = null
-            browser = null
-            return
+                cefClient?.dispose()
+                cefClient = null
+                app.dispose()
+                cefApp = null
+            } catch (e: Exception) {
+                logger.warn(e) { "JCEF shutdown error (non-fatal)" }
+                cefApp = null
+                cefClient = null
+                browser = null
+            }
         }
 
-        SwingUtilities.invokeAndWait {
-            browser?.let { b ->
-                b.stopLoad()
-                b.close(true)
-                isBrowserClosed = true
+        if (SwingUtilities.isEventDispatchThread()) {
+            shutdownWork.run()
+        } else {
+            try {
+                SwingUtilities.invokeAndWait(shutdownWork)
+            } catch (e: Exception) {
+                logger.warn(e) { "JCEF shutdown via EDT failed (non-fatal)" }
+                cefApp = null
+                cefClient = null
+                browser = null
             }
-            browser = null
-
-            cefClient?.dispose()
-            cefClient = null
-            app.dispose()
-            cefApp = null
         }
 
         logger.info { "JCEF shutdown complete" }
