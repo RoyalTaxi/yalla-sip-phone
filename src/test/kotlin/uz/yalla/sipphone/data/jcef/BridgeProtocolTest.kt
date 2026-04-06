@@ -1,7 +1,9 @@
-// src/test/kotlin/uz/yalla/sipphone/data/jcef/BridgeProtocolTest.kt
 package uz.yalla.sipphone.data.jcef
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -40,11 +42,19 @@ class BridgeProtocolTest {
     }
 
     @Test
-    fun `serialize command success result`() {
-        val result = CommandResult.success(mapOf("callId" to "uuid-456"))
+    fun `serialize command success result with data`() {
+        val result = CommandResult.success(buildJsonObject { put("callId", "uuid-456") })
         val jsonStr = json.encodeToString(CommandResult.serializer(), result)
         assertTrue(jsonStr.contains("true"))
         assertTrue(jsonStr.contains("uuid-456"))
+    }
+
+    @Test
+    fun `serialize command success result without data`() {
+        val result = CommandResult.success()
+        val jsonStr = json.encodeToString(CommandResult.serializer(), result)
+        assertTrue(jsonStr.contains("true"))
+        assertTrue(jsonStr.contains("null"))
     }
 
     @Test

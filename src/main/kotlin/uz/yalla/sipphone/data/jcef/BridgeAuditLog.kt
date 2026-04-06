@@ -10,7 +10,7 @@ class BridgeAuditLog {
 
     fun logCommand(command: String, params: Map<String, String>, result: String) {
         val masked = formatEntry(command, params)
-        logger.info { "BRIDGE CMD: $masked → $result" }
+        logger.debug { "BRIDGE CMD: $masked → $result" }
     }
 
     fun logEvent(eventName: String, payloadJson: String) {

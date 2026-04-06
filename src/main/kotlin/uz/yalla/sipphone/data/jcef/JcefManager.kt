@@ -63,7 +63,6 @@ class JcefManager {
             } else {
                 File("jcef-bundle")
             }
-            logger.info { "JCEF install dir: ${jcefDir.absolutePath} (exists=${jcefDir.exists()})" }
             builder.setInstallDir(jcefDir)
 
             builder.cefSettings.apply {
@@ -74,7 +73,6 @@ class JcefManager {
 
             builder.setAppHandler(object : MavenCefAppHandlerAdapter() {})
 
-            logger.info { "Building CefApp via jcefmaven (first run downloads ~100MB Chromium)..." }
             cefApp = builder.build()
             cefClient = cefApp!!.createClient()
 
@@ -85,13 +83,8 @@ class JcefManager {
                     frame: CefFrame?,
                     targetUrl: String?,
                     targetFrameName: String?,
-                ): Boolean {
-                    logger.debug { "Blocked popup: $targetUrl" }
-                    return true // true = cancel popup
-                }
+                ): Boolean = true
             })
-
-            logger.info { "JCEF initialized successfully" }
         }
     }
 
@@ -108,8 +101,6 @@ class JcefManager {
 
         val create = { browser = client.createBrowser(url, false, false) }
         if (SwingUtilities.isEventDispatchThread()) create() else SwingUtilities.invokeAndWait(create)
-
-        logger.info { "Browser created for URL: $url" }
         return browser!!
     }
 
@@ -134,10 +125,7 @@ class JcefManager {
 
         client.addLoadHandler(object : CefLoadHandlerAdapter() {
             override fun onLoadEnd(browser: CefBrowser, frame: CefFrame, httpStatusCode: Int) {
-                if (frame.isMain) {
-                    logger.info { "Page loaded (status=$httpStatusCode), injecting bridge script" }
-                    onPageLoadEnd(browser)
-                }
+                if (frame.isMain) onPageLoadEnd(browser)
             }
 
             override fun onLoadStart(
@@ -145,14 +133,9 @@ class JcefManager {
                 frame: CefFrame,
                 transitionType: CefRequest.TransitionType,
             ) {
-                if (frame.isMain) {
-                    logger.info { "Page load started, resetting handshake" }
-                    onPageLoadStart()
-                }
+                if (frame.isMain) onPageLoadStart()
             }
         })
-
-        logger.info { "Bridge setup complete" }
     }
 
     fun getBrowser(): CefBrowser? = browser
@@ -169,8 +152,6 @@ class JcefManager {
      */
     fun shutdown() {
         val app = cefApp ?: return
-        logger.info { "Shutting down JCEF..." }
-
         val shutdownWork = Runnable {
             try {
                 browser?.let { b ->
@@ -205,6 +186,5 @@ class JcefManager {
             }
         }
 
-        logger.info { "JCEF shutdown complete" }
     }
 }

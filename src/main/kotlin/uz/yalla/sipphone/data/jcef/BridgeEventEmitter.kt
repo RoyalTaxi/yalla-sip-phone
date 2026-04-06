@@ -1,7 +1,6 @@
 // src/main/kotlin/uz/yalla/sipphone/data/jcef/BridgeEventEmitter.kt
 package uz.yalla.sipphone.data.jcef
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.encodeToString
 import org.cef.browser.CefBrowser
 import uz.yalla.sipphone.domain.AgentInfo
@@ -9,8 +8,6 @@ import uz.yalla.sipphone.domain.SipConstants
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-
-private val logger = KotlinLogging.logger {}
 
 /**
  * Emits typed SIP events from Kotlin to the embedded JCEF browser page via `window.__yallaSipEmit`.
@@ -58,7 +55,6 @@ class BridgeEventEmitter(
     fun injectBridgeScript(browser: CefBrowser) {
         currentBrowser = browser
         browser.executeJavaScript(BRIDGE_SCRIPT, browser.url ?: "", 0)
-        logger.info { "Bridge script injected" }
     }
 
     /**
@@ -95,18 +91,11 @@ class BridgeEventEmitter(
         auditLog.logEvent(eventName, payloadJson)
 
         if (!handshakeComplete.get()) {
-            // Buffer event as serialized JSON wrapper
-            val wrapper = """{"event":"$eventName","data":$payloadJson}"""
-            bufferedEvents.add(wrapper)
-            logger.debug { "Buffered event: $eventName (handshake pending)" }
+            bufferedEvents.add("""{"event":"$eventName","data":$payloadJson}""")
             return
         }
 
-        val browser = currentBrowser
-        if (browser == null) {
-            logger.warn { "Cannot emit event $eventName — no browser" }
-            return
-        }
+        val browser = currentBrowser ?: return
 
         // Safe: payloadJson is from kotlinx.serialization, eventName is from our enum
         val js = "window.__yallaSipEmit && window.__yallaSipEmit('$eventName', $payloadJson);"
@@ -189,6 +178,17 @@ class BridgeEventEmitter(
         }
     };
 
+    // CefMessageRouter uses callbacks, not Promises — wrap in Promise
+    function query(cmd) {
+        return new Promise(function(resolve, reject) {
+            window.yallaSipQuery({
+                request: JSON.stringify(cmd),
+                onSuccess: function(response) { resolve(JSON.parse(response)); },
+                onFailure: function(code, msg) { reject(new Error(code + ': ' + msg)); }
+            });
+        });
+    }
+
     window.YallaSIP = {
         on: function(event, handler) {
             if (!listeners[event]) listeners[event] = [];
@@ -203,49 +203,138 @@ class BridgeEventEmitter(
             var idx = listeners[event].indexOf(handler);
             if (idx >= 0) listeners[event].splice(idx, 1);
         },
-        ready: function() {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: '_ready' }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        makeCall: function(number) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'makeCall', params: { number: number } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        answer: function(callId) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'answer', params: { callId: callId } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        reject: function(callId) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'reject', params: { callId: callId } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        hangup: function(callId) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'hangup', params: { callId: callId } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        setMute: function(callId, muted) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'setMute', params: { callId: callId, muted: String(muted) } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        setHold: function(callId, onHold) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'setHold', params: { callId: callId, onHold: String(onHold) } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        setAgentStatus: function(status) {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'setAgentStatus', params: { status: status } }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        getState: function() {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'getState' }) })
-                .then(function(r) { return JSON.parse(r); });
-        },
-        getVersion: function() {
-            return window.yallaSipQuery({ request: JSON.stringify({ command: 'getVersion' }) })
-                .then(function(r) { return JSON.parse(r); });
-        }
+        ready: function() { return query({ command: '_ready' }); },
+        makeCall: function(number) { return query({ command: 'makeCall', params: { number: number } }); },
+        answer: function(callId) { return query({ command: 'answer', params: { callId: callId } }); },
+        reject: function(callId) { return query({ command: 'reject', params: { callId: callId } }); },
+        hangup: function(callId) { return query({ command: 'hangup', params: { callId: callId } }); },
+        setMute: function(callId, muted) { return query({ command: 'setMute', params: { callId: callId, muted: String(muted) } }); },
+        setHold: function(callId, onHold) { return query({ command: 'setHold', params: { callId: callId, onHold: String(onHold) } }); },
+        sendDtmf: function(callId, digits) { return query({ command: 'sendDtmf', params: { callId: callId, digits: digits } }); },
+        transferCall: function(callId, destination) { return query({ command: 'transferCall', params: { callId: callId, destination: destination } }); },
+        setAgentStatus: function(status) { return query({ command: 'setAgentStatus', params: { status: status } }); },
+        getState: function() { return query({ command: 'getState' }).then(function(r) { return r.data; }); },
+        getVersion: function() { return query({ command: 'getVersion' }).then(function(r) { return r.data; }); },
+
+        // --- Simulator for DevTools testing ---
+        simulate: (function() {
+            var seq = 0;
+            var call = null;
+            var timer = null;
+
+            function emit(event, data) {
+                data.seq = ++seq;
+                data.timestamp = Date.now();
+                window.__yallaSipEmit(event, data);
+                console.log('[simulate] ' + event, data);
+            }
+
+            return {
+                // Incoming call: simulate.incoming('998901234567')
+                incoming: function(number) {
+                    if (call) { console.warn('[simulate] Already in call, hangup first'); return; }
+                    call = { callId: 'sim-' + Date.now(), number: number || '+998901234567', direction: 'inbound', start: 0 };
+                    emit('incomingCall', { callId: call.callId, number: call.number, direction: 'inbound' });
+                    return call.callId;
+                },
+
+                // Outgoing call: simulate.outgoing('102')
+                outgoing: function(number) {
+                    if (call) { console.warn('[simulate] Already in call, hangup first'); return; }
+                    call = { callId: 'sim-' + Date.now(), number: number || '102', direction: 'outbound', start: 0 };
+                    emit('outgoingCall', { callId: call.callId, number: call.number, direction: 'outbound' });
+                    return call.callId;
+                },
+
+                // Answer/connect: simulate.answer()
+                answer: function() {
+                    if (!call) { console.warn('[simulate] No call to answer'); return; }
+                    call.start = Date.now();
+                    emit('callConnected', { callId: call.callId, number: call.number, direction: call.direction });
+                },
+
+                // Mute toggle: simulate.mute() / simulate.mute(false)
+                mute: function(muted) {
+                    if (!call) { console.warn('[simulate] No active call'); return; }
+                    call.isMuted = muted !== false;
+                    emit('callMuteChanged', { callId: call.callId, isMuted: call.isMuted });
+                },
+
+                // Hold toggle: simulate.hold() / simulate.hold(false)
+                hold: function(onHold) {
+                    if (!call) { console.warn('[simulate] No active call'); return; }
+                    call.isOnHold = onHold !== false;
+                    emit('callHoldChanged', { callId: call.callId, isOnHold: call.isOnHold });
+                },
+
+                // Hangup: simulate.hangup('missed')
+                hangup: function(reason) {
+                    if (!call) { console.warn('[simulate] No call to hangup'); return; }
+                    var duration = call.start ? Math.floor((Date.now() - call.start) / 1000) : 0;
+                    emit('callEnded', { callId: call.callId, number: call.number, direction: call.direction, duration: duration, reason: reason || 'hangup' });
+                    call = null;
+                },
+
+                // Busy reject: simulate.busy('998907654321')
+                busy: function(number) {
+                    emit('callRejectedBusy', { number: number || '+998907654321' });
+                },
+
+                // Connection change: simulate.disconnect() / simulate.reconnect() / simulate.connect()
+                disconnect: function() { emit('connectionChanged', { state: 'disconnected', attempt: 0 }); },
+                reconnect: function(attempt) { emit('connectionChanged', { state: 'reconnecting', attempt: attempt || 1 }); },
+                connect: function() { emit('connectionChanged', { state: 'connected', attempt: 0 }); },
+
+                // Full scenario: simulate.callFlow() — incoming → answer → mute → unmute → hold → unhold → hangup
+                callFlow: function(number) {
+                    var self = this;
+                    var steps = [
+                        function() { self.incoming(number); },
+                        function() { self.answer(); },
+                        function() { self.mute(); },
+                        function() { self.mute(false); },
+                        function() { self.hold(); },
+                        function() { self.hold(false); },
+                        function() { self.hangup(); },
+                    ];
+                    var i = 0;
+                    console.log('[simulate] Starting call flow (' + steps.length + ' steps, 2s interval)');
+                    timer = setInterval(function() {
+                        if (i < steps.length) { steps[i++](); } else { clearInterval(timer); timer = null; console.log('[simulate] Call flow complete'); }
+                    }, 2000);
+                },
+
+                // Busy day: simulate.busyDay(5) — N incoming calls with random timing
+                busyDay: function(count) {
+                    var self = this;
+                    var n = count || 5;
+                    var i = 0;
+                    console.log('[simulate] Busy day: ' + n + ' calls');
+                    function nextCall() {
+                        if (i >= n) { console.log('[simulate] Busy day complete'); return; }
+                        i++;
+                        var num = '+99890' + (1000000 + Math.floor(Math.random() * 9000000));
+                        self.incoming(num);
+                        setTimeout(function() {
+                            self.answer();
+                            var duration = 3000 + Math.floor(Math.random() * 7000);
+                            if (Math.random() > 0.5) setTimeout(function() { self.mute(); setTimeout(function() { self.mute(false); }, 1000); }, 1000);
+                            setTimeout(function() { self.hangup(); setTimeout(nextCall, 1000 + Math.floor(Math.random() * 2000)); }, duration);
+                        }, 1500 + Math.floor(Math.random() * 2000));
+                    }
+                    nextCall();
+                },
+
+                // Stop any running scenario
+                stop: function() { if (timer) { clearInterval(timer); timer = null; } call = null; console.log('[simulate] Stopped'); },
+
+                // Current simulated state
+                state: function() { return call ? JSON.parse(JSON.stringify(call)) : null; }
+            };
+        })()
     };
 
-    console.log('[YallaSIP] Bridge script injected, version pending handshake');
+    console.log('[YallaSIP] Bridge ready. Test with: YallaSIP.simulate.callFlow()');
 })();
 """.trimIndent()
     }

@@ -7,7 +7,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
-import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.cef.CefClient
 import org.cef.browser.CefBrowser
 import org.cef.browser.CefFrame
@@ -25,39 +26,18 @@ import uz.yalla.sipphone.domain.SipConstants
 
 private val logger = KotlinLogging.logger {}
 
-/**
- * Dispatches JSON commands arriving from the embedded web page to domain-layer operations.
- *
- * The router is the server side of the `window.yallaSipQuery` / `window.yallaSipQueryCancel`
- * JCEF message channel. Each command is JSON-decoded to a [BridgeCommand], rate-checked via
- * [BridgeSecurity], dispatched to the appropriate handler, and the result is returned as a
- * serialised [CommandResult] JSON string.
- *
- * Supported commands: `_ready`, `makeCall`, `answer`, `reject`, `hangup`, `setMute`, `setHold`,
- * `sendDtmf`, `transferCall`, `setAgentStatus`, `getState`, `getVersion`.
- *
- * All command handlers run on [Dispatchers.IO] inside a coroutine scoped to the router lifetime.
- * Handlers have a 30-second timeout; exceeding it returns an `INTERNAL_ERROR` response.
- *
- * Lifecycle: call [install] once after the [CefClient] is created, and [dispose] before app exit.
- */
 class BridgeRouter(
     private val callEngine: CallEngine,
     private val registrationEngine: RegistrationEngine,
     private val security: BridgeSecurity,
     private val auditLog: BridgeAuditLog,
+    private val agentStatusProvider: () -> AgentStatus,
     private val onAgentStatusChange: (AgentStatus) -> Unit,
-    private val onReady: () -> String, // returns init payload JSON
+    private val onReady: () -> String,
 ) {
     private var messageRouter: CefMessageRouter? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    /**
-     * Registers the JCEF message router on [client].
-     *
-     * Must be called before the browser is created so the router intercepts
-     * `yallaSipQuery` calls from page load onwards.
-     */
     fun install(client: CefClient) {
         val config = CefMessageRouterConfig().apply {
             jsQueryFunction = "yallaSipQuery"
@@ -66,16 +46,8 @@ class BridgeRouter(
         messageRouter = CefMessageRouter.create(config)
         messageRouter!!.addHandler(RouterHandler(), false)
         client.addMessageRouter(messageRouter!!)
-        logger.info { "BridgeRouter installed" }
     }
 
-    fun getMessageRouter(): CefMessageRouter? = messageRouter
-
-    /**
-     * Cancels the coroutine scope and disposes the underlying [CefMessageRouter].
-     *
-     * Must be called before [SipStackLifecycle.shutdown] to avoid dangling JCEF callbacks.
-     */
     fun dispose() {
         scope.cancel()
         messageRouter?.dispose()
@@ -95,30 +67,26 @@ class BridgeRouter(
                 try {
                     val cmd = bridgeJson.decodeFromString<BridgeCommand>(request)
 
-                    // Rate limit check (skip for _ready)
                     if (cmd.command != "_ready" && !security.checkRateLimit(cmd.command)) {
                         val result = CommandResult.error("RATE_LIMITED", "Too many requests", true)
-                        callback.success(bridgeJson.encodeToString(result))
+                        callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
                         return@launch
                     }
 
                     auditLog.logCommand(cmd.command, cmd.params, "processing")
 
-                    val result = withTimeout(30_000) {
-                        dispatch(cmd)
-                    }
+                    val result = withTimeout(30_000) { dispatch(cmd) }
 
-                    val json = bridgeJson.encodeToString(result)
                     auditLog.logCommand(
                         cmd.command,
                         cmd.params,
                         if (result.success) "OK" else result.error?.code ?: "ERROR",
                     )
-                    callback.success(json)
+                    callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
                 } catch (e: Exception) {
                     logger.error(e) { "Bridge command failed: $request" }
                     val result = CommandResult.error("INTERNAL_ERROR", e.message ?: "Unknown error", false)
-                    callback.success(bridgeJson.encodeToString(result))
+                    callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
                 }
             }
             return true
@@ -129,9 +97,9 @@ class BridgeRouter(
         return when (cmd.command) {
             "_ready" -> handleReady()
             "makeCall" -> handleMakeCall(cmd.params)
-            "answer" -> handleAnswer(cmd.params)
-            "reject" -> handleReject(cmd.params)
-            "hangup" -> handleHangup(cmd.params)
+            "answer" -> handleAnswer()
+            "reject" -> handleReject()
+            "hangup" -> handleHangup()
             "setMute" -> handleSetMute(cmd.params)
             "setHold" -> handleSetHold(cmd.params)
             "sendDtmf" -> handleSendDtmf(cmd.params)
@@ -145,8 +113,7 @@ class BridgeRouter(
 
     private fun handleReady(): CommandResult {
         val initJson = onReady()
-        logger.info { "Bridge handshake complete" }
-        return CommandResult(success = true, data = mapOf("_raw" to initJson))
+        return CommandResult.success(data = bridgeJson.parseToJsonElement(initJson))
     }
 
     private suspend fun handleMakeCall(params: Map<String, String>): CommandResult {
@@ -169,7 +136,7 @@ class BridgeRouter(
         val result = callEngine.makeCall(validation.getOrThrow())
         return if (result.isSuccess) {
             val callId = (callEngine.callState.value as? CallState.Ringing)?.callId ?: "unknown"
-            CommandResult.success(mapOf("callId" to callId))
+            CommandResult.success(buildJsonObject { put("callId", callId) })
         } else {
             CommandResult.error(
                 "INTERNAL_ERROR",
@@ -179,8 +146,7 @@ class BridgeRouter(
         }
     }
 
-    @Suppress("UNUSED_PARAMETER")
-    private suspend fun handleAnswer(params: Map<String, String>): CommandResult {
+    private suspend fun handleAnswer(): CommandResult {
         if (callEngine.callState.value !is CallState.Ringing) {
             return CommandResult.error("NO_INCOMING_CALL", "No incoming call", false)
         }
@@ -188,8 +154,7 @@ class BridgeRouter(
         return CommandResult.success()
     }
 
-    @Suppress("UNUSED_PARAMETER")
-    private suspend fun handleReject(params: Map<String, String>): CommandResult {
+    private suspend fun handleReject(): CommandResult {
         if (callEngine.callState.value !is CallState.Ringing) {
             return CommandResult.error("NO_INCOMING_CALL", "No incoming call", false)
         }
@@ -197,10 +162,8 @@ class BridgeRouter(
         return CommandResult.success()
     }
 
-    @Suppress("UNUSED_PARAMETER")
-    private suspend fun handleHangup(params: Map<String, String>): CommandResult {
-        val state = callEngine.callState.value
-        if (state is CallState.Idle) {
+    private suspend fun handleHangup(): CommandResult {
+        if (callEngine.callState.value is CallState.Idle) {
             return CommandResult.error("NO_ACTIVE_CALL", "No call to hangup", false)
         }
         callEngine.hangupCall()
@@ -213,7 +176,7 @@ class BridgeRouter(
         val muted = params["muted"]?.toBooleanStrictOrNull()
             ?: return CommandResult.error("INTERNAL_ERROR", "Missing muted", false)
         callEngine.setMute(callId, muted)
-        return CommandResult.success(mapOf("isMuted" to muted.toString()))
+        return CommandResult.success(buildJsonObject { put("isMuted", muted) })
     }
 
     private suspend fun handleSetHold(params: Map<String, String>): CommandResult {
@@ -222,7 +185,7 @@ class BridgeRouter(
         val onHold = params["onHold"]?.toBooleanStrictOrNull()
             ?: return CommandResult.error("INTERNAL_ERROR", "Missing onHold", false)
         callEngine.setHold(callId, onHold)
-        return CommandResult.success(mapOf("isOnHold" to onHold.toString()))
+        return CommandResult.success(buildJsonObject { put("isOnHold", onHold) })
     }
 
     private suspend fun handleSendDtmf(params: Map<String, String>): CommandResult {
@@ -255,7 +218,7 @@ class BridgeRouter(
         }
         val result = callEngine.transferCall(callId, destination)
         return if (result.isSuccess) {
-            CommandResult.success(mapOf("destination" to destination))
+            CommandResult.success(buildJsonObject { put("destination", destination) })
         } else {
             CommandResult.error(
                 "INTERNAL_ERROR",
@@ -271,7 +234,7 @@ class BridgeRouter(
         val status = AgentStatus.entries.find { it.name.equals(statusStr, ignoreCase = true) }
             ?: return CommandResult.error("INTERNAL_ERROR", "Invalid status: $statusStr", false)
         onAgentStatusChange(status)
-        return CommandResult.success(mapOf("status" to status.name.lowercase()))
+        return CommandResult.success(buildJsonObject { put("status", status.name.lowercase()) })
     }
 
     private fun handleGetState(): CommandResult {
@@ -308,12 +271,11 @@ class BridgeRouter(
 
         val state = BridgeState(
             connection = BridgeConnectionState(state = connectionState, attempt = 0),
-            agentStatus = "ready", // TODO: get from toolbar component
+            agentStatus = agentStatusProvider().name.lowercase(),
             call = call,
         )
 
-        val json = bridgeJson.encodeToString(state)
-        return CommandResult(success = true, data = mapOf("_raw" to json))
+        return CommandResult.success(data = bridgeJson.encodeToJsonElement(BridgeState.serializer(), state))
     }
 
     private fun handleGetVersion(): CommandResult {
@@ -321,7 +283,6 @@ class BridgeRouter(
             version = SipConstants.APP_VERSION,
             capabilities = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer"),
         )
-        val json = bridgeJson.encodeToString(info)
-        return CommandResult(success = true, data = mapOf("_raw" to json))
+        return CommandResult.success(data = bridgeJson.encodeToJsonElement(BridgeVersionInfo.serializer(), info))
     }
 }

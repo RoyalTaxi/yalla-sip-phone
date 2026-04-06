@@ -5,6 +5,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.boolean
+import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import uz.yalla.sipphone.data.jcef.BridgeAuditLog
@@ -49,27 +50,13 @@ class BridgeIntegrationTest {
         registrationEngine = regEngine,
         security = security,
         auditLog = auditLog,
+        agentStatusProvider = { lastAgentStatus },
         onAgentStatusChange = { lastAgentStatus = it },
         onReady = {
             eventEmitter.agentInfo = AgentInfo("test-agent", "Test Operator")
             eventEmitter.completeHandshake()
         },
     )
-
-    // --- Helper: simulate a bridge command and get result ---
-    private suspend fun sendCommand(command: String, params: Map<String, String> = emptyMap()): JsonObject {
-        val request = bridgeJson.encodeToString(
-            uz.yalla.sipphone.data.jcef.BridgeCommand.serializer(),
-            uz.yalla.sipphone.data.jcef.BridgeCommand(command, params),
-        )
-        // We can't use CefQueryCallback directly, so we test dispatch() via reflection or by
-        // extracting the dispatch logic. For now, test the router's command handling indirectly
-        // through the engines' recorded actions and state.
-
-        // Actually, let's test the protocol at the serialization level
-        val cmd = bridgeJson.decodeFromString<uz.yalla.sipphone.data.jcef.BridgeCommand>(request)
-        return Json.parseToJsonElement(request).jsonObject
-    }
 
     // ==================== Event Emitter Tests ====================
 
@@ -213,7 +200,9 @@ class BridgeIntegrationTest {
 
     @Test
     fun `CommandResult success serialization`() {
-        val result = uz.yalla.sipphone.data.jcef.CommandResult.success(mapOf("callId" to "call-1"))
+        val result = uz.yalla.sipphone.data.jcef.CommandResult.success(
+            kotlinx.serialization.json.buildJsonObject { put("callId", "call-1") }
+        )
         val json = bridgeJson.encodeToString(uz.yalla.sipphone.data.jcef.CommandResult.serializer(), result)
         val parsed = Json.parseToJsonElement(json).jsonObject
         assertTrue(parsed["success"]?.jsonPrimitive?.boolean == true)

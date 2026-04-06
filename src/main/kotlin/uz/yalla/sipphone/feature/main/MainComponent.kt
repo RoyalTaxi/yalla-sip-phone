@@ -3,7 +3,6 @@ package uz.yalla.sipphone.feature.main
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
 import com.arkivanov.essenty.lifecycle.doOnDestroy
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.drop
@@ -15,15 +14,12 @@ import uz.yalla.sipphone.data.jcef.BridgeSecurity
 import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.JcefManager
 import uz.yalla.sipphone.domain.AgentInfo
-import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.RegistrationEngine
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarComponent
-
-private val logger = KotlinLogging.logger {}
 
 class MainComponent(
     componentContext: ComponentContext,
@@ -63,9 +59,8 @@ class MainComponent(
                 registrationEngine = registrationEngine,
                 security = security,
                 auditLog = auditLog,
-                onAgentStatusChange = { status: AgentStatus ->
-                    logger.info { "Agent status change requested from bridge: $status" }
-                },
+                agentStatusProvider = { toolbar.agentStatus.value },
+                onAgentStatusChange = { toolbar.setAgentStatus(it) },
                 onReady = eventEmitter::completeHandshake,
             )
             this.bridgeRouter = bridgeRouter

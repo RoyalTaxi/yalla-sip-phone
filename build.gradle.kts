@@ -4,7 +4,9 @@ plugins {
     kotlin("jvm") version "2.1.20"
     id("org.jetbrains.compose") version "1.8.2"
     id("org.jetbrains.kotlin.plugin.compose") version "2.1.20"
-    id("org.jetbrains.compose.hot-reload") version "1.0.0"
+    // Hot Reload disabled — causes NoClassDefFoundError for lambda classes after recompile,
+    // leading to cascading crashes (SettingsPopover$1$4, MainKt$main$3$2$1$1 → CEF SIGSEGV)
+    // id("org.jetbrains.compose.hot-reload") version "1.0.0"
     kotlin("plugin.serialization") version "2.1.20"
 }
 
@@ -54,13 +56,10 @@ dependencies {
     testImplementation("app.cash.turbine:turbine:1.2.1")
 }
 
-// Dev mode JVM args — pjsip path + macOS add-opens (NOT for packaged app)
-tasks.matching { it.name == "run" || it.name.startsWith("hotRun") || it.name.startsWith("hotDev") }.configureEach {
+// Dev mode pjsip path (compose.desktop.application.jvmArgs handles --add-opens)
+tasks.matching { it.name == "run" }.configureEach {
     if (this is JavaExec) {
         jvmArgs("-Dpjsip.library.path=${projectDir}/libs")
-        jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
-        jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
-        jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
     }
 }
 
@@ -79,6 +78,14 @@ tasks.register<JavaExec>("runDemo") {
 compose.desktop {
     application {
         mainClass = "uz.yalla.sipphone.MainKt"
+
+        // JCEF needs --add-opens for sun.awt on macOS (sun.lwawt.macosx doesn't exist on Windows)
+        val isMacOs = System.getProperty("os.name").lowercase().contains("mac")
+        jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
+        if (isMacOs) {
+            jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
+            jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
+        }
 
         nativeDistributions {
             includeAllModules = true
