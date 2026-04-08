@@ -12,6 +12,10 @@ class AppSettings {
         get() = settings.getString("locale", "uz")
         set(value) = settings.putString("locale", value)
 
+    var isDarkTheme: Boolean
+        get() = settings.getBoolean("dark_theme", true) // dark by default
+        set(value) = settings.putBoolean("dark_theme", value)
+
     fun saveCredentials(credentials: SipCredentials) {
         settings.putString("sip_server", credentials.server)
         settings.putInt("sip_port", credentials.port)

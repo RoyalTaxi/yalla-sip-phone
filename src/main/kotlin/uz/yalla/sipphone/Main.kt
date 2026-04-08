@@ -91,7 +91,7 @@ fun main() {
     val appSettings = koin.get<AppSettings>()
 
     application {
-        var isDarkTheme by remember { mutableStateOf(false) }
+        var isDarkTheme by remember { mutableStateOf(appSettings.isDarkTheme) }
         var locale by remember { mutableStateOf(appSettings.locale) }
 
         val childStack by rootComponent.childStack.subscribeAsState()
@@ -208,7 +208,10 @@ fun main() {
                     root = rootComponent,
                     isDarkTheme = isDarkTheme,
                     locale = locale,
-                    onThemeToggle = { isDarkTheme = !isDarkTheme },
+                    onThemeToggle = {
+                        isDarkTheme = !isDarkTheme
+                        appSettings.isDarkTheme = isDarkTheme
+                    },
                     onLocaleChange = { newLocale ->
                         locale = newLocale
                         appSettings.locale = newLocale
