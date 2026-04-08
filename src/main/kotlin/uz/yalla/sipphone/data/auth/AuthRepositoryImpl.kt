@@ -9,7 +9,7 @@ private val logger = KotlinLogging.logger {}
 
 object ApiConfig {
     const val BASE_URL = "http://192.168.0.98:8080/api/v1/"
-    const val DISPATCHER_URL = "http://192.168.60.84:5173"
+    const val DISPATCHER_URL = "http://192.168.0.60"
 }
 
 class AuthRepositoryImpl(
