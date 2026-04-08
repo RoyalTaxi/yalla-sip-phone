@@ -5,8 +5,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import uz.yalla.sipphone.data.pjsip.PjsipRegistrationState
 import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
 import uz.yalla.sipphone.testing.engine.ScriptableRegistrationEngine
 import uz.yalla.sipphone.testing.scenario.ScenarioRunner
@@ -259,7 +259,7 @@ class BusyOperatorIntegrationTest {
 
         // Observe registration transitions in parallel
         val regJob = launch {
-            var prevReg: RegistrationState = RegistrationState.Idle
+            var prevReg: PjsipRegistrationState = PjsipRegistrationState.Idle
             registrationEngine.registrationState.collect { newState ->
                 regStats.recordTransition(prevReg, newState)
                 prevReg = newState
@@ -314,7 +314,7 @@ class BusyOperatorIntegrationTest {
             assertTrue(regStats.reconnects > 0, "Expected at least 1 reconnect")
 
             // Final registration state should be Registered (recovered)
-            assertIs<RegistrationState.Registered>(registrationEngine.registrationState.value)
+            assertIs<PjsipRegistrationState.Registered>(registrationEngine.registrationState.value)
 
             cancelAndIgnoreRemainingEvents()
         }
@@ -469,30 +469,30 @@ private class RegistrationStats {
 
     private val transitions = mutableListOf<Pair<String, String>>()
 
-    fun recordTransition(from: RegistrationState, to: RegistrationState) {
+    fun recordTransition(from: PjsipRegistrationState, to: PjsipRegistrationState) {
         totalTransitions++
         val fromName = from.simpleName()
         val toName = to.simpleName()
         transitions += fromName to toName
 
         // Count disconnects (Registered -> Failed, or Registered -> Idle)
-        if (from is RegistrationState.Registered &&
-            (to is RegistrationState.Failed || to is RegistrationState.Idle)
+        if (from is PjsipRegistrationState.Registered &&
+            (to is PjsipRegistrationState.Failed || to is PjsipRegistrationState.Idle)
         ) {
             disconnects++
         }
 
         // Count reconnects (any non-Registered -> Registered)
-        if (from !is RegistrationState.Registered && to is RegistrationState.Registered) {
+        if (from !is PjsipRegistrationState.Registered && to is PjsipRegistrationState.Registered) {
             reconnects++
         }
     }
 
-    private fun RegistrationState.simpleName(): String = when (this) {
-        is RegistrationState.Idle -> "Idle"
-        is RegistrationState.Registering -> "Registering"
-        is RegistrationState.Registered -> "Registered"
-        is RegistrationState.Failed -> "Failed"
+    private fun PjsipRegistrationState.simpleName(): String = when (this) {
+        is PjsipRegistrationState.Idle -> "Idle"
+        is PjsipRegistrationState.Registering -> "Registering"
+        is PjsipRegistrationState.Registered -> "Registered"
+        is PjsipRegistrationState.Failed -> "Failed"
     }
 
     fun print() {

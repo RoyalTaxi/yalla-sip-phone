@@ -16,8 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import uz.yalla.sipphone.data.pjsip.PjsipRegistrationState
 import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarComponent
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarContent
 import uz.yalla.sipphone.testing.FakeSipAccountManager
@@ -62,7 +62,7 @@ fun main() {
     }
 
     demoScope.launch {
-        var previousRegState: RegistrationState = RegistrationState.Idle
+        var previousRegState: PjsipRegistrationState = PjsipRegistrationState.Idle
         registrationEngine.registrationState.collect { newState ->
             val prev = previousRegState
             previousRegState = newState
@@ -100,7 +100,10 @@ fun main() {
                 ToolbarContent(
                     component = toolbar,
                     isDarkTheme = isDarkTheme,
+                    locale = "uz",
+                    agentInfo = null,
                     onThemeToggle = { isDarkTheme = !isDarkTheme },
+                    onLocaleChange = { /* no-op in demo */ },
                     onLogout = { /* no-op in demo */ },
                 )
             }
@@ -183,23 +186,23 @@ private class DemoLogger {
         }
     }
 
-    fun logRegistrationTransition(prev: RegistrationState, new: RegistrationState) {
+    fun logRegistrationTransition(prev: PjsipRegistrationState, new: PjsipRegistrationState) {
         val ts = timestamp()
         when {
-            new is RegistrationState.Registered -> {
+            new is PjsipRegistrationState.Registered -> {
                 val server = new.server.removePrefix("sip:")
                 log("\uD83D\uDFE2", ts, "Registered as $server")
             }
-            new is RegistrationState.Registering && prev !is RegistrationState.Registering -> {
+            new is PjsipRegistrationState.Registering && prev !is PjsipRegistrationState.Registering -> {
                 log("\uD83D\uDD04", ts, "Reconnecting...")
             }
-            new is RegistrationState.Idle && prev is RegistrationState.Registered -> {
+            new is PjsipRegistrationState.Idle && prev is PjsipRegistrationState.Registered -> {
                 log("\uD83D\uDD34", ts, "Network disconnected!")
             }
-            new is RegistrationState.Idle && prev is RegistrationState.Failed -> {
+            new is PjsipRegistrationState.Idle && prev is PjsipRegistrationState.Failed -> {
                 log("\uD83D\uDD34", ts, "Disconnected")
             }
-            new is RegistrationState.Failed -> {
+            new is PjsipRegistrationState.Failed -> {
                 log("\uD83D\uDD34", ts, "Registration failed: ${new.error.displayMessage}")
             }
         }

@@ -3,7 +3,7 @@ package uz.yalla.sipphone.domain
 /**
  * Manages the SIP stack process lifecycle.
  *
- * [initialize] must be called once before any [RegistrationEngine] or [CallEngine]
+ * [initialize] must be called once before any [SipAccountManager] or [CallEngine]
  * operations. [shutdown] must always be called on app exit to release native resources
  * and prevent pjsip memory leaks.
  */

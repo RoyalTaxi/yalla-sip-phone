@@ -13,7 +13,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipAccount
 import uz.yalla.sipphone.domain.SipAccountInfo
 import uz.yalla.sipphone.domain.SipAccountManager
@@ -67,19 +66,19 @@ class PjsipSipAccountManager(
 
     /**
      * Called by [PjsipAccountManager] on the pjsip thread when a per-account registration
-     * state changes. Maps pjsip [RegistrationState] to domain [SipAccountState] and
+     * state changes. Maps pjsip [PjsipRegistrationState] to domain [SipAccountState] and
      * triggers reconnection on failure.
      */
-    override fun onAccountRegistrationState(accountId: String, state: RegistrationState) {
+    override fun onAccountRegistrationState(accountId: String, state: PjsipRegistrationState) {
         when (state) {
-            is RegistrationState.Registered -> {
+            is PjsipRegistrationState.Registered -> {
                 cancelReconnect(accountId)
                 reconnectAttempts.remove(accountId)
                 updateAccountState(accountId, SipAccountState.Connected)
                 logger.info { "[$accountId] Connected" }
             }
 
-            is RegistrationState.Failed -> {
+            is PjsipRegistrationState.Failed -> {
                 val error = state.error
                 if (error is SipError.AuthFailed) {
                     // Auth failures are permanent — don't reconnect
@@ -94,12 +93,12 @@ class PjsipSipAccountManager(
                 }
             }
 
-            is RegistrationState.Idle -> {
+            is PjsipRegistrationState.Idle -> {
                 // Idle after explicit unregister — don't reconnect
                 // State is already handled by disconnect/unregister methods
             }
 
-            is RegistrationState.Registering -> {
+            is PjsipRegistrationState.Registering -> {
                 // Transient — no action needed
             }
         }

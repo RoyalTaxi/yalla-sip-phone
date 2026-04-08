@@ -10,7 +10,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.pjsip.pjsua2.AccountConfig
 import org.pjsip.pjsua2.AuthCredInfo
 import org.pjsip.pjsua2.pjsua_stun_use
-import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.domain.SipError
@@ -29,7 +28,7 @@ interface IncomingCallListener {
  * Used by [PjsipSipAccountManager] to track individual account states.
  */
 interface AccountRegistrationListener {
-    fun onAccountRegistrationState(accountId: String, state: RegistrationState)
+    fun onAccountRegistrationState(accountId: String, state: PjsipRegistrationState)
 }
 
 /**
@@ -57,7 +56,7 @@ class PjsipAccountManager(
      * Per-account registration state flows. Keyed by accountId.
      * Each account gets its own state flow for independent monitoring.
      */
-    private val _accountStates = mutableMapOf<String, MutableStateFlow<RegistrationState>>()
+    private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
 
     /**
      * Map of active pjsip accounts. Keyed by accountId.
@@ -76,20 +75,20 @@ class PjsipAccountManager(
     /**
      * Returns the per-account registration state flow, creating one if needed.
      */
-    fun getAccountStateFlow(accountId: String): StateFlow<RegistrationState> {
+    fun getAccountStateFlow(accountId: String): StateFlow<PjsipRegistrationState> {
         return _accountStates.getOrPut(accountId) {
-            MutableStateFlow(RegistrationState.Idle)
+            MutableStateFlow(PjsipRegistrationState.Idle)
         }.asStateFlow()
     }
 
     /**
      * Called by [PjsipAccount.onRegState] to update per-account registration state.
      */
-    fun updateRegistrationState(accountId: String, state: RegistrationState) {
-        if (state is RegistrationState.Registered) {
+    fun updateRegistrationState(accountId: String, state: PjsipRegistrationState) {
+        if (state is PjsipRegistrationState.Registered) {
             lastRegisteredServer = state.server
         }
-        val flow = _accountStates.getOrPut(accountId) { MutableStateFlow(RegistrationState.Idle) }
+        val flow = _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
         flow.value = state
         accountRegistrationListener?.onAccountRegistrationState(accountId, state)
     }
@@ -107,7 +106,7 @@ class PjsipAccountManager(
 
     override fun getFirstConnectedAccount(): PjsipAccount? {
         return accounts.entries.firstOrNull { (id, _) ->
-            _accountStates[id]?.value is RegistrationState.Registered
+            _accountStates[id]?.value is PjsipRegistrationState.Registered
         }?.value
     }
 
@@ -120,9 +119,9 @@ class PjsipAccountManager(
      * Must be called on the pjsip dispatcher thread.
      */
     suspend fun register(accountId: String, credentials: SipCredentials): Result<Unit> {
-        val stateFlow = _accountStates.getOrPut(accountId) { MutableStateFlow(RegistrationState.Idle) }
+        val stateFlow = _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
 
-        if (stateFlow.value is RegistrationState.Registering) {
+        if (stateFlow.value is PjsipRegistrationState.Registering) {
             return Result.failure(IllegalStateException("Registration already in progress for $accountId"))
         }
 
@@ -135,8 +134,8 @@ class PjsipAccountManager(
         }
         lastRegisterAttemptMs[accountId] = System.currentTimeMillis()
 
-        val wasRegistered = stateFlow.value is RegistrationState.Registered
-        stateFlow.value = RegistrationState.Registering
+        val wasRegistered = stateFlow.value is PjsipRegistrationState.Registered
+        stateFlow.value = PjsipRegistrationState.Registering
 
         // Tear down existing account if present
         accounts[accountId]?.let { prevAccount ->
@@ -149,11 +148,11 @@ class PjsipAccountManager(
             if (wasRegistered) {
                 try {
                     withTimeoutOrNull(SipConstants.Timeout.UNREGISTER_BEFORE_REREGISTER_MS) {
-                        stateFlow.first { it is RegistrationState.Idle }
+                        stateFlow.first { it is PjsipRegistrationState.Idle }
                     }
                 } catch (_: Exception) {}
             }
-            stateFlow.value = RegistrationState.Registering
+            stateFlow.value = PjsipRegistrationState.Registering
 
             try { prevAccount.delete() } catch (_: Exception) {}
             accounts.remove(accountId)
@@ -184,7 +183,7 @@ class PjsipAccountManager(
             return Result.success(Unit)
         } catch (e: Exception) {
             logger.error(e) { "[$accountId] Registration failed" }
-            stateFlow.value = RegistrationState.Failed(SipError.fromException(e))
+            stateFlow.value = PjsipRegistrationState.Failed(SipError.fromException(e))
             return Result.failure(e)
         } finally {
             accountConfig.delete()
@@ -202,7 +201,7 @@ class PjsipAccountManager(
         try {
             acc.setRegistration(false)
             withTimeoutOrNull(SipConstants.Timeout.UNREGISTER_MS) {
-                stateFlow.first { it is RegistrationState.Idle }
+                stateFlow.first { it is PjsipRegistrationState.Idle }
             }
         } catch (_: kotlinx.coroutines.TimeoutCancellationException) {
             logger.warn { "[$accountId] Unregistration timed out" }
@@ -211,7 +210,7 @@ class PjsipAccountManager(
         } finally {
             try { acc.delete() } catch (_: Exception) {}
             accounts.remove(accountId)
-            stateFlow.value = RegistrationState.Idle
+            stateFlow.value = PjsipRegistrationState.Idle
         }
     }
 
@@ -243,7 +242,7 @@ class PjsipAccountManager(
             } catch (_: Exception) {}
         }
         accounts.clear()
-        _accountStates.values.forEach { it.value = RegistrationState.Idle }
+        _accountStates.values.forEach { it.value = PjsipRegistrationState.Idle }
         _accountStates.clear()
         lastRegisterAttemptMs.clear()
     }

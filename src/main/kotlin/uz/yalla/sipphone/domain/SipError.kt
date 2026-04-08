@@ -1,7 +1,7 @@
 package uz.yalla.sipphone.domain
 
 /**
- * Typed SIP error hierarchy surfaced through [RegistrationState.Failed] and [CallEngine] results.
+ * Typed SIP error hierarchy surfaced through [SipAccountState] and [CallEngine] results.
  *
  * Use [displayMessage] for human-readable UI strings.
  * Use [fromSipStatus] to map raw SIP response codes to the appropriate subtype.
