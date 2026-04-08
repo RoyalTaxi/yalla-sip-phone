@@ -21,10 +21,15 @@ import uz.yalla.sipphone.domain.SipCredentials
 
 private val logger = KotlinLogging.logger {}
 
+enum class LoginErrorType {
+    WRONG_PASSWORD,
+    NETWORK,
+}
+
 sealed interface LoginState {
     data object Idle : LoginState
     data object Loading : LoginState
-    data class Error(val message: String) : LoginState
+    data class Error(val message: String, val type: LoginErrorType = LoginErrorType.NETWORK) : LoginState
     data class Authenticated(val authResult: AuthResult) : LoginState
 }
 
@@ -53,7 +58,15 @@ class LoginComponent(
                     registerAndNavigate(authResult, authResult.accounts)
                 },
                 onFailure = { error ->
-                    _loginState.value = LoginState.Error(error.message ?: "Login failed")
+                    val errorType = if (error.message?.contains("401") == true ||
+                        error.message?.contains("unauthorized", ignoreCase = true) == true ||
+                        error.message?.contains("password", ignoreCase = true) == true
+                    ) {
+                        LoginErrorType.WRONG_PASSWORD
+                    } else {
+                        LoginErrorType.NETWORK
+                    }
+                    _loginState.value = LoginState.Error(error.message ?: "Login failed", errorType)
                     logger.warn { "Auth failed: ${error.message}" }
                 },
             )

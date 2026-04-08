@@ -99,7 +99,7 @@ fun main() {
         val mainComponent = (childStack.active.instance as? RootComponent.Child.Main)?.component
 
         val windowState = rememberWindowState(
-            size = DpSize(420.dp, 520.dp),
+            size = DpSize(1280.dp, 720.dp),
             position = WindowPosition(Alignment.Center),
         )
 
@@ -147,24 +147,10 @@ fun main() {
             alwaysOnTop = isMainScreen,
             resizable = isMainScreen,
         ) {
-            // ALL window property changes via AWT — Compose windowState alone can't resize from maximized
+            // Window properties via AWT — same size for both screens, only resizable/alwaysOnTop change
             LaunchedEffect(isMainScreen) {
                 javax.swing.SwingUtilities.invokeLater {
-                    if (isMainScreen) {
-                        window.minimumSize = java.awt.Dimension(1280, 720)
-                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.NORMAL
-                        window.setSize(1280, 720)
-                        window.setLocationRelativeTo(null)
-                    } else {
-                        // 1. Un-maximize (NORMAL state)
-                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.NORMAL
-                        // 2. Reset minimum size
-                        window.minimumSize = java.awt.Dimension(380, 180)
-                        // 3. Resize + center
-                        window.setSize(420, 520)
-                        window.setLocationRelativeTo(null)
-                        window.isResizable = false
-                    }
+                    window.minimumSize = java.awt.Dimension(1280, 720)
                 }
             }
 
