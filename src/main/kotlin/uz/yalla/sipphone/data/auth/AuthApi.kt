@@ -13,7 +13,7 @@ class AuthApi(
     private val authEventBus: AuthEventBus,
 ) {
     suspend fun login(pinCode: String): Result<LoginResultDto> =
-        client.safeRequest(authEventBus) {
+        client.safeRequest {
             url { path("auth", "login") }
             method = HttpMethod.Post
             setBody(LoginRequestDto(pinCode = pinCode))
@@ -26,7 +26,7 @@ class AuthApi(
         }
 
     suspend fun logout(): Result<Unit> =
-        client.safeRequest(authEventBus) {
+        client.safeRequest {
             url { path("auth", "logout") }
             method = HttpMethod.Post
         }
