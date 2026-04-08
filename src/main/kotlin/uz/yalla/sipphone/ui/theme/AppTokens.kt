@@ -90,7 +90,7 @@ data class AppTokens(
 
     // ── Settings Dialog ──
     val settingsDialogWidth: Dp = 340.dp,
-    val settingsDialogHeight: Dp = 420.dp,
+    val settingsDialogHeight: Dp = 356.dp,
     val settingsCardWidth: Dp = 320.dp,
 
     // ── Progress ──
