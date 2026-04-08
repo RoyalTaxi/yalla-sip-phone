@@ -5,10 +5,12 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 data class AppTokens(
-    // Spacing
+    // ── Spacing ──
     val spacingXs: Dp = 4.dp,
     val spacingSm: Dp = 8.dp,
     val spacingMdSm: Dp = 12.dp,
@@ -16,65 +18,91 @@ data class AppTokens(
     val spacingLg: Dp = 24.dp,
     val spacingXl: Dp = 32.dp,
 
-    // Elevation
+    // ── Elevation ──
     val elevationNone: Dp = 0.dp,
     val elevationLow: Dp = 2.dp,
     val elevationMedium: Dp = 6.dp,
 
-    // Corner radius
+    // ── Corner Radius ──
+    val cornerXs: Dp = 6.dp,
     val cornerSmall: Dp = 8.dp,
-    val cornerMedium: Dp = 12.dp,
-    val cornerLarge: Dp = 16.dp,
+    val cornerMedium: Dp = 10.dp,
+    val cornerLarge: Dp = 14.dp,
+    val cornerXl: Dp = 16.dp,
 
-    // Shapes
+    // ── Shapes ──
+    val shapeXs: Shape = RoundedCornerShape(cornerXs),
     val shapeSmall: Shape = RoundedCornerShape(cornerSmall),
     val shapeMedium: Shape = RoundedCornerShape(cornerMedium),
     val shapeLarge: Shape = RoundedCornerShape(cornerLarge),
+    val shapeXl: Shape = RoundedCornerShape(cornerXl),
 
-    // Window sizes
-    val windowMinWidth: Dp = 380.dp,
-    val windowMinHeight: Dp = 180.dp,
-
-    // Icons
-    val iconSmall: Dp = 16.dp,
-    val iconDefault: Dp = 20.dp,
-    val iconMedium: Dp = 24.dp,
-
-    // Indicators
-    val indicatorDot: Dp = 8.dp,
-    val indicatorDotSmall: Dp = 7.dp,
-    val dividerThickness: Dp = 1.dp,
-    val dividerHeight: Dp = 32.dp,
-
-    // Dropdown
-    val dropdownItemMinHeight: Dp = 36.dp,
-
-    // Progress
-    val progressSmall: Dp = 18.dp,
-    val progressStrokeSmall: Dp = 2.dp,
-
-    // Alpha
+    // ── Alpha ──
+    val alphaSubtle: Float = 0.1f,
+    val alphaMuted: Float = 0.12f,
+    val alphaLight: Float = 0.15f,
+    val alphaBorder: Float = 0.25f,
+    val alphaMedium: Float = 0.3f,
+    val alphaFocus: Float = 0.5f,
     val alphaDisabled: Float = 0.6f,
     val alphaHint: Float = 0.7f,
 
-    // Button sizes
-    val iconButtonSize: Dp = 40.dp,
-    val iconButtonSizeLarge: Dp = 48.dp,
+    // ── Typography Sizes ──
+    val textXs: TextUnit = 10.sp,
+    val textSm: TextUnit = 11.sp,
+    val textBase: TextUnit = 12.sp,
+    val textMd: TextUnit = 13.sp,
+    val textLg: TextUnit = 14.sp,
+    val textXl: TextUnit = 16.sp,
+    val textTitle: TextUnit = 20.sp,
 
-    // Toolbar
+    // ── Window ──
+    val windowMinWidth: Dp = 380.dp,
+    val windowMinHeight: Dp = 180.dp,
+
+    // ── Icons ──
+    val iconSmall: Dp = 16.dp,
+    val iconDefault: Dp = 18.dp,
+    val iconMedium: Dp = 24.dp,
+
+    // ── Indicators ──
+    val indicatorDot: Dp = 8.dp,
+    val indicatorDotLarge: Dp = 10.dp,
+    val dividerThickness: Dp = 1.dp,
+    val dividerHeight: Dp = 32.dp,
+
+    // ── Component Sizes ──
+    val chipHeight: Dp = 28.dp,
+    val iconButtonSize: Dp = 36.dp,
+    val iconButtonSizeLarge: Dp = 40.dp,
+    val fieldHeight: Dp = 36.dp,
+    val fieldHeightLg: Dp = 44.dp,
+    val segmentButtonSize: Dp = 32.dp,
+
+    // ── Toolbar ──
     val toolbarHeight: Dp = 52.dp,
     val toolbarPaddingH: Dp = 12.dp,
     val toolbarZoneGap: Dp = 8.dp,
 
-    // Call quality
-    val qualityDotSize: Dp = 8.dp,
+    // ── Dropdown ──
+    val dropdownItemMinHeight: Dp = 36.dp,
+    val dropdownWidth: Dp = 180.dp,
 
-    // Animation
+    // ── Settings Dialog ──
+    val settingsDialogWidth: Dp = 340.dp,
+    val settingsDialogHeight: Dp = 420.dp,
+    val settingsCardWidth: Dp = 320.dp,
+
+    // ── Progress ──
+    val progressSmall: Dp = 18.dp,
+    val progressStrokeSmall: Dp = 2.dp,
+
+    // ── Animation ──
     val animFast: Int = 200,
     val animMedium: Int = 300,
     val animSlow: Int = 350,
 
-    // Window sizes (extended)
+    // ── Window sizes ──
     val loginWindowSize: DpSize = DpSize(1280.dp, 720.dp),
     val mainWindowSize: DpSize = DpSize(1280.dp, 720.dp),
 ) {
