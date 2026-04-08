@@ -34,6 +34,8 @@ class BridgeRouter(
     private val agentStatusProvider: () -> AgentStatus,
     private val onAgentStatusChange: (AgentStatus) -> Unit,
     private val onReady: () -> String,
+    private val onRequestLogout: () -> Unit = {},
+    private val tokenProvider: suspend () -> String? = { null },
 ) {
     private var messageRouter: CefMessageRouter? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -105,8 +107,13 @@ class BridgeRouter(
             "sendDtmf" -> handleSendDtmf(cmd.params)
             "transferCall" -> handleTransferCall(cmd.params)
             "setAgentStatus" -> handleSetAgentStatus(cmd.params)
-            "getState" -> handleGetState()
+            "getState" -> handleGetState(tokenProvider())
             "getVersion" -> handleGetVersion()
+            "requestLogout" -> {
+                logger.info { "Frontend requested logout (token likely invalidated by another session)" }
+                scope.launch { onRequestLogout() }
+                CommandResult.success(null)
+            }
             else -> CommandResult.error("INTERNAL_ERROR", "Unknown command: ${cmd.command}", false)
         }
     }
@@ -237,7 +244,7 @@ class BridgeRouter(
         return CommandResult.success(buildJsonObject { put("status", status.name.lowercase()) })
     }
 
-    private fun handleGetState(): CommandResult {
+    private fun handleGetState(token: String? = null): CommandResult {
         val callState = callEngine.callState.value
         val regState = registrationEngine.registrationState.value
 
@@ -273,6 +280,7 @@ class BridgeRouter(
             connection = BridgeConnectionState(state = connectionState, attempt = 0),
             agentStatus = agentStatusProvider().name.lowercase(),
             call = call,
+            token = token,
         )
 
         return CommandResult.success(data = bridgeJson.encodeToJsonElement(BridgeState.serializer(), state))
