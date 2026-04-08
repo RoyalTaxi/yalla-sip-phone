@@ -48,7 +48,6 @@ fun createHttpClient(
 
     defaultRequest {
         url(baseUrl)
-        contentType(ContentType.Application.Json)
     }
 
     install(Auth) {

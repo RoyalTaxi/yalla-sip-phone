@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.data.auth
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.delay
 import uz.yalla.sipphone.data.auth.dto.toAuthResult
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
@@ -24,8 +25,14 @@ class AuthRepositoryImpl(
         tokenProvider.setToken(loginDto.token)
         logger.info { "Token received, fetching user info..." }
 
-        // Don't emit SessionExpired on 401 during login — it's a login failure, not session expiry
-        val meResult = authApi.me(emitAuthEvent = false)
+        // Don't emit SessionExpired on 401 during login — it's a login failure, not session expiry.
+        // Retry once after delay — server may need time to persist token in session store.
+        var meResult = authApi.me(emitAuthEvent = false)
+        if (meResult.isFailure) {
+            logger.warn { "First /me attempt failed, retrying after delay..." }
+            delay(500)
+            meResult = authApi.me(emitAuthEvent = false)
+        }
         val meDto = meResult.getOrElse { error ->
             tokenProvider.clearToken()
             return Result.failure(error)
