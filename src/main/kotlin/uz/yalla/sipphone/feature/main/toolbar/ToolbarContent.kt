@@ -51,7 +51,6 @@ fun ToolbarContent(
     val focusRequest by component.phoneInputFocusRequest.collectAsState()
     val accounts by component.accounts.collectAsState()
     val callDuration by component.callDuration.collectAsState()
-    val settingsVisible by component.settingsVisible.collectAsState()
 
     // Phone input focus
     val phoneInputFocusRequester = remember { FocusRequester() }
@@ -83,17 +82,14 @@ fun ToolbarContent(
                 .padding(horizontal = tokens.toolbarPaddingH),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Agent Status Button
+            // Agent Status — now a simple DropdownMenu, no DialogWindow
             AgentStatusButton(
                 currentStatus = agentStatus,
-                isDarkTheme = isDarkTheme,
-                locale = locale,
                 onStatusSelected = component::setAgentStatus,
             )
 
             Spacer(Modifier.width(8.dp))
 
-            // Phone Field
             PhoneField(
                 phoneNumber = phoneInput,
                 onValueChange = component::updatePhoneInput,
@@ -101,12 +97,10 @@ fun ToolbarContent(
                 focusRequester = phoneInputFocusRequester,
             )
 
-            // Vertical divider
             Spacer(Modifier.width(8.dp))
             VerticalDivider()
             Spacer(Modifier.width(8.dp))
 
-            // Call Actions
             CallActions(
                 callState = callState,
                 phoneInputEmpty = phoneInput.isBlank(),
@@ -118,28 +112,27 @@ fun ToolbarContent(
                 onToggleHold = component::toggleHold,
             )
 
-            // Call Timer (only during active call)
             Spacer(Modifier.width(8.dp))
             CallTimer(duration = callDuration)
 
-            // Flexible spacer — pushes SIP chips to the right
             Spacer(Modifier.weight(1f))
 
-            // SIP Chip Row
             SipChipRow(
                 accounts = accounts,
                 activeCallAccountId = activeCallAccountId.takeIf { it?.isNotEmpty() == true },
                 onChipClick = component::onSipChipClick,
             )
 
-            // Vertical divider
             Spacer(Modifier.width(8.dp))
             VerticalDivider()
             Spacer(Modifier.width(8.dp))
 
-            // Settings button
+            // Settings toggle — opens/closes the right panel
             IconButton(
-                onClick = component::openSettings,
+                onClick = {
+                    if (component.settingsVisible.value) component.closeSettings()
+                    else component.openSettings()
+                },
                 modifier = Modifier
                     .size(36.dp)
                     .pointerHoverIcon(PointerIcon.Hand),
@@ -153,18 +146,6 @@ fun ToolbarContent(
             }
         }
     }
-
-    // Settings Dialog (OS-level window)
-    SettingsDialog(
-        visible = settingsVisible,
-        isDarkTheme = isDarkTheme,
-        locale = locale,
-        agentInfo = agentInfo,
-        onThemeToggle = onThemeToggle,
-        onLocaleChange = onLocaleChange,
-        onLogout = onLogout,
-        onDismiss = component::closeSettings,
-    )
 }
 
 @Composable
