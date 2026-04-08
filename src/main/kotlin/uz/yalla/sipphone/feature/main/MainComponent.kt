@@ -198,6 +198,7 @@ class MainComponent(
     }
 
     fun logout() {
+        toolbar.closeSettings()
         toolbar.disconnect()
     }
 }
