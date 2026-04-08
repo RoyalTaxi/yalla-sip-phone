@@ -118,21 +118,8 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                val message = if (isMainScreen) Strings.SETTINGS_LOGOUT_CONFIRM else "Chiqmoqchimisiz?"
-                val title = if (isMainScreen) Strings.SETTINGS_LOGOUT_CONFIRM_TITLE else Strings.APP_TITLE
-                val pane = javax.swing.JOptionPane(
-                    message,
-                    javax.swing.JOptionPane.QUESTION_MESSAGE,
-                    javax.swing.JOptionPane.YES_NO_OPTION,
-                )
-                val dialog = pane.createDialog(null, title)
-                dialog.isAlwaysOnTop = false
-                dialog.isVisible = true
-                val confirm = pane.value as? Int ?: javax.swing.JOptionPane.NO_OPTION
-                if (confirm == javax.swing.JOptionPane.YES_OPTION) {
-                    gracefulShutdown()
-                    exitApplication()
-                }
+                gracefulShutdown()
+                exitApplication()
             },
             title = windowTitle,
             state = windowState,
