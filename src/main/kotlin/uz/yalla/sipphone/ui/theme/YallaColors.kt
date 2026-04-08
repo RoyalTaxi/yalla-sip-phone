@@ -23,6 +23,15 @@ data class YallaColors(
     // Error
     val errorText: Color,
     val errorIndicator: Color,
+    // Buttons
+    val buttonActive: Color,
+    val buttonDisabled: Color,
+    // Icons
+    val iconDisabled: Color,
+    val iconSubtle: Color,
+    val iconRed: Color,
+    // Accent
+    val pinkSun: Color,
     // Call states
     val callReady: Color,
     val callIncoming: Color,
@@ -39,11 +48,17 @@ data class YallaColors(
             backgroundSecondary = Color(0xFFF7F7F7),
             backgroundTertiary = Color(0xFFE9EAEA),
             textBase = Color(0xFF101828),
-            textSubtle = Color(0xFF6B7280),       // WCAG 5.0:1 on white
+            textSubtle = Color(0xFF98A2B3),
             borderDisabled = Color(0xFFE4E7EC),
             borderFilled = Color(0xFF101828),
-            errorText = Color(0xFFD32F2F),         // WCAG 5.5:1 on white
+            errorText = Color(0xFFF42500),
             errorIndicator = Color(0xFFF42500),
+            buttonActive = Color(0xFF562DF8),
+            buttonDisabled = Color(0xFFF7F7F7),
+            iconDisabled = Color(0xFFC8CBFA),
+            iconSubtle = Color(0xFF98A2B3),
+            iconRed = Color(0xFFF42500),
+            pinkSun = Color(0xFFFF234B),
             callReady = Color(0xFF2E7D32),
             callIncoming = Color(0xFFD97706),
             callMuted = Color(0xFFF42500),
@@ -54,17 +69,23 @@ data class YallaColors(
         val Dark = YallaColors(
             brandPrimary = Color(0xFF562DF8),
             brandPrimaryDisabled = Color(0xFF2C2D34),
-            brandPrimaryText = Color(0xFF8B6FFF),  // WCAG 5.2:1 on dark
+            brandPrimaryText = Color(0xFF8B6FFF),
             backgroundBase = Color(0xFF1A1A20),
             backgroundSecondary = Color(0xFF21222B),
-            backgroundTertiary = Color(0xFF383843),
+            backgroundTertiary = Color(0xFF1D1D26),
             textBase = Color(0xFFFFFFFF),
-            textSubtle = Color(0xFF9CA3AF),        // WCAG 5.5:1 on dark
+            textSubtle = Color(0xFF747C8B),
             borderDisabled = Color(0xFF383843),
             borderFilled = Color(0xFFFFFFFF),
-            errorText = Color(0xFFFF6B6B),          // WCAG 5.8:1 on dark
+            errorText = Color(0xFFF42500),
             errorIndicator = Color(0xFFF42500),
-            callReady = Color(0xFF66BB6A),          // WCAG AA on dark
+            buttonActive = Color(0xFF562DF8),
+            buttonDisabled = Color(0xFF2C2D34),
+            iconDisabled = Color(0xFFC8CBFA),
+            iconSubtle = Color(0xFF98A2B3),
+            iconRed = Color(0xFFF42500),
+            pinkSun = Color(0xFFFF234B),
+            callReady = Color(0xFF66BB6A),
             callIncoming = Color(0xFFF59E0B),
             callMuted = Color(0xFFF42500),
             callOffline = Color(0xFF98A2B3),
