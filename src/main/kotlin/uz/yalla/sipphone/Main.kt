@@ -41,10 +41,8 @@ import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 private val logger = KotlinLogging.logger {}
 
 fun main() {
-    // Required for Compose rendering above heavyweight JCEF SwingPanel
+    // Required for Compose popups/tooltips to render above heavyweight JCEF SwingPanel
     System.setProperty("compose.interop.blending", "true")
-    // Required for tooltips/popups to render above JCEF
-    System.setProperty("compose.layers.type", "WINDOW")
 
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         logger.error(throwable) { "Uncaught exception on ${thread.name}" }
