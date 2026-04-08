@@ -71,10 +71,12 @@ class RootComponent(
                 }
                 Child.Main(
                     factory.createMain(context, auth) {
+                        // Navigate immediately — don't wait for server logout
+                        currentAuthResult = null
+                        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+                        // Server logout in background (best-effort)
                         scope.launch {
                             logoutOrchestrator.logout()
-                            currentAuthResult = null
-                            navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
                             logoutOrchestrator.reset()
                         }
                     },
