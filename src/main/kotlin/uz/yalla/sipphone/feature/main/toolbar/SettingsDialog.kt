@@ -2,7 +2,6 @@ package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,17 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Monitor
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,20 +34,17 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogWindow
 import androidx.compose.ui.window.rememberDialogState
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.SipConstants
+import uz.yalla.sipphone.ui.component.YallaIconButton
+import uz.yalla.sipphone.ui.component.YallaSegmentedControl
 import uz.yalla.sipphone.ui.strings.LocalStrings
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 
-/**
- * Settings dialog — OS-level DialogWindow (renders above JCEF).
- *
- * Content: agent info, theme toggle, locale toggle, logout, version.
- */
 @Composable
 fun SettingsDialog(
     visible: Boolean,
@@ -63,10 +58,12 @@ fun SettingsDialog(
 ) {
     if (!visible) return
 
+    val tokens = LocalAppTokens.current
+
     DialogWindow(
         onCloseRequest = onDismiss,
         title = "",
-        state = rememberDialogState(size = DpSize(340.dp, 400.dp)),
+        state = rememberDialogState(size = DpSize(tokens.settingsDialogWidth, tokens.settingsDialogHeight)),
         resizable = false,
         alwaysOnTop = true,
         undecorated = true,
@@ -75,22 +72,22 @@ fun SettingsDialog(
         YallaSipPhoneTheme(isDark = isDarkTheme, locale = locale) {
             val colors = LocalYallaColors.current
             val strings = LocalStrings.current
+            val t = LocalAppTokens.current
 
-            // Transparent background — card is the visible content
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                // Card
                 Column(
                     modifier = Modifier
-                        .width(320.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .width(t.settingsCardWidth)
+                        .clip(t.shapeLarge)
                         .background(colors.backgroundTertiary)
-                        .border(1.dp, colors.borderDefault, RoundedCornerShape(14.dp))
-                        .padding(20.dp),
+                        .border(t.dividerThickness, colors.borderDefault, t.shapeLarge)
+                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    // Header: title + close
+                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -98,198 +95,98 @@ fun SettingsDialog(
                     ) {
                         Text(
                             text = strings.settingsTitle,
-                            fontSize = 16.sp,
+                            fontSize = t.textXl,
                             fontWeight = FontWeight.SemiBold,
                             color = colors.textBase,
                         )
-                        IconButton(
+                        YallaIconButton(
+                            icon = Icons.Filled.Close,
+                            contentDescription = null,
                             onClick = onDismiss,
-                            modifier = Modifier
-                                .size(32.dp)
-                                .background(colors.backgroundSecondary, RoundedCornerShape(8.dp))
-                                .pointerHoverIcon(PointerIcon.Hand),
-                        ) {
-                            Icon(
-                                Icons.Filled.Close,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = colors.iconSubtle,
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.height(16.dp))
-
-                    // Agent info card
-                    if (agentInfo != null) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(colors.backgroundSecondary, RoundedCornerShape(10.dp))
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // Initials avatar
-                            val initials = agentInfo.name
-                                .split(" ")
-                                .take(2)
-                                .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
-                                .joinToString("")
-                                .ifEmpty { "?" }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(colors.brandPrimary),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Text(
-                                    text = initials,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                )
-                            }
-
-                            Spacer(Modifier.width(12.dp))
-
-                            Column {
-                                Text(
-                                    text = agentInfo.name,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = colors.textBase,
-                                )
-                                Text(
-                                    text = "ID: ${agentInfo.id}",
-                                    fontSize = 12.sp,
-                                    color = colors.textSubtle,
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-                    }
-
-                    // Theme row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = strings.settingsTheme,
-                            fontSize = 13.sp,
-                            color = colors.textBase,
+                            containerColor = colors.backgroundSecondary,
+                            contentColor = colors.iconSubtle,
                         )
-                        // Segmented control: light / dark
-                        Row(
-                            modifier = Modifier
-                                .background(colors.backgroundSecondary, RoundedCornerShape(8.dp))
-                                .padding(2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            SegmentButton(
-                                selected = !isDarkTheme,
-                                onClick = { if (isDarkTheme) onThemeToggle() },
-                            ) {
+                    }
+
+                    Spacer(Modifier.height(t.spacingMd))
+
+                    // Agent info
+                    if (agentInfo != null) {
+                        AgentInfoCard(agentInfo)
+                        Spacer(Modifier.height(t.spacingMd))
+                    }
+
+                    // Theme
+                    SettingsRow(label = strings.settingsTheme) {
+                        YallaSegmentedControl(
+                            selectedIndex = if (isDarkTheme) 1 else 0,
+                            onSelect = { index ->
+                                val wantDark = index == 1
+                                if (wantDark != isDarkTheme) onThemeToggle()
+                            },
+                            first = {
                                 Icon(
-                                    Icons.Filled.LightMode,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
+                                    Icons.Filled.LightMode, null,
+                                    modifier = Modifier.size(t.iconSmall),
                                     tint = if (!isDarkTheme) colors.brandPrimary else colors.textSubtle,
                                 )
-                            }
-                            SegmentButton(
-                                selected = isDarkTheme,
-                                onClick = { if (!isDarkTheme) onThemeToggle() },
-                            ) {
+                            },
+                            second = {
                                 Icon(
-                                    Icons.Filled.DarkMode,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
+                                    Icons.Filled.DarkMode, null,
+                                    modifier = Modifier.size(t.iconSmall),
                                     tint = if (isDarkTheme) colors.brandPrimary else colors.textSubtle,
                                 )
-                            }
-                        }
+                            },
+                        )
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(t.spacingMdSm))
 
-                    // Locale row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            text = strings.settingsLocale,
-                            fontSize = 13.sp,
-                            color = colors.textBase,
-                        )
-                        Row(
-                            modifier = Modifier
-                                .background(colors.backgroundSecondary, RoundedCornerShape(8.dp))
-                                .padding(2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            SegmentButton(
-                                selected = locale == "uz",
-                                onClick = { onLocaleChange("uz") },
-                            ) {
+                    // Locale
+                    SettingsRow(label = strings.settingsLocale) {
+                        YallaSegmentedControl(
+                            selectedIndex = if (locale == "ru") 1 else 0,
+                            onSelect = { index -> onLocaleChange(if (index == 0) "uz" else "ru") },
+                            first = {
                                 Text(
-                                    text = "UZ",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    "UZ", fontSize = t.textBase, fontWeight = FontWeight.Medium,
                                     color = if (locale == "uz") colors.brandPrimary else colors.textSubtle,
                                 )
-                            }
-                            SegmentButton(
-                                selected = locale == "ru",
-                                onClick = { onLocaleChange("ru") },
-                            ) {
+                            },
+                            second = {
                                 Text(
-                                    text = "RU",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Medium,
+                                    "RU", fontSize = t.textBase, fontWeight = FontWeight.Medium,
                                     color = if (locale == "ru") colors.brandPrimary else colors.textSubtle,
                                 )
-                            }
-                        }
+                            },
+                        )
                     }
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(t.spacingLg))
 
-                    // Logout button
+                    // Logout
                     Button(
-                        onClick = {
-                            onDismiss()
-                            onLogout()
-                        },
+                        onClick = { onDismiss(); onLogout() },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(40.dp)
+                            .height(t.iconButtonSizeLarge)
                             .pointerHoverIcon(PointerIcon.Hand),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = t.shapeSmall,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.destructive.copy(alpha = 0.12f),
+                            containerColor = colors.destructive.copy(alpha = t.alphaMuted),
                             contentColor = colors.destructive,
                         ),
                     ) {
-                        Text(
-                            text = strings.settingsLogout,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
+                        Text(strings.settingsLogout, fontSize = t.textMd, fontWeight = FontWeight.Medium)
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(t.spacingMdSm))
 
                     // Version
                     Text(
                         text = "Yalla SIP Phone v${SipConstants.APP_VERSION}",
-                        fontSize = 11.sp,
+                        fontSize = t.textSm,
                         color = colors.borderDefault,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
@@ -300,28 +197,45 @@ fun SettingsDialog(
 }
 
 @Composable
-private fun SegmentButton(
-    selected: Boolean,
-    onClick: () -> Unit,
-    content: @Composable () -> Unit,
-) {
+private fun AgentInfoCard(agentInfo: AgentInfo) {
     val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
 
-    Box(
-        modifier = Modifier
-            .size(32.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .then(
-                if (selected) {
-                    Modifier.background(colors.brandPrimary.copy(alpha = 0.15f))
-                } else {
-                    Modifier
-                },
-            )
-            .pointerHoverIcon(PointerIcon.Hand)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
+    val initials = agentInfo.name.split(" ").take(2)
+        .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
+        .joinToString("").ifEmpty { "?" }
+
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .background(colors.backgroundSecondary, tokens.shapeMedium)
+            .padding(tokens.spacingMdSm),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(
+            modifier = Modifier.size(tokens.iconButtonSizeLarge).clip(CircleShape).background(colors.brandPrimary),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(initials, fontSize = tokens.textLg, fontWeight = FontWeight.Bold, color = Color.White)
+        }
+        Spacer(Modifier.width(tokens.spacingMdSm))
+        Column {
+            Text(agentInfo.name, fontSize = tokens.textLg, fontWeight = FontWeight.Medium, color = colors.textBase)
+            Text("ID: ${agentInfo.id}", fontSize = tokens.textBase, color = colors.textSubtle)
+        }
+    }
+}
+
+@Composable
+private fun SettingsRow(label: String, content: @Composable () -> Unit) {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, fontSize = tokens.textMd, color = colors.textBase)
         content()
     }
 }
