@@ -1,8 +1,5 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,7 +33,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.component.YallaSegmentedControl
@@ -45,8 +45,9 @@ import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
 /**
- * Settings panel — slides in from the right side of the screen.
- * Not a dialog — a regular composable view inside MainScreen layout.
+ * Settings panel — renders as a Popup anchored to the right side.
+ * Uses Popup so it renders above JCEF (via compose.layers.type=WINDOW).
+ * Visually looks like a side panel, not a dialog.
  */
 @Composable
 fun SettingsPanel(
@@ -60,15 +61,16 @@ fun SettingsPanel(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    if (!visible) return
+
     val colors = LocalYallaColors.current
     val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
 
-    AnimatedVisibility(
-        visible = visible,
-        enter = slideInHorizontally(initialOffsetX = { it }),
-        exit = slideOutHorizontally(targetOffsetX = { it }),
-        modifier = modifier,
+    Popup(
+        alignment = Alignment.TopEnd,
+        onDismissRequest = onDismiss,
+        properties = PopupProperties(focusable = true),
     ) {
         Column(
             modifier = Modifier
@@ -183,7 +185,6 @@ fun SettingsPanel(
 
             Spacer(Modifier.height(tokens.spacingXs))
 
-            // Version
             Text(
                 text = "v${SipConstants.APP_VERSION}",
                 fontSize = tokens.textXs,
