@@ -12,7 +12,7 @@ import uz.yalla.sipphone.data.auth.AuthEventBus
 import java.io.IOException
 
 suspend inline fun <reified T> HttpClient.safeRequest(
-    authEventBus: AuthEventBus,
+    authEventBus: AuthEventBus? = null,
     crossinline block: HttpRequestBuilder.() -> Unit,
 ): Result<T> {
     return try {
@@ -36,13 +36,13 @@ suspend inline fun <reified T> HttpClient.safeRequest(
 @PublishedApi
 internal suspend inline fun <reified T> handleResponse(
     response: HttpResponse,
-    authEventBus: AuthEventBus,
+    authEventBus: AuthEventBus?,
 ): Result<T> {
     val httpStatus = response.status.value
 
     return when {
         httpStatus == 401 -> {
-            authEventBus.emit(AuthEvent.SessionExpired)
+            authEventBus?.emit(AuthEvent.SessionExpired)
             Result.failure(NetworkError.Unauthorized)
         }
 

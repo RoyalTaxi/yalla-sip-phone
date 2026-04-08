@@ -24,7 +24,8 @@ class AuthRepositoryImpl(
         tokenProvider.setToken(loginDto.token)
         logger.info { "Token received, fetching user info..." }
 
-        val meResult = authApi.me()
+        // Don't emit SessionExpired on 401 during login — it's a login failure, not session expiry
+        val meResult = authApi.me(emitAuthEvent = false)
         val meDto = meResult.getOrElse { error ->
             tokenProvider.clearToken()
             return Result.failure(error)

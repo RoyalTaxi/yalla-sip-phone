@@ -19,8 +19,8 @@ class AuthApi(
             setBody(LoginRequestDto(pinCode = pinCode))
         }
 
-    suspend fun me(): Result<MeResultDto> =
-        client.safeRequest(authEventBus) {
+    suspend fun me(emitAuthEvent: Boolean = true): Result<MeResultDto> =
+        client.safeRequest(if (emitAuthEvent) authEventBus else null) {
             url { path("auth", "me") }
             method = HttpMethod.Get
         }
