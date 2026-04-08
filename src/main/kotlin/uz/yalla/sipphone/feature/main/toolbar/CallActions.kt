@@ -70,18 +70,17 @@ fun CallActions(
         ) {
             when (callState) {
                 is CallState.Idle -> {
-                    val disabledColors = IconButtonDefaults.iconButtonColors(
-                        containerColor = colors.buttonDisabled,
-                        contentColor = colors.iconDisabled,
-                        disabledContainerColor = colors.buttonDisabled,
-                        disabledContentColor = colors.iconDisabled,
-                    )
-                    // Call button — enabled only when phone input has text
+                    // Call button — brand when enabled, muted when disabled
                     IconButton(
                         onClick = onCall,
                         enabled = !phoneInputEmpty,
                         modifier = Modifier.size(ButtonSize),
-                        colors = disabledColors,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            containerColor = colors.buttonActive,
+                            contentColor = Color.White,
+                            disabledContainerColor = colors.buttonDisabled,
+                            disabledContentColor = colors.iconDisabled,
+                        ),
                     ) {
                         Icon(
                             Icons.Filled.Call,
@@ -89,12 +88,15 @@ fun CallActions(
                             modifier = Modifier.size(IconSize),
                         )
                     }
-                    // Mute button (disabled)
+                    // Mute button (always disabled in idle)
                     IconButton(
                         onClick = {},
                         enabled = false,
                         modifier = Modifier.size(ButtonSize),
-                        colors = disabledColors,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            disabledContainerColor = colors.buttonDisabled,
+                            disabledContentColor = colors.iconDisabled,
+                        ),
                     ) {
                         Icon(
                             Icons.Filled.Mic,
@@ -102,12 +104,15 @@ fun CallActions(
                             modifier = Modifier.size(IconSize),
                         )
                     }
-                    // Hold button (disabled)
+                    // Hold button (always disabled in idle)
                     IconButton(
                         onClick = {},
                         enabled = false,
                         modifier = Modifier.size(ButtonSize),
-                        colors = disabledColors,
+                        colors = IconButtonDefaults.iconButtonColors(
+                            disabledContainerColor = colors.buttonDisabled,
+                            disabledContentColor = colors.iconDisabled,
+                        ),
                     ) {
                         Icon(
                             Icons.Filled.Pause,
