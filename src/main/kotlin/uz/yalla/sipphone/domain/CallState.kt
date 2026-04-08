@@ -17,12 +17,14 @@ sealed interface CallState {
      * @param callerNumber Remote party number (inbound) or dialled number (outbound).
      * @param callerName Display name from the SIP From header, if present.
      * @param isOutbound `true` for calls initiated by [CallEngine.makeCall], `false` for inbound.
+     * @param accountId SIP account URI that owns this call (e.g. `1001@sip.yalla.uz`). Empty for legacy single-account usage.
      */
     data class Ringing(
         val callId: String,
         val callerNumber: String,
         val callerName: String?,
         val isOutbound: Boolean,
+        val accountId: String = "",
     ) : CallState
 
     /**
@@ -34,6 +36,7 @@ sealed interface CallState {
      * @param isOutbound `true` for outbound calls.
      * @param isMuted `true` when the local microphone is suppressed.
      * @param isOnHold `true` when the call is on hold (re-INVITE with `sendonly`).
+     * @param accountId SIP account URI that owns this call. Empty for legacy single-account usage.
      */
     data class Active(
         val callId: String,
@@ -42,11 +45,18 @@ sealed interface CallState {
         val isOutbound: Boolean,
         val isMuted: Boolean,
         val isOnHold: Boolean,
+        val accountId: String = "",
     ) : CallState
 
     /**
      * Hangup has been requested; waiting for the pjsip disconnect callback.
      * Transitions to [Idle] once the callback fires or a safety timeout elapses.
+     *
+     * @param callId Identifier of the call being ended. Empty when unknown.
+     * @param accountId SIP account URI that owns this call. Empty for legacy single-account usage.
      */
-    data object Ending : CallState
+    data class Ending(
+        val callId: String = "",
+        val accountId: String = "",
+    ) : CallState
 }

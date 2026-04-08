@@ -158,7 +158,7 @@ class PjsipCallManager(
     suspend fun hangupCall() {
         val call = currentCall ?: return
         try {
-            _callState.value = CallState.Ending
+            _callState.value = CallState.Ending()
             withCallOpParam { prm -> call.hangup(prm) }
             // Safety net: force Idle after 10s if onCallDisconnected never fires
             hangupTimeoutJob?.cancel()
