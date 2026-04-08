@@ -106,6 +106,13 @@ object BridgeEvent {
     )
 
     @Serializable
+    data class LocaleChanged(
+        val locale: String,
+        val seq: Int,
+        val timestamp: Long,
+    )
+
+    @Serializable
     data class BridgeError(
         val code: String,
         val message: String,

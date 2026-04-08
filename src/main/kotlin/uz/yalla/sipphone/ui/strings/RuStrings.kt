@@ -27,7 +27,7 @@ object RuStrings : StringResources {
     override val buttonUnmute = "Включить микрофон"
     override val buttonHold = "Удержание"
     override val buttonResume = "Продолжить"
-    override val placeholderPhone = "+998 __ ___ __ __"
+    override val placeholderPhone = "Введите номер"
     override val settingsTitle = "Настройки"
     override val settingsTheme = "Тема"
     override val settingsLocale = "Язык"

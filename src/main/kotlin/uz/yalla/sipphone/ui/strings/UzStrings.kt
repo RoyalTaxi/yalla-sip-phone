@@ -27,7 +27,7 @@ object UzStrings : StringResources {
     override val buttonUnmute = "Ovozni yoqish"
     override val buttonHold = "Kutishga qo'yish"
     override val buttonResume = "Davom ettirish"
-    override val placeholderPhone = "+998 __ ___ __ __"
+    override val placeholderPhone = "Raqam kiriting"
     override val settingsTitle = "Sozlamalar"
     override val settingsTheme = "Mavzu"
     override val settingsLocale = "Til"

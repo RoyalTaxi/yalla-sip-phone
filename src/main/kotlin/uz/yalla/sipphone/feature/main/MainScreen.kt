@@ -32,7 +32,10 @@ fun MainScreen(
                 onThemeToggle()
                 component.onThemeChanged(!isDarkTheme)
             },
-            onLocaleChange = onLocaleChange,
+            onLocaleChange = { newLocale ->
+                onLocaleChange(newLocale)
+                component.onLocaleChanged(newLocale)
+            },
             onLogout = component::logout,
         )
 
@@ -52,7 +55,10 @@ fun MainScreen(
             onThemeToggle()
             component.onThemeChanged(!isDarkTheme)
         },
-        onLocaleChange = onLocaleChange,
+        onLocaleChange = { newLocale ->
+            onLocaleChange(newLocale)
+            component.onLocaleChanged(newLocale)
+        },
         onLogout = component::logout,
         onDismiss = component.toolbar::closeSettings,
     )

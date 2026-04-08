@@ -197,6 +197,10 @@ class MainComponent(
         eventEmitter.emitThemeChanged(if (isDark) "dark" else "light")
     }
 
+    fun onLocaleChanged(locale: String) {
+        eventEmitter.emitLocaleChanged(locale)
+    }
+
     fun logout() {
         toolbar.closeSettings()
         // Wait for settings panel close animation, then disconnect

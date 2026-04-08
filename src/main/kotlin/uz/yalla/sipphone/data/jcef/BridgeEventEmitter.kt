@@ -120,6 +120,11 @@ class BridgeEventEmitter(
         emit("themeChanged", bridgeJson.encodeToString(event))
     }
 
+    fun emitLocaleChanged(locale: String) {
+        val event = BridgeEvent.LocaleChanged(locale, seq = nextSeq(), timestamp = now())
+        emit("localeChanged", bridgeJson.encodeToString(event))
+    }
+
     fun emitError(code: String, message: String, severity: String) {
         val event = BridgeEvent.BridgeError(code, message, severity, seq = nextSeq(), timestamp = now())
         emit("error", bridgeJson.encodeToString(event))
