@@ -187,10 +187,10 @@ class MainComponent(
 
     fun logout() {
         toolbar.closeSettings()
-        // Wait for settings panel close animation, then disconnect
         scope.launch {
             kotlinx.coroutines.delay(350)
             toolbar.disconnect()
+            onLogout()
         }
     }
 }
