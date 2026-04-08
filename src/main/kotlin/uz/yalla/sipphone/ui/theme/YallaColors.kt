@@ -8,8 +8,9 @@ import androidx.compose.ui.graphics.Color
 data class YallaColors(
     // Brand
     val brandPrimary: Color,
-    val brandPrimaryDisabled: Color,
+    val brandPrimaryMuted: Color,
     val brandPrimaryText: Color,
+    val brandLight: Color,
     // Backgrounds
     val backgroundBase: Color,
     val backgroundSecondary: Color,
@@ -18,20 +19,16 @@ data class YallaColors(
     val textBase: Color,
     val textSubtle: Color,
     // Borders
-    val borderDisabled: Color,
-    val borderFilled: Color,
-    // Error
+    val borderDefault: Color,
+    val borderStrong: Color,
+    // Status
     val errorText: Color,
-    val errorIndicator: Color,
-    // Buttons
-    val buttonActive: Color,
-    val buttonDisabled: Color,
+    val destructive: Color,
+    val statusWarning: Color,
+    // Surfaces
+    val surfaceMuted: Color,
     // Icons
-    val iconDisabled: Color,
     val iconSubtle: Color,
-    val iconRed: Color,
-    // Accent
-    val pinkSun: Color,
     // Call states
     val callReady: Color,
     val callIncoming: Color,
@@ -42,23 +39,21 @@ data class YallaColors(
     companion object {
         val Light = YallaColors(
             brandPrimary = Color(0xFF562DF8),
-            brandPrimaryDisabled = Color(0xFFC8CBFA),
+            brandPrimaryMuted = Color(0xFFC8CBFA),
             brandPrimaryText = Color(0xFF562DF8),
+            brandLight = Color(0xFFC8CBFA),
             backgroundBase = Color(0xFFFFFFFF),
             backgroundSecondary = Color(0xFFF7F7F7),
             backgroundTertiary = Color(0xFFE9EAEA),
             textBase = Color(0xFF101828),
             textSubtle = Color(0xFF98A2B3),
-            borderDisabled = Color(0xFFE4E7EC),
-            borderFilled = Color(0xFF101828),
+            borderDefault = Color(0xFFE4E7EC),
+            borderStrong = Color(0xFF101828),
             errorText = Color(0xFFF42500),
-            errorIndicator = Color(0xFFF42500),
-            buttonActive = Color(0xFF562DF8),
-            buttonDisabled = Color(0xFFF7F7F7),
-            iconDisabled = Color(0xFFC8CBFA),
+            destructive = Color(0xFFF42500),
+            statusWarning = Color(0xFFFF234B),
+            surfaceMuted = Color(0xFFF7F7F7),
             iconSubtle = Color(0xFF98A2B3),
-            iconRed = Color(0xFFF42500),
-            pinkSun = Color(0xFFFF234B),
             callReady = Color(0xFF2E7D32),
             callIncoming = Color(0xFFD97706),
             callMuted = Color(0xFFF42500),
@@ -68,23 +63,21 @@ data class YallaColors(
 
         val Dark = YallaColors(
             brandPrimary = Color(0xFF562DF8),
-            brandPrimaryDisabled = Color(0xFF2C2D34),
+            brandPrimaryMuted = Color(0xFF2C2D34),
             brandPrimaryText = Color(0xFF8B6FFF),
+            brandLight = Color(0xFFC8CBFA),
             backgroundBase = Color(0xFF1A1A20),
             backgroundSecondary = Color(0xFF21222B),
-            backgroundTertiary = Color(0xFF1D1D26),
+            backgroundTertiary = Color(0xFF2A2B35), // FIXED: was #1D1D26 (darker than secondary)
             textBase = Color(0xFFFFFFFF),
             textSubtle = Color(0xFF747C8B),
-            borderDisabled = Color(0xFF383843),
-            borderFilled = Color(0xFFFFFFFF),
+            borderDefault = Color(0xFF383843),
+            borderStrong = Color(0xFFFFFFFF),
             errorText = Color(0xFFF42500),
-            errorIndicator = Color(0xFFF42500),
-            buttonActive = Color(0xFF562DF8),
-            buttonDisabled = Color(0xFF2C2D34),
-            iconDisabled = Color(0xFFC8CBFA),
+            destructive = Color(0xFFF42500),
+            statusWarning = Color(0xFFFF234B),
+            surfaceMuted = Color(0xFF2C2D34),
             iconSubtle = Color(0xFF98A2B3),
-            iconRed = Color(0xFFF42500),
-            pinkSun = Color(0xFFFF234B),
             callReady = Color(0xFF66BB6A),
             callIncoming = Color(0xFFF59E0B),
             callMuted = Color(0xFFF42500),

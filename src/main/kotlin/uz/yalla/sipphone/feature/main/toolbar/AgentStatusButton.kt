@@ -84,8 +84,8 @@ fun AgentStatusButton(
     val displayStatus = currentStatus.toDisplayStatus()
 
     fun dotColor(status: DisplayAgentStatus): Color = when (status) {
-        DisplayAgentStatus.ONLINE -> colors.buttonActive
-        DisplayAgentStatus.BUSY -> colors.pinkSun
+        DisplayAgentStatus.ONLINE -> colors.brandPrimary
+        DisplayAgentStatus.BUSY -> colors.statusWarning
         DisplayAgentStatus.OFFLINE -> colors.textSubtle
     }
 
@@ -167,8 +167,8 @@ fun AgentStatusButton(
                         DisplayAgentStatus.entries.forEach { status ->
                             val isSelected = status == displayStatus
                             val statusDotColor = when (status) {
-                                DisplayAgentStatus.ONLINE -> dropdownColors.buttonActive
-                                DisplayAgentStatus.BUSY -> dropdownColors.pinkSun
+                                DisplayAgentStatus.ONLINE -> dropdownColors.brandPrimary
+                                DisplayAgentStatus.BUSY -> dropdownColors.statusWarning
                                 DisplayAgentStatus.OFFLINE -> dropdownColors.textSubtle
                             }
                             val statusLabel = when (status) {
@@ -211,7 +211,7 @@ fun AgentStatusButton(
                                     Text(
                                         text = "✓",
                                         fontSize = 13.sp,
-                                        color = dropdownColors.buttonActive,
+                                        color = dropdownColors.brandPrimary,
                                     )
                                 }
                             }

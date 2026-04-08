@@ -80,33 +80,33 @@ private fun SipChip(
     val (bgColor, borderColor, textColor) = when {
         // Active call chip — brand solid
         isActiveCall -> Triple(
-            colors.buttonActive,
-            colors.buttonActive,
+            colors.brandPrimary,
+            colors.brandPrimary,
             Color.White,
         )
         // Muted by active call (connected but not active)
         isMutedByCall && account.state is SipAccountState.Connected -> Triple(
-            colors.buttonDisabled,
-            colors.borderDisabled,
+            colors.surfaceMuted,
+            colors.borderDefault,
             colors.textSubtle,
         )
         // Normal connected
         account.state is SipAccountState.Connected -> Triple(
-            colors.buttonActive.copy(alpha = 0.12f),
-            colors.buttonActive.copy(alpha = 0.3f),
-            colors.iconDisabled,
+            colors.brandPrimary.copy(alpha = 0.12f),
+            colors.brandPrimary.copy(alpha = 0.3f),
+            colors.brandLight,
         )
         // Reconnecting
         account.state is SipAccountState.Reconnecting -> Triple(
-            colors.pinkSun.copy(alpha = 0.1f),
-            colors.pinkSun.copy(alpha = 0.25f),
-            colors.pinkSun,
+            colors.statusWarning.copy(alpha = 0.1f),
+            colors.statusWarning.copy(alpha = 0.25f),
+            colors.statusWarning,
         )
         // Disconnected
         else -> Triple(
-            colors.iconRed.copy(alpha = 0.1f),
-            colors.iconRed.copy(alpha = 0.25f),
-            colors.iconRed,
+            colors.destructive.copy(alpha = 0.1f),
+            colors.destructive.copy(alpha = 0.25f),
+            colors.destructive,
         )
     }
 
@@ -119,9 +119,9 @@ private fun SipChip(
         is SipAccountState.Disconnected -> strings.sipDisconnected
     }
     val statusColor = when (account.state) {
-        is SipAccountState.Connected -> colors.buttonActive
-        is SipAccountState.Reconnecting -> colors.pinkSun
-        is SipAccountState.Disconnected -> colors.iconRed
+        is SipAccountState.Connected -> colors.brandPrimary
+        is SipAccountState.Reconnecting -> colors.statusWarning
+        is SipAccountState.Disconnected -> colors.destructive
     }
 
     TooltipArea(
@@ -129,7 +129,7 @@ private fun SipChip(
             Column(
                 modifier = Modifier
                     .background(colors.backgroundSecondary, RoundedCornerShape(8.dp))
-                    .border(1.dp, colors.borderDisabled, RoundedCornerShape(8.dp))
+                    .border(1.dp, colors.borderDefault, RoundedCornerShape(8.dp))
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Text(
@@ -165,7 +165,7 @@ private fun SipChip(
                     Text(
                         text = strings.sipReconnectHint,
                         fontSize = 10.sp,
-                        color = colors.iconRed,
+                        color = colors.destructive,
                     )
                 }
             }

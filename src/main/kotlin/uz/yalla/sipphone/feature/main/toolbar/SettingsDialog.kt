@@ -87,7 +87,7 @@ fun SettingsDialog(
                         .width(320.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(colors.backgroundTertiary)
-                        .border(1.dp, colors.borderDisabled, RoundedCornerShape(14.dp))
+                        .border(1.dp, colors.borderDefault, RoundedCornerShape(14.dp))
                         .padding(20.dp),
                 ) {
                     // Header: title + close
@@ -141,7 +141,7 @@ fun SettingsDialog(
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(colors.buttonActive),
+                                    .background(colors.brandPrimary),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
@@ -198,7 +198,7 @@ fun SettingsDialog(
                                     Icons.Filled.LightMode,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint = if (!isDarkTheme) colors.buttonActive else colors.textSubtle,
+                                    tint = if (!isDarkTheme) colors.brandPrimary else colors.textSubtle,
                                 )
                             }
                             SegmentButton(
@@ -209,7 +209,7 @@ fun SettingsDialog(
                                     Icons.Filled.DarkMode,
                                     contentDescription = null,
                                     modifier = Modifier.size(16.dp),
-                                    tint = if (isDarkTheme) colors.buttonActive else colors.textSubtle,
+                                    tint = if (isDarkTheme) colors.brandPrimary else colors.textSubtle,
                                 )
                             }
                         }
@@ -242,7 +242,7 @@ fun SettingsDialog(
                                     text = "UZ",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = if (locale == "uz") colors.buttonActive else colors.textSubtle,
+                                    color = if (locale == "uz") colors.brandPrimary else colors.textSubtle,
                                 )
                             }
                             SegmentButton(
@@ -253,7 +253,7 @@ fun SettingsDialog(
                                     text = "RU",
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = if (locale == "ru") colors.buttonActive else colors.textSubtle,
+                                    color = if (locale == "ru") colors.brandPrimary else colors.textSubtle,
                                 )
                             }
                         }
@@ -273,8 +273,8 @@ fun SettingsDialog(
                             .pointerHoverIcon(PointerIcon.Hand),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = colors.iconRed.copy(alpha = 0.12f),
-                            contentColor = colors.iconRed,
+                            containerColor = colors.destructive.copy(alpha = 0.12f),
+                            contentColor = colors.destructive,
                         ),
                     ) {
                         Text(
@@ -290,7 +290,7 @@ fun SettingsDialog(
                     Text(
                         text = "Yalla SIP Phone v${SipConstants.APP_VERSION}",
                         fontSize = 11.sp,
-                        color = colors.borderDisabled,
+                        color = colors.borderDefault,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
                     )
                 }
@@ -313,7 +313,7 @@ private fun SegmentButton(
             .clip(RoundedCornerShape(6.dp))
             .then(
                 if (selected) {
-                    Modifier.background(colors.buttonActive.copy(alpha = 0.15f))
+                    Modifier.background(colors.brandPrimary.copy(alpha = 0.15f))
                 } else {
                     Modifier
                 },

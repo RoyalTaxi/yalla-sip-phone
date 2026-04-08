@@ -76,10 +76,10 @@ fun CallActions(
                         enabled = !phoneInputEmpty,
                         modifier = Modifier.size(ButtonSize),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = colors.buttonActive,
+                            containerColor = colors.brandPrimary,
                             contentColor = Color.White,
-                            disabledContainerColor = colors.buttonDisabled,
-                            disabledContentColor = colors.iconDisabled,
+                            disabledContainerColor = colors.surfaceMuted,
+                            disabledContentColor = colors.brandLight,
                         ),
                     ) {
                         Icon(
@@ -94,8 +94,8 @@ fun CallActions(
                         enabled = false,
                         modifier = Modifier.size(ButtonSize),
                         colors = IconButtonDefaults.iconButtonColors(
-                            disabledContainerColor = colors.buttonDisabled,
-                            disabledContentColor = colors.iconDisabled,
+                            disabledContainerColor = colors.surfaceMuted,
+                            disabledContentColor = colors.brandLight,
                         ),
                     ) {
                         Icon(
@@ -110,8 +110,8 @@ fun CallActions(
                         enabled = false,
                         modifier = Modifier.size(ButtonSize),
                         colors = IconButtonDefaults.iconButtonColors(
-                            disabledContainerColor = colors.buttonDisabled,
-                            disabledContentColor = colors.iconDisabled,
+                            disabledContainerColor = colors.surfaceMuted,
+                            disabledContentColor = colors.brandLight,
                         ),
                     ) {
                         Icon(
@@ -131,7 +131,7 @@ fun CallActions(
                                 .size(ButtonSize)
                                 .pointerHoverIcon(PointerIcon.Hand),
                                 colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = colors.buttonActive,
+                                containerColor = colors.brandPrimary,
                                 contentColor = Color.White,
                             ),
                         ) {
@@ -149,7 +149,7 @@ fun CallActions(
                                 .size(ButtonSize)
                                 .pointerHoverIcon(PointerIcon.Hand),
                                 colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = colors.iconRed,
+                                containerColor = colors.destructive,
                                 contentColor = Color.White,
                             ),
                         ) {
@@ -164,10 +164,10 @@ fun CallActions(
                         Text(
                             text = strings.sipRinging,
                             fontSize = 12.sp,
-                            color = colors.iconDisabled,
+                            color = colors.brandLight,
                             modifier = Modifier
                                 .background(
-                                    colors.buttonActive.copy(alpha = 0.15f),
+                                    colors.brandPrimary.copy(alpha = 0.15f),
                                     RoundedCornerShape(6.dp),
                                 )
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -180,7 +180,7 @@ fun CallActions(
                                 .size(ButtonSize)
                                 .pointerHoverIcon(PointerIcon.Hand),
                                 colors = IconButtonDefaults.iconButtonColors(
-                                containerColor = colors.iconRed,
+                                containerColor = colors.destructive,
                                 contentColor = Color.White,
                             ),
                         ) {
@@ -194,10 +194,10 @@ fun CallActions(
                         Text(
                             text = strings.sipRinging,
                             fontSize = 12.sp,
-                            color = colors.iconDisabled,
+                            color = colors.brandLight,
                             modifier = Modifier
                                 .background(
-                                    colors.buttonActive.copy(alpha = 0.15f),
+                                    colors.brandPrimary.copy(alpha = 0.15f),
                                     RoundedCornerShape(6.dp),
                                 )
                                 .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -213,7 +213,7 @@ fun CallActions(
                             .size(ButtonSize)
                             .pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = colors.iconRed,
+                            containerColor = colors.destructive,
                             contentColor = Color.White,
                         ),
                     ) {
@@ -231,8 +231,8 @@ fun CallActions(
                             .size(ButtonSize)
                             .pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (callState.isMuted) colors.buttonActive.copy(alpha = 0.15f) else colors.backgroundSecondary,
-                            contentColor = if (callState.isMuted) colors.buttonActive else colors.iconSubtle,
+                            containerColor = if (callState.isMuted) colors.brandPrimary.copy(alpha = 0.15f) else colors.backgroundSecondary,
+                            contentColor = if (callState.isMuted) colors.brandPrimary else colors.iconSubtle,
                         ),
                     ) {
                         Icon(
@@ -249,8 +249,8 @@ fun CallActions(
                             .size(ButtonSize)
                             .pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.iconButtonColors(
-                            containerColor = if (callState.isOnHold) colors.buttonActive.copy(alpha = 0.15f) else colors.backgroundSecondary,
-                            contentColor = if (callState.isOnHold) colors.buttonActive else colors.iconSubtle,
+                            containerColor = if (callState.isOnHold) colors.brandPrimary.copy(alpha = 0.15f) else colors.backgroundSecondary,
+                            contentColor = if (callState.isOnHold) colors.brandPrimary else colors.iconSubtle,
                         ),
                     ) {
                         Icon(

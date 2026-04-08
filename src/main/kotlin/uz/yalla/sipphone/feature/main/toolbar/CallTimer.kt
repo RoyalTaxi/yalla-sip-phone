@@ -18,9 +18,9 @@ import uz.yalla.sipphone.ui.theme.LocalYallaColors
 /**
  * Brand tint surface showing call duration. Only visible during active call.
  *
- * - Background: buttonActive @ 15% alpha
- * - Border: buttonActive @ 30% alpha
- * - Text: iconDisabled (#C8CBFA)
+ * - Background: brandPrimary @ 15% alpha
+ * - Border: brandPrimary @ 30% alpha
+ * - Text: brandLight (#C8CBFA)
  * - Font: monospace, tabular-nums
  * - Rounded 6dp
  */
@@ -43,10 +43,10 @@ fun CallTimer(
                 text = text,
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
-                color = colors.iconDisabled,
+                color = colors.brandLight,
                 modifier = Modifier
-                    .background(colors.buttonActive.copy(alpha = 0.15f), shape)
-                    .border(1.dp, colors.buttonActive.copy(alpha = 0.3f), shape)
+                    .background(colors.brandPrimary.copy(alpha = 0.15f), shape)
+                    .border(1.dp, colors.brandPrimary.copy(alpha = 0.3f), shape)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }

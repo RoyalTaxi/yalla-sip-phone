@@ -108,7 +108,7 @@ fun LoginScreen(component: LoginComponent) {
                 modifier = Modifier
                     .size(56.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(colors.buttonActive),
+                    .background(colors.brandPrimary),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -143,14 +143,14 @@ fun LoginScreen(component: LoginComponent) {
                         Text(
                             text = strings.errorWrongPassword,
                             style = MaterialTheme.typography.bodySmall,
-                            color = colors.iconRed,
+                            color = colors.destructive,
                         )
                     }
                     errorState?.type == LoginErrorType.NETWORK -> {
                         Text(
                             text = strings.errorNetworkFailed,
                             style = MaterialTheme.typography.bodySmall,
-                            color = colors.pinkSun,
+                            color = colors.statusWarning,
                         )
                     }
                     else -> {
@@ -165,11 +165,11 @@ fun LoginScreen(component: LoginComponent) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Password field: custom with backgroundSecondary bg, borderDisabled border
+            // Password field: custom with backgroundSecondary bg, borderDefault border
             val fieldBorderColor = if (errorState?.type == LoginErrorType.WRONG_PASSWORD) {
-                colors.iconRed
+                colors.destructive
             } else {
-                colors.borderDisabled
+                colors.borderDefault
             }
 
             BasicTextField(
@@ -181,7 +181,7 @@ fun LoginScreen(component: LoginComponent) {
                     color = colors.textBase,
                     fontSize = 14.sp,
                 ),
-                cursorBrush = SolidColor(colors.buttonActive),
+                cursorBrush = SolidColor(colors.brandPrimary),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -263,8 +263,8 @@ fun LoginScreen(component: LoginComponent) {
                     .pointerHoverIcon(PointerIcon.Hand),
                 shape = FieldShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = colors.buttonActive,
-                    disabledContainerColor = colors.buttonDisabled,
+                    containerColor = colors.brandPrimary,
+                    disabledContainerColor = colors.surfaceMuted,
                 ),
             ) {
                 if (isLoading) {
@@ -313,7 +313,7 @@ fun LoginScreen(component: LoginComponent) {
             // Version
             Text(
                 text = "v${SipConstants.APP_VERSION}",
-                color = colors.borderDisabled,
+                color = colors.borderDefault,
                 style = MaterialTheme.typography.bodySmall,
             )
         }

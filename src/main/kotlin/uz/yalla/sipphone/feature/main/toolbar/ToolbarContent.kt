@@ -176,6 +176,6 @@ private fun VerticalDivider() {
         Modifier
             .width(tokens.dividerThickness)
             .height(tokens.dividerHeight)
-            .background(colors.borderDisabled),
+            .background(colors.borderDefault),
     )
 }
