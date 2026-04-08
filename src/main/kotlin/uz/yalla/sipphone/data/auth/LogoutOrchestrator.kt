@@ -13,14 +13,22 @@ class LogoutOrchestrator(
     private val connectionManager: ConnectionManager,
     private val tokenProvider: TokenProvider,
 ) {
+    private var logoutInProgress = false
+
     suspend fun logout() {
-        logger.info { "Logout sequence starting..." }
-        connectionManager.stopMonitoring()
-        runCatching { registrationEngine.unregister() }
-            .onFailure { logger.warn { "SIP unregister failed: ${it.message}" } }
-        runCatching { authRepository.logout() }
-            .onFailure { logger.warn { "API logout failed: ${it.message}" } }
-        tokenProvider.clearToken()
-        logger.info { "Logout sequence complete" }
+        if (logoutInProgress) return // prevent re-entrant loop
+        logoutInProgress = true
+        try {
+            logger.info { "Logout sequence starting..." }
+            connectionManager.stopMonitoring()
+            runCatching { registrationEngine.unregister() }
+                .onFailure { logger.warn { "SIP unregister failed: ${it.message}" } }
+            tokenProvider.clearToken() // clear BEFORE API call to prevent 401→SessionExpired loop
+            runCatching { authRepository.logout() }
+                .onFailure { logger.warn { "API logout failed (expected if token already invalid): ${it.message}" } }
+            logger.info { "Logout sequence complete" }
+        } finally {
+            logoutInProgress = false
+        }
     }
 }
