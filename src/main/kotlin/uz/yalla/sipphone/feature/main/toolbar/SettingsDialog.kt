@@ -105,15 +105,15 @@ fun SettingsDialog(
                         IconButton(
                             onClick = onDismiss,
                             modifier = Modifier
-                                .size(28.dp)
-                                .background(colors.backgroundSecondary, CircleShape)
+                                .size(32.dp)
+                                .background(colors.backgroundSecondary, RoundedCornerShape(8.dp))
                                 .pointerHoverIcon(PointerIcon.Hand),
                         ) {
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = null,
-                                modifier = Modifier.size(14.dp),
-                                tint = colors.textSubtle,
+                                modifier = Modifier.size(18.dp),
+                                tint = colors.iconSubtle,
                             )
                         }
                     }
