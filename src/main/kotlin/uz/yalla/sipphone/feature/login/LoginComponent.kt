@@ -80,6 +80,7 @@ class LoginComponent(
     fun manualConnect(server: String, port: Int, username: String, password: String, dispatcherUrl: String = "") {
         val credentials = SipCredentials(server = server, port = port, username = username, password = password)
         lastAuthResult = AuthResult(
+            token = "",
             sipCredentials = credentials,
             dispatcherUrl = dispatcherUrl,
             agent = AgentInfo("manual", username),

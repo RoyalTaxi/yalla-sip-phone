@@ -33,6 +33,7 @@ class RootComponentTest {
     private val fakeCallEngine = FakeCallEngine()
 
     private val testAuthResult = AuthResult(
+        token = "test-token",
         sipCredentials = SipCredentials("192.168.0.22", 5060, "102", "pass"),
         dispatcherUrl = "http://dispatcher.test",
         agent = AgentInfo("1", "Test Agent"),
@@ -58,8 +59,9 @@ class RootComponentTest {
             ) = LoginComponent(
                 componentContext = context,
                 authRepository = object : AuthRepository {
-                    override suspend fun login(password: String): Result<AuthResult> =
+                    override suspend fun login(pinCode: String): Result<AuthResult> =
                         Result.success(testAuthResult)
+                    override suspend fun logout(): Result<Unit> = Result.success(Unit)
                 },
                 registrationEngine = fakeRegistrationEngine,
                 onLoginSuccess = onLoginSuccess,
