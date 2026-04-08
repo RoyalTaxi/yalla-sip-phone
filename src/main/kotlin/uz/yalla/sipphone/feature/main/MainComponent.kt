@@ -3,10 +3,6 @@ package uz.yalla.sipphone.feature.main
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
 import com.arkivanov.essenty.lifecycle.doOnDestroy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
 import uz.yalla.sipphone.data.jcef.BridgeRouter
@@ -177,20 +173,8 @@ class MainComponent(
         }
 
         // Auto-logout on disconnect when no active call
-        scope.launch(Dispatchers.Main) {
-            combine(
-                sipAccountManager.accounts,
-                callEngine.callState,
-            ) { accounts, callState ->
-                val allDisconnected = accounts.isEmpty() ||
-                    accounts.all { it.state is SipAccountState.Disconnected }
-                val noActiveCall = callState is CallState.Idle
-                allDisconnected && noActiveCall
-            }
-                .drop(1) // skip initial emission
-                .first { it }
-            onLogout()
-        }
+        // No auto-logout on SIP disconnect — user stays on main screen
+        // and can reconnect by clicking the SIP chip
     }
 
     fun onThemeChanged(isDark: Boolean) {
