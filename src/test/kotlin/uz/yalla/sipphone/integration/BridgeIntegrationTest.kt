@@ -17,9 +17,8 @@ import uz.yalla.sipphone.data.jcef.bridgeJson
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.testing.FakeSipAccountManager
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
-import uz.yalla.sipphone.testing.engine.ScriptableRegistrationEngine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -37,7 +36,7 @@ import kotlin.test.assertTrue
 class BridgeIntegrationTest {
 
     private val callEngine = ScriptableCallEngine()
-    private val regEngine = ScriptableRegistrationEngine()
+    private val sipAccountManager = FakeSipAccountManager()
     private val security = BridgeSecurity()
     private val auditLog = BridgeAuditLog()
     private val eventEmitter = BridgeEventEmitter(auditLog)
@@ -47,7 +46,7 @@ class BridgeIntegrationTest {
 
     private val router = BridgeRouter(
         callEngine = callEngine,
-        registrationEngine = regEngine,
+        sipAccountManager = sipAccountManager,
         security = security,
         auditLog = auditLog,
         agentStatusProvider = { lastAgentStatus },
@@ -411,11 +410,16 @@ class BridgeIntegrationTest {
     }
 
     @Test
-    fun `ScriptableRegistrationEngine records register and emits state`() = runTest {
-        val creds = uz.yalla.sipphone.domain.SipCredentials("192.168.0.22", 5060, "101", "pass")
-        regEngine.register(creds)
+    fun `FakeSipAccountManager tracks registerAll calls`() = runTest {
+        val info = uz.yalla.sipphone.domain.SipAccountInfo(
+            extensionNumber = 101,
+            serverUrl = "192.168.0.22",
+            sipName = "Test",
+            credentials = uz.yalla.sipphone.domain.SipCredentials("192.168.0.22", 5060, "101", "pass"),
+        )
+        sipAccountManager.registerAll(listOf(info))
 
-        assertEquals(1, regEngine.actions.size)
-        assertTrue(regEngine.registrationState.value is RegistrationState.Registering)
+        assertEquals(1, sipAccountManager.registerAllCallCount)
+        assertEquals(1, sipAccountManager.accounts.value.size)
     }
 }

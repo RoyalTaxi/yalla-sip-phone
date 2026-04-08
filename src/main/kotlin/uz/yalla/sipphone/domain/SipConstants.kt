@@ -1,7 +1,7 @@
 package uz.yalla.sipphone.domain
 
 object SipConstants {
-    const val APP_VERSION = "1.0.0"
+    const val APP_VERSION = "1.2.0"
     const val DEFAULT_PORT = 5060
     const val USER_AGENT = "YallaSipPhone/1.0"
     const val AUTH_SCHEME_DIGEST = "digest"

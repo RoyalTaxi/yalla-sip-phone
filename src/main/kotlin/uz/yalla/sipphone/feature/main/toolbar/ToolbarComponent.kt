@@ -13,8 +13,8 @@ import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.PhoneNumberValidator
-import uz.yalla.sipphone.domain.RegistrationEngine
-import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipAccount
+import uz.yalla.sipphone.domain.SipAccountManager
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.Clip
 
@@ -22,10 +22,10 @@ private val logger = KotlinLogging.logger {}
 
 class ToolbarComponent(
     val callEngine: CallEngine,
-    val registrationEngine: RegistrationEngine,
+    val sipAccountManager: SipAccountManager,
 ) {
     val callState: StateFlow<CallState> = callEngine.callState
-    val registrationState: StateFlow<RegistrationState> = registrationEngine.registrationState
+    val accounts: StateFlow<List<SipAccount>> = sipAccountManager.accounts
 
     private val _agentStatus = MutableStateFlow(AgentStatus.READY)
     val agentStatus: StateFlow<AgentStatus> = _agentStatus.asStateFlow()
@@ -100,7 +100,7 @@ class ToolbarComponent(
     }
 
     fun disconnect() {
-        scope.launch { registrationEngine.unregister() }
+        scope.launch { sipAccountManager.unregisterAll() }
     }
 
     fun destroy() {

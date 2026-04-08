@@ -8,7 +8,7 @@ import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.FakeCallEngine
-import uz.yalla.sipphone.domain.FakeRegistrationEngine
+import uz.yalla.sipphone.testing.FakeSipAccountManager
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 class ToolbarComponentTest {
     private val testDispatcher = StandardTestDispatcher()
     private val fakeCallEngine = FakeCallEngine()
-    private val fakeRegistrationEngine = FakeRegistrationEngine()
+    private val fakeSipAccountManager = FakeSipAccountManager()
     private lateinit var component: ToolbarComponent
 
     @BeforeTest
@@ -28,7 +28,7 @@ class ToolbarComponentTest {
         Dispatchers.setMain(testDispatcher)
         component = ToolbarComponent(
             callEngine = fakeCallEngine,
-            registrationEngine = fakeRegistrationEngine,
+            sipAccountManager = fakeSipAccountManager,
         )
     }
 

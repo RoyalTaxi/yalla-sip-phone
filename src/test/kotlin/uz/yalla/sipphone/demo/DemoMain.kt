@@ -20,6 +20,7 @@ import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarComponent
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarContent
+import uz.yalla.sipphone.testing.FakeSipAccountManager
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
 import uz.yalla.sipphone.testing.engine.ScriptableRegistrationEngine
 import uz.yalla.sipphone.testing.scenario.ScenarioRunner
@@ -39,10 +40,11 @@ import java.time.format.DateTimeFormatter
 fun main() {
     val callEngine = ScriptableCallEngine()
     val registrationEngine = ScriptableRegistrationEngine()
+    val sipAccountManager = FakeSipAccountManager()
 
     val toolbar = ToolbarComponent(
         callEngine = callEngine,
-        registrationEngine = registrationEngine,
+        sipAccountManager = sipAccountManager,
     )
 
     val runner = ScenarioRunner(callEngine, registrationEngine)

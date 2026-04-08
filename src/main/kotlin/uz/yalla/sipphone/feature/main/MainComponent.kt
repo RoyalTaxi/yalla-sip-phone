@@ -17,15 +17,15 @@ import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.RegistrationEngine
-import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipAccountManager
+import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarComponent
 
 class MainComponent(
     componentContext: ComponentContext,
     val authResult: AuthResult,
     private val callEngine: CallEngine,
-    private val registrationEngine: RegistrationEngine,
+    private val sipAccountManager: SipAccountManager,
     val jcefManager: JcefManager,
     private val eventEmitter: BridgeEventEmitter,
     private val security: BridgeSecurity,
@@ -35,7 +35,7 @@ class MainComponent(
 
     val toolbar = ToolbarComponent(
         callEngine = callEngine,
-        registrationEngine = registrationEngine,
+        sipAccountManager = sipAccountManager,
     )
 
     val dispatcherUrl: String = if (authResult.token.isNotEmpty())
@@ -59,7 +59,7 @@ class MainComponent(
 
             val bridgeRouter = BridgeRouter(
                 callEngine = callEngine,
-                registrationEngine = registrationEngine,
+                sipAccountManager = sipAccountManager,
                 security = security,
                 auditLog = auditLog,
                 agentStatusProvider = { toolbar.agentStatus.value },
@@ -144,27 +144,21 @@ class MainComponent(
             }
         }
 
-        // --- Registration state observation → bridge events ---
-        var previousRegState: RegistrationState = registrationEngine.registrationState.value
+        // --- SIP account state observation → bridge events ---
+        var previousConnState: String = "disconnected"
 
         scope.launch {
-            registrationEngine.registrationState.collect { newState ->
-                val prev = previousRegState
-                previousRegState = newState
-
-                val state = when (newState) {
-                    is RegistrationState.Registered -> "connected"
-                    is RegistrationState.Registering -> "reconnecting"
+            sipAccountManager.accounts.collect { accounts ->
+                val state = when {
+                    accounts.any { it.state is SipAccountState.Connected } -> "connected"
+                    accounts.any { it.state is SipAccountState.Reconnecting } -> "reconnecting"
                     else -> "disconnected"
                 }
-                val prevState = when (prev) {
-                    is RegistrationState.Registered -> "connected"
-                    is RegistrationState.Registering -> "reconnecting"
-                    else -> "disconnected"
-                }
+                val connectedCount = accounts.count { it.state is SipAccountState.Connected }
 
-                if (state != prevState) {
-                    eventEmitter.emitConnectionChanged(state, 0)
+                if (state != previousConnState) {
+                    previousConnState = state
+                    eventEmitter.emitConnectionChanged(state, connectedCount)
                 }
             }
         }
@@ -188,12 +182,13 @@ class MainComponent(
         // Auto-logout on disconnect when no active call
         scope.launch(Dispatchers.Main) {
             combine(
-                registrationEngine.registrationState,
+                sipAccountManager.accounts,
                 callEngine.callState,
-            ) { regState, callState ->
-                val isDisconnected = regState is RegistrationState.Idle || regState is RegistrationState.Failed
+            ) { accounts, callState ->
+                val allDisconnected = accounts.isEmpty() ||
+                    accounts.all { it.state is SipAccountState.Disconnected }
                 val noActiveCall = callState is CallState.Idle
-                isDisconnected && noActiveCall
+                allDisconnected && noActiveCall
             }
                 .drop(1) // skip initial emission
                 .first { it }

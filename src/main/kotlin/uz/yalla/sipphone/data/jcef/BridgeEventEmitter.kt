@@ -139,9 +139,20 @@ class BridgeEventEmitter(
         emit("agentStatusChanged", bridgeJson.encodeToString(event))
     }
 
-    fun emitConnectionChanged(state: String, attempt: Int) {
-        val event = BridgeEvent.ConnectionChanged(state, attempt, seq = nextSeq(), timestamp = now())
+    fun emitConnectionChanged(state: String, attempt: Int, accountId: String = "") {
+        val event = BridgeEvent.ConnectionChanged(state, attempt, accountId = accountId, seq = nextSeq(), timestamp = now())
         emit("connectionChanged", bridgeJson.encodeToString(event))
+    }
+
+    fun emitAccountStatusChanged(accountId: String, name: String, status: String) {
+        val event = BridgeEvent.AccountStatusChanged(
+            accountId = accountId,
+            name = name,
+            status = status,
+            seq = nextSeq(),
+            timestamp = System.currentTimeMillis(),
+        )
+        emit("accountStatusChanged", bridgeJson.encodeToString(event))
     }
 
     fun emitCallQualityUpdate(callId: String, quality: String) {
