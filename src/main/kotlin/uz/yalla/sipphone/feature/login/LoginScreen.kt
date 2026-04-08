@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -54,13 +53,10 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.CompositionLocalProvider
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
-import uz.yalla.sipphone.ui.theme.YallaColors
 
 private val SplashGradient = Brush.linearGradient(
     colors = listOf(Color(0xFF7957FF), Color(0xFF562DF8), Color(0xFF3812CE)),
@@ -68,13 +64,18 @@ private val SplashGradient = Brush.linearGradient(
     end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
 )
 
-private val CardShape = RoundedCornerShape(16.dp)
-private val FieldShape = RoundedCornerShape(10.dp)
+// Card always looks "dark" on purple gradient regardless of theme
+private val CardBg = Color(0xFF1A1A20).copy(alpha = 0.88f)
+private val CardTextPrimary = Color.White
+private val CardTextSecondary = Color(0xFF98A2B3)
+private val CardBorderDefault = Color(0xFF383843)
+private val CardSurfaceMuted = Color(0xFF21222B)
 
 @Composable
 fun LoginScreen(component: LoginComponent) {
     val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
+    val colors = LocalYallaColors.current
     val loginState by component.loginState.collectAsState()
 
     var password by remember { mutableStateOf("") }
@@ -84,168 +85,97 @@ fun LoginScreen(component: LoginComponent) {
     val isLoading = loginState is LoginState.Loading || loginState is LoginState.Authenticated
     val errorState = loginState as? LoginState.Error
 
-    // Gradient background
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SplashGradient),
+        modifier = Modifier.fillMaxSize().background(SplashGradient),
         contentAlignment = Alignment.Center,
     ) {
-        // Force dark colors inside card — gradient bg requires dark card
-        CompositionLocalProvider(LocalYallaColors provides YallaColors.Dark) {
-        val colors = LocalYallaColors.current
-
         Column(
             modifier = Modifier
                 .width(320.dp)
-                .clip(CardShape)
-                .background(colors.backgroundBase.copy(alpha = 0.88f))
-                .padding(horizontal = 40.dp, vertical = 32.dp),
+                .clip(tokens.shapeXl)
+                .background(CardBg)
+                .padding(horizontal = 40.dp, vertical = tokens.spacingXl),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Logo: 56dp rounded square with brand bg, phone icon
+            // Logo
             Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.brandPrimary),
+                modifier = Modifier.size(56.dp).clip(tokens.shapeMedium).background(colors.brandPrimary),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Phone,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp),
-                )
+                Icon(Icons.Default.Phone, null, tint = Color.White, modifier = Modifier.size(28.dp))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(tokens.spacingMd))
 
-            // Title
             Text(
                 text = strings.loginTitle,
-                style = TextStyle(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                ),
+                style = TextStyle(fontSize = tokens.textTitle, fontWeight = FontWeight.Bold, color = CardTextPrimary),
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(tokens.spacingSm))
 
-            // Subtitle slot: 20dp fixed height
-            Box(
-                modifier = Modifier.height(20.dp),
-                contentAlignment = Alignment.Center,
-            ) {
+            // Subtitle / error
+            Box(modifier = Modifier.height(20.dp), contentAlignment = Alignment.Center) {
                 when {
-                    errorState?.type == LoginErrorType.WRONG_PASSWORD -> {
-                        Text(
-                            text = strings.errorWrongPassword,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.destructive,
-                        )
-                    }
-                    errorState?.type == LoginErrorType.NETWORK -> {
-                        Text(
-                            text = strings.errorNetworkFailed,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.statusWarning,
-                        )
-                    }
-                    else -> {
-                        Text(
-                            text = strings.loginSubtitle,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = colors.iconSubtle,
-                        )
-                    }
+                    errorState?.type == LoginErrorType.WRONG_PASSWORD -> Text(
+                        strings.errorWrongPassword, style = MaterialTheme.typography.bodySmall, color = colors.destructive,
+                    )
+                    errorState?.type == LoginErrorType.NETWORK -> Text(
+                        strings.errorNetworkFailed, style = MaterialTheme.typography.bodySmall, color = colors.statusWarning,
+                    )
+                    else -> Text(
+                        strings.loginSubtitle, style = MaterialTheme.typography.bodySmall, color = CardTextSecondary,
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(Modifier.height(20.dp))
 
-            // Password field: custom with backgroundSecondary bg, borderDefault border
-            val fieldBorderColor = if (errorState?.type == LoginErrorType.WRONG_PASSWORD) {
-                colors.destructive
-            } else {
-                colors.borderDefault
-            }
+            // Password field
+            val fieldBorderColor = if (errorState?.type == LoginErrorType.WRONG_PASSWORD) colors.destructive else CardBorderDefault
 
             BasicTextField(
                 value = password,
                 onValueChange = { password = it },
                 singleLine = true,
                 enabled = !isLoading,
-                textStyle = TextStyle(
-                    color = colors.textBase,
-                    fontSize = 14.sp,
-                ),
+                textStyle = TextStyle(color = CardTextPrimary, fontSize = tokens.textLg),
                 cursorBrush = SolidColor(colors.brandPrimary),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(
-                    onDone = {
-                        if (!isLoading && password.isNotEmpty()) component.login(password)
-                    },
-                ),
-                visualTransformation = if (passwordVisible) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    if (!isLoading && password.isNotEmpty()) component.login(password)
+                }),
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 decorationBox = { innerTextField ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
-                            .clip(FieldShape)
-                            .background(colors.backgroundSecondary)
-                            .border(1.dp, fieldBorderColor, FieldShape)
-                            .padding(horizontal = 12.dp),
+                            .height(tokens.fieldHeightLg)
+                            .clip(tokens.shapeMedium)
+                            .background(CardSurfaceMuted)
+                            .border(tokens.dividerThickness, fieldBorderColor, tokens.shapeMedium)
+                            .padding(horizontal = tokens.spacingMdSm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = colors.iconSubtle,
-                            modifier = Modifier.size(18.dp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(Icons.Default.Lock, null, tint = CardTextSecondary, modifier = Modifier.size(tokens.iconDefault))
+                        Spacer(Modifier.width(tokens.spacingSm))
                         Box(modifier = Modifier.weight(1f)) {
                             if (password.isEmpty()) {
-                                Text(
-                                    text = strings.loginPasswordPlaceholder,
-                                    style = TextStyle(
-                                        fontSize = 14.sp,
-                                        color = colors.textSubtle,
-                                    ),
-                                )
+                                Text(strings.loginPasswordPlaceholder, style = TextStyle(fontSize = tokens.textLg, color = CardTextSecondary))
                             }
                             innerTextField()
                         }
-                        IconButton(
-                            onClick = { passwordVisible = !passwordVisible },
-                            modifier = Modifier.size(28.dp),
-                        ) {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }, modifier = Modifier.size(28.dp)) {
                             Icon(
-                                imageVector = if (passwordVisible) {
-                                    Icons.Default.VisibilityOff
-                                } else {
-                                    Icons.Default.Visibility
-                                },
-                                contentDescription = null,
-                                tint = colors.iconSubtle,
-                                modifier = Modifier.size(18.dp),
+                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                null, tint = CardTextSecondary, modifier = Modifier.size(tokens.iconDefault),
                             )
                         }
                     }
                 },
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(tokens.spacingMd))
 
             // Login button
             val buttonText = when {
@@ -257,46 +187,26 @@ fun LoginScreen(component: LoginComponent) {
             Button(
                 onClick = { component.login(password) },
                 enabled = !isLoading && password.isNotEmpty(),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .pointerHoverIcon(PointerIcon.Hand),
-                shape = FieldShape,
+                modifier = Modifier.fillMaxWidth().height(tokens.fieldHeightLg).pointerHoverIcon(PointerIcon.Hand),
+                shape = tokens.shapeMedium,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colors.brandPrimary,
-                    disabledContainerColor = colors.surfaceMuted,
+                    disabledContainerColor = CardSurfaceMuted,
                 ),
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(tokens.iconDefault), strokeWidth = 2.dp, color = Color.White)
+                    Spacer(Modifier.width(tokens.spacingSm))
                 }
-                Text(
-                    text = buttonText,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                )
+                Text(buttonText, color = Color.White, fontSize = tokens.textLg)
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(Modifier.height(tokens.spacingMdSm))
 
-            // Manual connection link
-            TextButton(
-                onClick = { showManualDialog = true },
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
-            ) {
-                Text(
-                    text = strings.loginManualConnection,
-                    color = colors.textSubtle,
-                    fontSize = 13.sp,
-                )
+            TextButton(onClick = { showManualDialog = true }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                Text(strings.loginManualConnection, color = CardTextSecondary, fontSize = tokens.textMd)
             }
 
-            // Manual connection dialog
             if (showManualDialog) {
                 ManualConnectionDialog(
                     isLoading = isLoading,
@@ -308,16 +218,10 @@ fun LoginScreen(component: LoginComponent) {
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(tokens.spacingSm))
 
-            // Version
-            Text(
-                text = "v${SipConstants.APP_VERSION}",
-                color = colors.borderDefault,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text("v${SipConstants.APP_VERSION}", color = CardBorderDefault, style = MaterialTheme.typography.bodySmall)
         }
-        } // CompositionLocalProvider
     }
 }
 
@@ -329,6 +233,7 @@ private fun ManualConnectionDialog(
 ) {
     val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
+    val colors = LocalYallaColors.current
 
     var server by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("5060") }
@@ -340,77 +245,51 @@ private fun ManualConnectionDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.loginManualConnection) },
         text = {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(tokens.spacingSm),
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
                 OutlinedTextField(
-                    value = server,
-                    onValueChange = { server = it },
+                    value = server, onValueChange = { server = it },
                     label = { Text(strings.labelServer) },
                     placeholder = {
-                        Text(
-                            strings.placeholderServer,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f),
-                        )
+                        Text(strings.placeholderServer, style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
                     },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = tokens.shapeMedium,
+                    singleLine = true, enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
                     OutlinedTextField(
-                        value = port,
-                        onValueChange = { port = it.filter { c -> c.isDigit() }.take(5) },
+                        value = port, onValueChange = { port = it.filter { c -> c.isDigit() }.take(5) },
                         label = { Text(strings.labelPort) },
-                        singleLine = true,
-                        enabled = !isLoading,
-                        modifier = Modifier.width(100.dp),
-                        shape = tokens.shapeMedium,
+                        singleLine = true, enabled = !isLoading,
+                        modifier = Modifier.width(100.dp), shape = tokens.shapeMedium,
                     )
                     OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
+                        value = username, onValueChange = { username = it },
                         label = { Text(strings.labelUsername) },
                         placeholder = {
-                            Text(
-                                strings.placeholderUsername,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f),
-                            )
+                            Text(strings.placeholderUsername, style = MaterialTheme.typography.bodySmall,
+                                color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
                         },
-                        singleLine = true,
-                        enabled = !isLoading,
-                        modifier = Modifier.weight(1f),
-                        shape = tokens.shapeMedium,
+                        singleLine = true, enabled = !isLoading,
+                        modifier = Modifier.weight(1f), shape = tokens.shapeMedium,
                     )
                 }
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
+                    value = password, onValueChange = { password = it },
                     label = { Text(strings.labelPassword) },
                     visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = tokens.shapeMedium,
+                    singleLine = true, enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
                 )
                 OutlinedTextField(
-                    value = dispatcherUrl,
-                    onValueChange = { dispatcherUrl = it },
+                    value = dispatcherUrl, onValueChange = { dispatcherUrl = it },
                     label = { Text(strings.placeholderDispatcherUrl) },
                     placeholder = {
-                        Text(
-                            strings.placeholderDispatcherUrl,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f),
-                        )
+                        Text(strings.placeholderDispatcherUrl, style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
                     },
-                    singleLine = true,
-                    enabled = !isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = tokens.shapeMedium,
+                    singleLine = true, enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
                 )
             }
         },
@@ -419,14 +298,8 @@ private fun ManualConnectionDialog(
                 onClick = { onConnect(server, port.toIntOrNull() ?: 5060, username, password, dispatcherUrl) },
                 enabled = !isLoading && server.isNotEmpty() && username.isNotEmpty(),
                 shape = tokens.shapeMedium,
-            ) {
-                Text(strings.buttonConnect)
-            }
+            ) { Text(strings.buttonConnect) }
         },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(strings.buttonCancel)
-            }
-        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(strings.buttonCancel) } },
     )
 }

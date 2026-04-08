@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,16 +26,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.ui.strings.LocalStrings
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-/**
- * Phone number input field with monospace/tabular-nums font.
- *
- * - Fixed width range: 120-160dp
- * - 36dp height, rounded 8dp
- * - During ringing: brand border, brand text color
- * - Placeholder: "+998 __ ___ __ __"
- */
 @Composable
 fun PhoneField(
     phoneNumber: String,
@@ -46,6 +38,7 @@ fun PhoneField(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
 
     val isRinging = callState is CallState.Ringing
@@ -53,7 +46,7 @@ fun PhoneField(
 
     val borderColor = when {
         isRinging -> colors.brandPrimary
-        isFocused -> colors.brandPrimary.copy(alpha = 0.5f)
+        isFocused -> colors.brandPrimary.copy(alpha = tokens.alphaFocus)
         else -> colors.borderDefault
     }
 
@@ -62,13 +55,11 @@ fun PhoneField(
         else -> colors.textBase
     }
 
-    val shape = RoundedCornerShape(8.dp)
-
     val fieldTextStyle = TextStyle(
         color = textColor,
         fontFamily = FontFamily.Monospace,
-        fontSize = 13.sp,
-        lineHeight = 36.sp, // match field height for vertical centering
+        fontSize = tokens.textMd,
+        lineHeight = tokens.fieldHeight.value.sp,
     )
 
     BasicTextField(
@@ -81,10 +72,10 @@ fun PhoneField(
             Box(
                 modifier = Modifier
                     .widthIn(min = 120.dp, max = 160.dp)
-                    .height(36.dp)
-                    .background(colors.backgroundSecondary, shape)
-                    .border(1.dp, borderColor, shape)
-                    .padding(horizontal = 8.dp),
+                    .height(tokens.fieldHeight)
+                    .background(colors.backgroundSecondary, tokens.shapeSmall)
+                    .border(tokens.dividerThickness, borderColor, tokens.shapeSmall)
+                    .padding(horizontal = tokens.spacingSm),
                 contentAlignment = Alignment.CenterStart,
             ) {
                 if (phoneNumber.isEmpty()) {
