@@ -109,15 +109,30 @@ All endpoints return the same envelope:
 ```kotlin
 @Serializable
 data class ApiResponse<T>(
-    val status: Boolean,        // true = success, false = error
-    val code: Int,              // HTTP status code
+    val status: Boolean,            // true = success, false = error
+    val code: Int,                  // HTTP status code
     val message: String? = null,
     val result: T? = null,
-    val errors: String? = null, // Error description string, NOT a list
+    val errors: JsonElement? = null, // Polymorphic: String on 401, Object on 422, null on success
 )
 ```
 
-Key: `status` is `Boolean` (not String), `errors` is `String?` (not List).
+Key: `status` is `Boolean` (not String). `errors` is `JsonElement?` because the API returns
+different types depending on context:
+- On 401 auth errors: `"employee not found"` (String)
+- On 422 validation errors: `{"pin_code":"required"}` (Object/Map)
+- On success: `null`
+
+Helper to extract error message:
+```kotlin
+fun ApiResponse<*>.errorMessage(): String {
+    return when (val e = errors) {
+        is JsonPrimitive -> e.contentOrNull ?: message ?: "Unknown error"
+        is JsonObject -> e.entries.joinToString { "${it.key}: ${it.value.jsonPrimitive.content}" }
+        else -> message ?: "Unknown error"
+    }
+}
+```
 
 ---
 
@@ -138,6 +153,7 @@ data/
 │   ├── AuthApi.kt                   Raw HTTP calls (login, me, logout)
 │   ├── AuthRepositoryImpl.kt        Orchestrates login flow
 │   ├── AuthEventBus.kt              401 → login redirect event bus
+│   ├── LogoutOrchestrator.kt        Full logout sequence coordinator
 │   └── dto/
 │       ├── LoginRequestDto.kt       Request body DTO
 │       ├── LoginResultDto.kt        Login response result DTO
@@ -164,13 +180,15 @@ di/
 ├── AppModule.kt               Add networkModule to module list
 
 feature/login/
-├── LoginComponent.kt          Update for new AuthResult (token field)
+├── LoginComponent.kt          manualConnect: add token="" to AuthResult
 
 feature/main/
-├── MainComponent.kt           Pass token to WebView URL
+├── MainComponent.kt           Pass token to WebView URL as query param
 
 navigation/
-├── RootComponent.kt           Collect AuthEventBus for 401 redirect
+├── RootComponent.kt           Add coroutineScope, inject AuthEventBus + LogoutOrchestrator
+
+Main.kt                        Pass AuthEventBus + LogoutOrchestrator to RootComponent
 ```
 
 ---
@@ -227,10 +245,10 @@ Creates a configured Ktor `HttpClient` with:
 - **Logging** — debug level, via kotlin-logging
 - **Auth (Bearer)** — automatic token attachment via `TokenProvider`
   - `loadTokens`: reads from `TokenProvider`
-  - `refreshTokens`: on 401, clears token and emits `AuthEvent.SessionExpired`
+  - **NO `refreshTokens`** — 401 is handled solely by `safeRequest`. This avoids double-handling where both Auth plugin and safeRequest react to 401, causing race conditions with SessionExpired events.
   - `sendWithoutRequest`: skips auth header for `/auth/login`
 - **defaultRequest** — base URL + JSON content type
-- **expectSuccess = false** — we handle status codes ourselves in `safeRequest`
+- **expectSuccess = false** — we handle status codes ourselves in `safeRequest`. Ktor will NOT throw on non-2xx responses.
 
 ### network/ApiResponse.kt
 
@@ -250,16 +268,23 @@ sealed class NetworkError(message: String, cause: Throwable? = null) : Exception
 
 ### network/SafeRequest.kt
 
-`HttpClient.safeRequest<T>` extension function:
-1. Executes the request inside try/catch
-2. On 2xx: deserializes `ApiResponse<T>`, returns `Result.success(result)`
-3. On 401: returns `Result.failure(NetworkError.Unauthorized)`
-4. On 4xx: returns `Result.failure(NetworkError.ClientError(code, message))`
-5. On 5xx: returns `Result.failure(NetworkError.ServerError(code, message))`
-6. On IOException/timeout: returns `Result.failure(NetworkError.NoConnection(cause))`
-7. On SerializationException: returns `Result.failure(NetworkError.ParseError(cause))`
+`HttpClient.safeRequest<T>` — `inline` function with `reified T`. MUST stay `inline reified` for Ktor's generic deserialization to work.
 
-Special case: when `status == false` in 200 response (API returns 200 with `status: false` for auth errors), treat as client error using `code` field from the envelope.
+Flow:
+1. Executes the request inside try/catch
+2. **CancellationException** — always rethrown, never caught (breaks structured concurrency otherwise)
+3. On HTTP 401: emits `AuthEvent.SessionExpired` on `AuthEventBus`, returns `Result.failure(NetworkError.Unauthorized)`
+4. On HTTP 2xx: deserializes `ApiResponse<T>`, checks `status` field:
+   - `status == true`: returns `Result.success(result)`
+   - `status == false`: returns `Result.failure(NetworkError.ClientError(envelope.code, envelope.errorMessage()))` — **does NOT trigger SessionExpired** even if envelope `code` is 401. Only real HTTP 401 triggers session expiry.
+5. On HTTP 4xx (non-401): returns `Result.failure(NetworkError.ClientError(code, message))`
+6. On HTTP 5xx: returns `Result.failure(NetworkError.ServerError(code, message))`
+7. On HTTP 3xx (unlikely, defensive): returns `Result.failure(NetworkError.ClientError(code, "Unexpected redirect"))`
+8. On IOException/timeout: returns `Result.failure(NetworkError.NoConnection(cause))`
+9. On SerializationException: returns `Result.failure(NetworkError.ParseError(cause))`
+
+**Critical distinction:** Envelope `code: 401` on HTTP 200 (wrong PIN) → shows error on LoginScreen.
+HTTP 401 (expired token) → triggers SessionExpired → redirects to Login. These are different code paths.
 
 ### auth/TokenProvider.kt
 
@@ -270,10 +295,18 @@ interface TokenProvider {
     suspend fun clearToken()
 }
 
-class InMemoryTokenProvider : TokenProvider { ... }
+class InMemoryTokenProvider : TokenProvider {
+    @Volatile private var token: String? = null
+    private val mutex = Mutex()
+
+    override suspend fun getToken(): String? = token
+    override suspend fun setToken(token: String) { mutex.withLock { this.token = token } }
+    override suspend fun clearToken() { mutex.withLock { token = null } }
+}
 ```
 
 In-memory only. No disk persistence. App restart = re-login.
+`@Volatile` for cross-thread visibility on fast-path read. `Mutex` for coroutine-safe writes.
 
 ### auth/AuthApi.kt
 
@@ -300,7 +333,8 @@ login(pinCode) {
 }
 
 logout() {
-    1. authApi.logout()
+    // Thin — only API + token. Full cleanup is LogoutOrchestrator's job.
+    1. runCatching { authApi.logout() }  // best-effort, don't fail on network error
     2. tokenProvider.clearToken()
 }
 ```
@@ -313,14 +347,41 @@ sealed interface AuthEvent {
 }
 
 class AuthEventBus {
-    private val _events = MutableSharedFlow<AuthEvent>(extraBufferCapacity = 1)
+    private val _events = MutableSharedFlow<AuthEvent>(
+        replay = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
     val events: SharedFlow<AuthEvent> = _events.asSharedFlow()
     fun emit(event: AuthEvent) { _events.tryEmit(event) }
 }
 ```
 
-Wired to `HttpClientFactory.onUnauthorized` → emits `SessionExpired`.
-`RootComponent` collects events → navigates to Login screen.
+`replay = 1` ensures late collectors (e.g., RootComponent starting up) still receive the latest event. `DROP_OLDEST` prevents buffer overflow on rapid 401s.
+
+`safeRequest` emits `SessionExpired` on HTTP 401. `RootComponent` collects → calls `LogoutOrchestrator` → navigates to Login.
+
+### auth/LogoutOrchestrator.kt
+
+Single authority for session teardown. Both voluntary logout (user clicks Logout) and forced logout (401 SessionExpired) go through this.
+
+```kotlin
+class LogoutOrchestrator(
+    private val authRepository: AuthRepository,
+    private val registrationEngine: RegistrationEngine,
+    private val connectionManager: ConnectionManager,
+    private val tokenProvider: TokenProvider,
+) {
+    suspend fun logout() {
+        connectionManager.stopMonitoring()
+        runCatching { registrationEngine.unregister() }
+        runCatching { authRepository.logout() }
+        tokenProvider.clearToken()
+    }
+}
+```
+
+Order: stop reconnect loop → SIP unregister → API logout → clear token.
+Each step is `runCatching` — partial failures don't block cleanup.
 
 ### auth/dto/ — DTO classes
 
@@ -413,6 +474,7 @@ val networkModule = module {
 val authModule = module {
     single { AuthApi(client = get()) }
     single<AuthRepository> { AuthRepositoryImpl(authApi = get(), tokenProvider = get()) }
+    single { LogoutOrchestrator(get(), get(), get(), get()) }
     // MockAuthRepository stays in test/ for unit tests
 }
 ```
@@ -427,31 +489,68 @@ Add `networkModule` to the list (before `authModule`).
 
 ### LoginComponent
 
-Minimal change — `login(password)` already calls `authRepository.login(password)`. Just rename parameter semantically. The flow stays the same: auth → register SIP → navigate.
+Minimal change:
+- `login(password)` → call stays the same (positional arg), AuthRepository handles the rest
+- `manualConnect()` — add `token = ""` to `AuthResult(...)` constructor (debug flow, no real token)
+- The flow stays the same: auth → register SIP → navigate
 
 ### MainComponent / WebviewPanel
 
-WebView URL changes from static dispatcher URL to: `DISPATCHER_URL?token=<jwt_token>`
+WebView URL changes in `MainComponent.kt` (line 41):
+```kotlin
+// Before:
+val dispatcherUrl: String = authResult.dispatcherUrl
+// After:
+val dispatcherUrl: String = if (authResult.token.isNotEmpty())
+    "${authResult.dispatcherUrl}?token=${authResult.token}"
+else
+    authResult.dispatcherUrl
+```
 
-Token comes from `AuthResult.token` which is passed through navigation.
+No changes needed in `WebviewPanel` or `MainScreen` — they just pass the URL through.
 
 ### RootComponent
 
-Add `AuthEventBus` collection:
+Requires several changes (currently has no coroutine scope or event collection):
+
+1. Add `coroutineScope()` from essenty (already in deps)
+2. Add `AuthEventBus` and `LogoutOrchestrator` as constructor parameters
+3. Add event collection in `init`:
 
 ```kotlin
-init {
-    scope.launch {
-        authEventBus.events.collect { event ->
-            when (event) {
-                AuthEvent.SessionExpired -> {
-                    // Clean up SIP, navigate to login
-                    navigation.replaceAll(Screen.Login)
+class RootComponent(
+    componentContext: ComponentContext,
+    private val factory: ComponentFactory,
+    private val authEventBus: AuthEventBus,        // NEW
+    private val logoutOrchestrator: LogoutOrchestrator, // NEW
+) : ComponentContext by componentContext {
+
+    private val scope = coroutineScope()  // NEW — from essenty
+
+    init {
+        scope.launch {
+            authEventBus.events.collect { event ->
+                when (event) {
+                    AuthEvent.SessionExpired -> {
+                        logoutOrchestrator.logout()
+                        currentAuthResult = null
+                        navigation.replaceAll(Screen.Login)
+                    }
                 }
             }
         }
     }
+    // ... rest unchanged
 }
+```
+
+### Main.kt
+
+Update `RootComponent` construction to pass new dependencies:
+```kotlin
+val authEventBus: AuthEventBus = koin.get()
+val logoutOrchestrator: LogoutOrchestrator = koin.get()
+RootComponent(context, factory, authEventBus, logoutOrchestrator)
 ```
 
 ---
@@ -518,6 +617,68 @@ testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
 | `NetworkError` mapping | Unit tests for each HTTP status → NetworkError subtype |
 
 `MockAuthRepository` moves to test source set. Production DI uses `AuthRepositoryImpl`.
+
+---
+
+## Complete File Change List
+
+### New files (13):
+
+| File | Purpose |
+|------|---------|
+| `data/network/HttpClientFactory.kt` | Ktor CIO client setup |
+| `data/network/ApiResponse.kt` | Generic envelope DTO + errorMessage() helper |
+| `data/network/NetworkError.kt` | Sealed error hierarchy |
+| `data/network/SafeRequest.kt` | `inline reified` safeRequest extension |
+| `data/auth/TokenProvider.kt` | Interface + InMemoryTokenProvider |
+| `data/auth/AuthApi.kt` | Raw HTTP calls |
+| `data/auth/AuthRepositoryImpl.kt` | Login orchestration |
+| `data/auth/AuthEventBus.kt` | Session expiry event bus |
+| `data/auth/LogoutOrchestrator.kt` | Full logout sequence coordinator |
+| `data/auth/dto/LoginRequestDto.kt` | Request body |
+| `data/auth/dto/LoginResultDto.kt` | Login result |
+| `data/auth/dto/MeResultDto.kt` | Me result + SipConnectionDto |
+| `di/NetworkModule.kt` | Koin: HttpClient, TokenProvider, AuthEventBus |
+
+### Modified files (12):
+
+| File | Change |
+|------|--------|
+| `domain/AuthResult.kt` | Add `token: String` field |
+| `domain/SipCredentials.kt` | Add `transport: String = "UDP"`, update `toString()` |
+| `domain/AuthRepository.kt` | Add `logout()`, rename param to `pinCode` |
+| `data/auth/MockAuthRepository.kt` | Implement `logout()`, add `token` to AuthResult, construct directly (no LoginResponse) |
+| `feature/login/LoginComponent.kt` | `manualConnect`: add `token = ""` to AuthResult |
+| `feature/main/MainComponent.kt` | Append `?token=` to dispatcher URL |
+| `navigation/RootComponent.kt` | Add scope, AuthEventBus, LogoutOrchestrator |
+| `Main.kt` | Pass AuthEventBus + LogoutOrchestrator to RootComponent |
+| `di/AuthModule.kt` | Bind AuthRepositoryImpl + LogoutOrchestrator |
+| `di/AppModule.kt` | Add networkModule to list |
+| `build.gradle.kts` | Add 6 Ktor deps + 1 test dep |
+
+### Deleted files (1):
+
+| File | Reason |
+|------|--------|
+| `data/auth/LoginResponse.kt` | Replaced by DTOs. Delete AFTER MockAuthRepository is updated. |
+
+### Test files that need updating (3):
+
+| File | Change |
+|------|--------|
+| `test/.../RootComponentTest.kt` | Add `token` to AuthResult, add `logout()` to anonymous AuthRepository |
+| `test/.../LoginComponentTest.kt` | MockAuthRepository now has `logout()` (inherited) |
+| `test/.../MockAuthRepositoryTest.kt` | Add test for `logout()` |
+
+### Implementation Notes
+
+1. **`transport` field is data-only for now.** `PjsipAccountManager.register()` does not use it — both UDP and TCP transports are created unconditionally in `PjsipEndpointManager`. Will be used when transport selection is implemented.
+
+2. **`SipCredentials` adding `transport` with default value is non-breaking.** All existing call sites compile without changes.
+
+3. **`LoginResponse.kt` deletion must happen AFTER `MockAuthRepository` is updated** to construct `AuthResult` directly instead of using `LoginResponse.toAuthResult()`.
+
+4. **`safeRequest` MUST stay `inline reified`.** If refactored to non-inline, Ktor's generic deserialization via `typeInfo<T>()` breaks silently at runtime.
 
 ---
 
