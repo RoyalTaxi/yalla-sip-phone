@@ -12,8 +12,7 @@ import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.data.auth.MockAuthRepository
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.domain.FakeRegistrationEngine
-import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.testing.FakeSipAccountManager
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -24,7 +23,7 @@ import kotlin.test.assertTrue
 class LoginComponentTest {
     private val testDispatcher = StandardTestDispatcher()
     private val lifecycle = LifecycleRegistry()
-    private val fakeRegistration = FakeRegistrationEngine()
+    private val fakeSipAccountManager = FakeSipAccountManager()
     private val authRepo: AuthRepository = MockAuthRepository()
     private var navigatedResult: AuthResult? = null
 
@@ -39,9 +38,10 @@ class LoginComponentTest {
         component = LoginComponent(
             componentContext = DefaultComponentContext(lifecycle),
             authRepository = authRepo,
-            registrationEngine = fakeRegistration,
+            sipAccountManager = fakeSipAccountManager,
             onLoginSuccess = { navigatedResult = it },
             ioDispatcher = testDispatcher,
+            mainDispatcher = testDispatcher,
         )
     }
 
@@ -59,8 +59,11 @@ class LoginComponentTest {
     fun `login with correct password transitions to loading then authenticated`() = runTest(testDispatcher) {
         component.login("test123")
         advanceUntilIdle()
-        // After auth success, should be Authenticated (waiting for SIP register)
-        assertTrue(component.loginState.value is LoginState.Authenticated || component.loginState.value is LoginState.Loading)
+        // After auth success, registerAll is called and FakeSipAccountManager auto-connects
+        assertTrue(
+            component.loginState.value is LoginState.Authenticated ||
+                component.loginState.value is LoginState.Loading,
+        )
     }
 
     @Test
@@ -76,11 +79,11 @@ class LoginComponentTest {
     fun `successful SIP registration triggers navigation`() = runTest(testDispatcher) {
         component.login("test123")
         advanceUntilIdle()
-        // Simulate SIP registration success
-        fakeRegistration.simulateRegistered("192.168.30.103")
-        advanceUntilIdle()
         assertTrue(navigatedResult != null)
         assertEquals("Islom", navigatedResult?.agent?.name)
+        assertEquals(1, fakeSipAccountManager.registerAllCallCount)
+        assertEquals(1, fakeSipAccountManager.lastRegisteredAccounts.size)
+        assertEquals(103, fakeSipAccountManager.lastRegisteredAccounts.first().extensionNumber)
     }
 
     @Test
@@ -89,18 +92,13 @@ class LoginComponentTest {
         component.login("test123") // should be ignored
         advanceUntilIdle()
         // Should still work normally, no crash
-        assertTrue(
-            component.loginState.value is LoginState.Authenticated ||
-                component.loginState.value is LoginState.Loading,
-        )
+        assertEquals(1, fakeSipAccountManager.registerAllCallCount)
     }
 
     @Test
     fun `SIP registration failure shows error`() = runTest(testDispatcher) {
+        fakeSipAccountManager.registerAllResult = Result.failure(RuntimeException("403 Forbidden"))
         component.login("test123")
-        advanceUntilIdle()
-        // Simulate SIP registration failure
-        fakeRegistration.simulateFailed("403 Forbidden")
         advanceUntilIdle()
         val state = component.loginState.value
         assertTrue(state is LoginState.Error)
@@ -108,7 +106,7 @@ class LoginComponentTest {
     }
 
     @Test
-    fun `manualConnect sets loading and registers SIP`() = runTest(testDispatcher) {
+    fun `manualConnect registers SIP accounts`() = runTest(testDispatcher) {
         component.manualConnect(
             server = "192.168.1.1",
             port = 5060,
@@ -116,7 +114,11 @@ class LoginComponentTest {
             password = "secret",
         )
         advanceUntilIdle()
-        assertEquals("192.168.1.1", fakeRegistration.lastCredentials?.server)
-        assertEquals("102", fakeRegistration.lastCredentials?.username)
+        assertEquals(1, fakeSipAccountManager.registerAllCallCount)
+        val registered = fakeSipAccountManager.lastRegisteredAccounts
+        assertEquals(1, registered.size)
+        assertEquals("192.168.1.1", registered.first().serverUrl)
+        assertEquals(102, registered.first().extensionNumber)
+        assertEquals("102", registered.first().credentials.username)
     }
 }

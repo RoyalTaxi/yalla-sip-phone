@@ -1,7 +1,7 @@
 package uz.yalla.sipphone.testing.scenario
 
 import kotlinx.coroutines.delay
-import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.data.pjsip.PjsipRegistrationState
 import uz.yalla.sipphone.domain.SipError
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
 import uz.yalla.sipphone.testing.engine.ScriptableRegistrationEngine
@@ -37,7 +37,7 @@ class ScenarioRunner(
          * Simulate successful SIP registration.
          */
         suspend fun register(server: String = "sip:102@192.168.0.22") {
-            registrationEngine.emit(RegistrationState.Registering)
+            registrationEngine.emit(PjsipRegistrationState.Registering)
             delay(50) // realistic tiny delay
             registrationEngine.emitRegistered(server)
         }
@@ -46,7 +46,7 @@ class ScenarioRunner(
          * Simulate registration failure.
          */
         suspend fun registerFailed(code: Int = 403, reason: String = "Forbidden") {
-            registrationEngine.emit(RegistrationState.Registering)
+            registrationEngine.emit(PjsipRegistrationState.Registering)
             delay(50)
             registrationEngine.emitFailed(code, reason)
         }
@@ -56,7 +56,7 @@ class ScenarioRunner(
          */
         suspend fun disconnect(reason: String = "Network timeout") {
             registrationEngine.emit(
-                RegistrationState.Failed(
+                PjsipRegistrationState.Failed(
                     SipError.NetworkError(Exception(reason))
                 )
             )

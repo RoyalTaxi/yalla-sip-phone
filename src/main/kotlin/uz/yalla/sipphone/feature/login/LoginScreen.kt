@@ -1,6 +1,9 @@
 package uz.yalla.sipphone.feature.login
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,10 +13,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
@@ -24,7 +30,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,22 +40,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import uz.yalla.sipphone.domain.SipConstants
-import uz.yalla.sipphone.ui.strings.Strings
+import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
+
+private val SplashGradient = Brush.linearGradient(
+    colors = listOf(Color(0xFF7957FF), Color(0xFF562DF8), Color(0xFF3812CE)),
+    start = Offset.Zero,
+    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+)
+
+private val CardShape = RoundedCornerShape(16.dp)
+private val FieldShape = RoundedCornerShape(10.dp)
 
 @Composable
 fun LoginScreen(component: LoginComponent) {
     val tokens = LocalAppTokens.current
     val colors = LocalYallaColors.current
+    val strings = LocalStrings.current
     val loginState by component.loginState.collectAsState()
 
     var password by remember { mutableStateOf("") }
@@ -58,56 +81,103 @@ fun LoginScreen(component: LoginComponent) {
     var showManualDialog by remember { mutableStateOf(false) }
 
     val isLoading = loginState is LoginState.Loading || loginState is LoginState.Authenticated
-    val errorMessage = (loginState as? LoginState.Error)?.message
+    val errorState = loginState as? LoginState.Error
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = colors.backgroundBase,
+    // Gradient background
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SplashGradient),
+        contentAlignment = Alignment.Center,
     ) {
+        // Semi-transparent card
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(tokens.spacingLg),
+                .width(320.dp)
+                .clip(CardShape)
+                .background(colors.backgroundBase.copy(alpha = 0.85f))
+                .padding(horizontal = 40.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
         ) {
-            Spacer(modifier = Modifier.weight(1f))
+            // Logo: 56dp rounded square with brand bg, phone icon
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.buttonActive),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Phone,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Title
             Text(
-                text = Strings.LOGIN_TITLE,
-                style = MaterialTheme.typography.headlineSmall,
-                color = colors.brandPrimaryText,
+                text = strings.loginTitle,
+                style = TextStyle(
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                ),
             )
 
-            Spacer(modifier = Modifier.height(tokens.spacingXl))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Password field
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = { Text(Strings.LOGIN_PASSWORD_LABEL) },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = null,
-                        modifier = Modifier.size(tokens.iconMedium),
-                    )
-                },
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = null,
-                            modifier = Modifier.size(tokens.iconMedium),
+            // Subtitle slot: 20dp fixed height
+            Box(
+                modifier = Modifier.height(20.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                when {
+                    errorState?.type == LoginErrorType.WRONG_PASSWORD -> {
+                        Text(
+                            text = strings.errorWrongPassword,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.iconRed,
                         )
                     }
-                },
-                visualTransformation = if (passwordVisible) {
-                    VisualTransformation.None
-                } else {
-                    PasswordVisualTransformation()
-                },
+                    errorState?.type == LoginErrorType.NETWORK -> {
+                        Text(
+                            text = strings.errorNetworkFailed,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.pinkSun,
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = strings.loginSubtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colors.iconSubtle,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Password field: custom with backgroundSecondary bg, borderDisabled border
+            val fieldBorderColor = if (errorState?.type == LoginErrorType.WRONG_PASSWORD) {
+                colors.errorIndicator
+            } else {
+                colors.borderDisabled
+            }
+
+            BasicTextField(
+                value = password,
+                onValueChange = { password = it },
+                singleLine = true,
+                enabled = !isLoading,
+                textStyle = TextStyle(
+                    color = colors.textBase,
+                    fontSize = 14.sp,
+                ),
+                cursorBrush = SolidColor(colors.buttonActive),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -117,48 +187,98 @@ fun LoginScreen(component: LoginComponent) {
                         if (!isLoading && password.isNotEmpty()) component.login(password)
                     },
                 ),
-                singleLine = true,
-                enabled = !isLoading,
-                isError = errorMessage != null,
-                modifier = Modifier.fillMaxWidth(),
-                shape = tokens.shapeMedium,
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                decorationBox = { innerTextField ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(FieldShape)
+                            .background(colors.backgroundSecondary)
+                            .border(1.dp, fieldBorderColor, FieldShape)
+                            .padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = colors.iconSubtle,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(modifier = Modifier.weight(1f)) {
+                            if (password.isEmpty()) {
+                                Text(
+                                    text = strings.loginPasswordPlaceholder,
+                                    style = TextStyle(
+                                        fontSize = 14.sp,
+                                        color = colors.textSubtle,
+                                    ),
+                                )
+                            }
+                            innerTextField()
+                        }
+                        IconButton(
+                            onClick = { passwordVisible = !passwordVisible },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector = if (passwordVisible) {
+                                    Icons.Default.VisibilityOff
+                                } else {
+                                    Icons.Default.Visibility
+                                },
+                                contentDescription = null,
+                                tint = colors.iconSubtle,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                },
             )
 
-            // Error message
-            if (errorMessage != null) {
-                Text(
-                    text = errorMessage,
-                    color = colors.errorText,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.padding(top = tokens.spacingSm),
-                )
-            }
-
-            Spacer(modifier = Modifier.height(tokens.spacingLg))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Login button
+            val buttonText = when {
+                isLoading -> strings.loginConnecting
+                errorState != null -> strings.loginRetry
+                else -> strings.loginButton
+            }
+
             Button(
                 onClick = { component.login(password) },
                 enabled = !isLoading && password.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth().height(48.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
                     .pointerHoverIcon(PointerIcon.Hand),
-                shape = tokens.shapeMedium,
-                colors = ButtonDefaults.buttonColors(containerColor = colors.brandPrimary),
+                shape = FieldShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.buttonActive,
+                    disabledContainerColor = colors.buttonDisabled,
+                ),
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = Color.White,
                     )
-                    Spacer(modifier = Modifier.width(tokens.spacingSm))
-                    Text(Strings.BUTTON_CONNECTING)
-                } else {
-                    Text(Strings.LOGIN_BUTTON)
+                    Spacer(modifier = Modifier.width(8.dp))
                 }
+                Text(
+                    text = buttonText,
+                    color = Color.White,
+                    fontSize = 14.sp,
+                )
             }
 
-            Spacer(modifier = Modifier.height(tokens.spacingMd))
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Manual connection link
             TextButton(
@@ -166,8 +286,9 @@ fun LoginScreen(component: LoginComponent) {
                 modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
             ) {
                 Text(
-                    text = Strings.LOGIN_MANUAL_CONNECTION,
+                    text = strings.loginManualConnection,
                     color = colors.textSubtle,
+                    fontSize = 13.sp,
                 )
             }
 
@@ -183,12 +304,12 @@ fun LoginScreen(component: LoginComponent) {
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Version
             Text(
                 text = "v${SipConstants.APP_VERSION}",
-                color = colors.textSubtle,
+                color = colors.borderDisabled,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -202,6 +323,7 @@ private fun ManualConnectionDialog(
     onDismiss: () -> Unit,
 ) {
     val tokens = LocalAppTokens.current
+    val strings = LocalStrings.current
 
     var server by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("5060") }
@@ -211,7 +333,7 @@ private fun ManualConnectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(Strings.LOGIN_MANUAL_CONNECTION) },
+        title = { Text(strings.loginManualConnection) },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(tokens.spacingSm),
@@ -219,8 +341,14 @@ private fun ManualConnectionDialog(
                 OutlinedTextField(
                     value = server,
                     onValueChange = { server = it },
-                    label = { Text(Strings.LABEL_SERVER) },
-                    placeholder = { Text(Strings.PLACEHOLDER_SERVER, style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f)) },
+                    label = { Text(strings.labelServer) },
+                    placeholder = {
+                        Text(
+                            strings.placeholderServer,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f),
+                        )
+                    },
                     singleLine = true,
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
@@ -230,7 +358,7 @@ private fun ManualConnectionDialog(
                     OutlinedTextField(
                         value = port,
                         onValueChange = { port = it.filter { c -> c.isDigit() }.take(5) },
-                        label = { Text(Strings.LABEL_PORT) },
+                        label = { Text(strings.labelPort) },
                         singleLine = true,
                         enabled = !isLoading,
                         modifier = Modifier.width(100.dp),
@@ -239,8 +367,14 @@ private fun ManualConnectionDialog(
                     OutlinedTextField(
                         value = username,
                         onValueChange = { username = it },
-                        label = { Text(Strings.LABEL_USERNAME) },
-                        placeholder = { Text(Strings.PLACEHOLDER_USERNAME, style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f)) },
+                        label = { Text(strings.labelUsername) },
+                        placeholder = {
+                            Text(
+                                strings.placeholderUsername,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f),
+                            )
+                        },
                         singleLine = true,
                         enabled = !isLoading,
                         modifier = Modifier.weight(1f),
@@ -250,7 +384,7 @@ private fun ManualConnectionDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text(Strings.LABEL_PASSWORD) },
+                    label = { Text(strings.labelPassword) },
                     visualTransformation = PasswordVisualTransformation(),
                     singleLine = true,
                     enabled = !isLoading,
@@ -260,8 +394,14 @@ private fun ManualConnectionDialog(
                 OutlinedTextField(
                     value = dispatcherUrl,
                     onValueChange = { dispatcherUrl = it },
-                    label = { Text("Dispatcher URL") },
-                    placeholder = { Text("http://192.168.0.234:5173", style = MaterialTheme.typography.bodySmall, color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f)) },
+                    label = { Text(strings.placeholderDispatcherUrl) },
+                    placeholder = {
+                        Text(
+                            strings.placeholderDispatcherUrl,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = LocalYallaColors.current.textSubtle.copy(alpha = 0.6f),
+                        )
+                    },
                     singleLine = true,
                     enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(),
@@ -275,12 +415,12 @@ private fun ManualConnectionDialog(
                 enabled = !isLoading && server.isNotEmpty() && username.isNotEmpty(),
                 shape = tokens.shapeMedium,
             ) {
-                Text(Strings.BUTTON_CONNECT)
+                Text(strings.buttonConnect)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(Strings.BUTTON_CANCEL)
+                Text(strings.buttonCancel)
             }
         },
     )

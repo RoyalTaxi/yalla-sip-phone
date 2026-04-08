@@ -6,8 +6,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import uz.yalla.sipphone.data.pjsip.PjsipRegistrationState
 import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.RegistrationState
 import uz.yalla.sipphone.domain.SipError
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
 import uz.yalla.sipphone.testing.engine.ScriptableRegistrationEngine
@@ -226,14 +226,14 @@ class CallFlowIntegrationTest {
         registrationEngine.registrationState.test {
             // Already registered
             val registered = awaitItem()
-            assertIs<RegistrationState.Registered>(registered)
+            assertIs<PjsipRegistrationState.Registered>(registered)
             assertEquals("sip:102@192.168.0.22", registered.server)
 
             // Network disconnect
             registrationEngine.emitFailed(503, "Service Unavailable")
 
             val failed = awaitItem()
-            assertIs<RegistrationState.Failed>(failed)
+            assertIs<PjsipRegistrationState.Failed>(failed)
             assertIs<SipError.NetworkError>(failed.error)
 
             cancelAndIgnoreRemainingEvents()
@@ -246,20 +246,20 @@ class CallFlowIntegrationTest {
         registrationEngine.emitRegistered("sip:102@192.168.0.22")
 
         registrationEngine.registrationState.test {
-            assertIs<RegistrationState.Registered>(awaitItem())
+            assertIs<PjsipRegistrationState.Registered>(awaitItem())
 
             // Simulate network failure
             registrationEngine.emitFailed(503, "Service Unavailable")
-            assertIs<RegistrationState.Failed>(awaitItem())
+            assertIs<PjsipRegistrationState.Failed>(awaitItem())
 
             // Simulate reconnection attempt
-            registrationEngine.emit(RegistrationState.Registering)
-            assertIs<RegistrationState.Registering>(awaitItem())
+            registrationEngine.emit(PjsipRegistrationState.Registering)
+            assertIs<PjsipRegistrationState.Registering>(awaitItem())
 
             // Successful re-registration
             registrationEngine.emitRegistered("sip:102@192.168.0.22")
             val recovered = awaitItem()
-            assertIs<RegistrationState.Registered>(recovered)
+            assertIs<PjsipRegistrationState.Registered>(recovered)
             assertEquals("sip:102@192.168.0.22", recovered.server)
 
             cancelAndIgnoreRemainingEvents()
@@ -298,7 +298,7 @@ class CallFlowIntegrationTest {
         }
 
         // Verify registration stayed healthy throughout
-        assertIs<RegistrationState.Registered>(registrationEngine.registrationState.value)
+        assertIs<PjsipRegistrationState.Registered>(registrationEngine.registrationState.value)
     }
 
     @Test

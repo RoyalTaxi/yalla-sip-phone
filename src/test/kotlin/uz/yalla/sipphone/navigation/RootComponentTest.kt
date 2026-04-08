@@ -3,12 +3,16 @@ package uz.yalla.sipphone.navigation
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import uz.yalla.sipphone.data.auth.AuthApi
 import uz.yalla.sipphone.data.auth.AuthEventBus
 import uz.yalla.sipphone.data.auth.InMemoryTokenProvider
 import uz.yalla.sipphone.data.auth.LogoutOrchestrator
@@ -19,13 +23,13 @@ import uz.yalla.sipphone.data.jcef.JcefManager
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.domain.ConnectionManager
-import uz.yalla.sipphone.domain.ConnectionState
 import uz.yalla.sipphone.domain.FakeCallEngine
-import uz.yalla.sipphone.domain.FakeRegistrationEngine
+import uz.yalla.sipphone.domain.SipAccountInfo
+import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.feature.login.LoginComponent
 import uz.yalla.sipphone.feature.main.MainComponent
+import uz.yalla.sipphone.testing.FakeSipAccountManager
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -35,19 +39,20 @@ import kotlin.test.assertIs
 class RootComponentTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()
-    private val fakeRegistrationEngine = FakeRegistrationEngine()
+    private val fakeSipAccountManager = FakeSipAccountManager()
     private val fakeCallEngine = FakeCallEngine()
     private val authEventBus = AuthEventBus()
 
-    private val fakeConnectionManager = object : ConnectionManager {
-        override val connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected)
-        override fun startMonitoring(credentials: SipCredentials) {}
-        override fun stopMonitoring() {}
-    }
-
     private val testAuthResult = AuthResult(
         token = "test-token",
-        sipCredentials = SipCredentials("192.168.0.22", 5060, "102", "pass"),
+        accounts = listOf(
+            SipAccountInfo(
+                extensionNumber = 102,
+                serverUrl = "192.168.0.22",
+                sipName = null,
+                credentials = SipCredentials("192.168.0.22", 5060, "102", "pass"),
+            ),
+        ),
         dispatcherUrl = "http://dispatcher.test",
         agent = AgentInfo("1", "Test Agent"),
     )
@@ -68,10 +73,14 @@ class RootComponentTest {
         override suspend fun logout(): Result<Unit> = Result.success(Unit)
     }
 
+    private val fakeAuthApi = AuthApi(
+        client = HttpClient(MockEngine { respond("", HttpStatusCode.OK) }),
+        authEventBus = authEventBus,
+    )
+
     private val logoutOrchestrator = LogoutOrchestrator(
-        authRepository = fakeAuthRepository,
-        registrationEngine = fakeRegistrationEngine,
-        connectionManager = fakeConnectionManager,
+        sipAccountManager = fakeSipAccountManager,
+        authApi = fakeAuthApi,
         tokenProvider = InMemoryTokenProvider(),
     )
 
@@ -85,9 +94,10 @@ class RootComponentTest {
             ) = LoginComponent(
                 componentContext = context,
                 authRepository = fakeAuthRepository,
-                registrationEngine = fakeRegistrationEngine,
+                sipAccountManager = fakeSipAccountManager,
                 onLoginSuccess = onLoginSuccess,
                 ioDispatcher = testDispatcher,
+                mainDispatcher = testDispatcher,
             )
 
             override fun createMain(
@@ -98,7 +108,7 @@ class RootComponentTest {
                 componentContext = context,
                 authResult = authResult,
                 callEngine = fakeCallEngine,
-                registrationEngine = fakeRegistrationEngine,
+                sipAccountManager = fakeSipAccountManager,
                 jcefManager = JcefManager(),
                 eventEmitter = BridgeEventEmitter(auditLog = BridgeAuditLog()),
                 security = BridgeSecurity(),
@@ -127,7 +137,7 @@ class RootComponentTest {
         // Get LoginComponent and simulate successful login + SIP registration
         val loginChild = root.childStack.value.active.instance as RootComponent.Child.Login
         loginChild.component.manualConnect("192.168.0.22", 5060, "102", "pass")
-        fakeRegistrationEngine.simulateRegistered()
+        // FakeSipAccountManager auto-connects accounts on registerAll
         val activeChild = root.childStack.value.active.instance
         assertIs<RootComponent.Child.Main>(activeChild)
     }
@@ -138,11 +148,11 @@ class RootComponentTest {
         // Navigate to Main
         val loginChild = root.childStack.value.active.instance as RootComponent.Child.Login
         loginChild.component.manualConnect("192.168.0.22", 5060, "102", "pass")
-        fakeRegistrationEngine.simulateRegistered()
         assertIs<RootComponent.Child.Main>(root.childStack.value.active.instance)
 
-        // Simulate disconnect (unregister sets state to Idle, auto-logout triggers)
-        fakeRegistrationEngine.simulateFailed("timeout")
+        // Simulate all accounts disconnected -> auto-logout triggers
+        val accountId = fakeSipAccountManager.accounts.value.firstOrNull()?.id ?: "102@192.168.0.22"
+        fakeSipAccountManager.simulateAccountState(accountId, SipAccountState.Disconnected)
         val activeChild = root.childStack.value.active.instance
         assertIs<RootComponent.Child.Login>(activeChild)
     }

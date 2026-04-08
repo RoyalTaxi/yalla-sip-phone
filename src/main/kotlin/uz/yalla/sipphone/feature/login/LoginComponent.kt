@@ -8,54 +8,44 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.domain.RegistrationEngine
-import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipAccountInfo
+import uz.yalla.sipphone.domain.SipAccountManager
+import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.domain.SipCredentials
 
 private val logger = KotlinLogging.logger {}
 
+enum class LoginErrorType {
+    WRONG_PASSWORD,
+    NETWORK,
+}
+
 sealed interface LoginState {
     data object Idle : LoginState
     data object Loading : LoginState
-    data class Error(val message: String) : LoginState
+    data class Error(val message: String, val type: LoginErrorType = LoginErrorType.NETWORK) : LoginState
     data class Authenticated(val authResult: AuthResult) : LoginState
 }
 
 class LoginComponent(
     componentContext: ComponentContext,
     private val authRepository: AuthRepository,
-    private val registrationEngine: RegistrationEngine,
+    private val sipAccountManager: SipAccountManager,
     private val onLoginSuccess: (AuthResult) -> Unit,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ComponentContext by componentContext {
 
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
 
-    val registrationState: StateFlow<RegistrationState> = registrationEngine.registrationState
-
     private val scope = coroutineScope()
-    @Volatile
-    private var lastAuthResult: AuthResult? = null
-
-    init {
-        scope.launch {
-            registrationEngine.registrationState.collect { state ->
-                if (state is RegistrationState.Registered && lastAuthResult != null) {
-                    logger.info { "SIP registered, navigating to main" }
-                    onLoginSuccess(lastAuthResult!!)
-                }
-                if (state is RegistrationState.Failed && _loginState.value is LoginState.Authenticated) {
-                    _loginState.value =
-                        LoginState.Error("SIP registration failed: ${state.error.displayMessage}")
-                }
-            }
-        }
-    }
 
     fun login(password: String) {
         if (_loginState.value is LoginState.Loading) return
@@ -64,13 +54,19 @@ class LoginComponent(
             val result = authRepository.login(password)
             result.fold(
                 onSuccess = { authResult ->
-                    lastAuthResult = authResult
                     _loginState.value = LoginState.Authenticated(authResult)
-                    logger.info { "Auth success, registering SIP as ${authResult.sipCredentials.username}" }
-                    registrationEngine.register(authResult.sipCredentials)
+                    registerAndNavigate(authResult, authResult.accounts)
                 },
                 onFailure = { error ->
-                    _loginState.value = LoginState.Error(error.message ?: "Login failed")
+                    val errorType = if (error.message?.contains("401") == true ||
+                        error.message?.contains("unauthorized", ignoreCase = true) == true ||
+                        error.message?.contains("password", ignoreCase = true) == true
+                    ) {
+                        LoginErrorType.WRONG_PASSWORD
+                    } else {
+                        LoginErrorType.NETWORK
+                    }
+                    _loginState.value = LoginState.Error(error.message ?: "Login failed", errorType)
                     logger.warn { "Auth failed: ${error.message}" }
                 },
             )
@@ -79,15 +75,42 @@ class LoginComponent(
 
     fun manualConnect(server: String, port: Int, username: String, password: String, dispatcherUrl: String = "") {
         val credentials = SipCredentials(server = server, port = port, username = username, password = password)
-        lastAuthResult = AuthResult(
+        val accountInfo = SipAccountInfo(
+            extensionNumber = username.toIntOrNull() ?: 0,
+            serverUrl = server,
+            sipName = null,
+            credentials = credentials,
+        )
+        val authResult = AuthResult(
             token = "",
-            sipCredentials = credentials,
+            accounts = listOf(accountInfo),
             dispatcherUrl = dispatcherUrl,
             agent = AgentInfo("manual", username),
         )
         _loginState.value = LoginState.Loading
         scope.launch(ioDispatcher) {
-            registrationEngine.register(credentials)
+            registerAndNavigate(authResult, listOf(accountInfo))
         }
+    }
+
+    private suspend fun registerAndNavigate(authResult: AuthResult, accounts: List<SipAccountInfo>) {
+        logger.info { "Registering ${accounts.size} SIP account(s)" }
+        sipAccountManager.registerAll(accounts).fold(
+            onSuccess = {
+                sipAccountManager.accounts.first { accs ->
+                    accs.any { it.state is SipAccountState.Connected }
+                }
+                logger.info { "SIP connected, navigating to main" }
+                withContext(mainDispatcher) {
+                    onLoginSuccess(authResult)
+                }
+            },
+            onFailure = { error ->
+                _loginState.value = LoginState.Error(
+                    "SIP registration failed: ${error.message ?: "Unknown error"}",
+                )
+                logger.warn { "SIP registration failed: ${error.message}" }
+            },
+        )
     }
 }

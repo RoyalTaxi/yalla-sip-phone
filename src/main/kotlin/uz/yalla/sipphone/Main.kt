@@ -25,6 +25,7 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
+import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.data.auth.AuthEventBus
 import uz.yalla.sipphone.data.auth.LogoutOrchestrator
 import uz.yalla.sipphone.data.jcef.JcefManager
@@ -87,24 +88,22 @@ fun main() {
         )
     }
 
+    val appSettings = koin.get<AppSettings>()
+
     application {
         var isDarkTheme by remember { mutableStateOf(false) }
+        var locale by remember { mutableStateOf(appSettings.locale) }
 
         val childStack by rootComponent.childStack.subscribeAsState()
         val isMainScreen = childStack.active.instance is RootComponent.Child.Main
         val mainComponent = (childStack.active.instance as? RootComponent.Child.Main)?.component
 
         val windowState = rememberWindowState(
-            size = DpSize(420.dp, 520.dp),
+            size = DpSize(1280.dp, 720.dp),
             position = WindowPosition(Alignment.Center),
         )
 
-        // Prevent minimize on main screen
-        LaunchedEffect(isMainScreen, windowState.isMinimized) {
-            if (isMainScreen && windowState.isMinimized) {
-                windowState.isMinimized = false
-            }
-        }
+        // Window is regular — no force unminimize
 
         val windowTitle = if (isMainScreen) {
             "${Strings.APP_TITLE} \u2014 ${mainComponent?.agentInfo?.name.orEmpty()}"
@@ -122,7 +121,7 @@ fun main() {
                         javax.swing.JOptionPane.YES_NO_OPTION,
                     )
                     val dialog = pane.createDialog(null, Strings.SETTINGS_LOGOUT_CONFIRM_TITLE)
-                    dialog.isAlwaysOnTop = true
+                    dialog.isAlwaysOnTop = false
                     dialog.isVisible = true
                     val confirm = pane.value as? Int ?: javax.swing.JOptionPane.NO_OPTION
                     if (confirm == javax.swing.JOptionPane.YES_OPTION) {
@@ -140,27 +139,13 @@ fun main() {
             },
             title = windowTitle,
             state = windowState,
-            alwaysOnTop = isMainScreen,
+            alwaysOnTop = false,
             resizable = isMainScreen,
         ) {
-            // ALL window property changes via AWT — Compose windowState alone can't resize from maximized
+            // Window properties via AWT — same size for both screens, only resizable/alwaysOnTop change
             LaunchedEffect(isMainScreen) {
                 javax.swing.SwingUtilities.invokeLater {
-                    if (isMainScreen) {
-                        window.minimumSize = java.awt.Dimension(1280, 720)
-                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.NORMAL
-                        window.setSize(1280, 720)
-                        window.setLocationRelativeTo(null)
-                    } else {
-                        // 1. Un-maximize (NORMAL state)
-                        (window as? java.awt.Frame)?.extendedState = java.awt.Frame.NORMAL
-                        // 2. Reset minimum size
-                        window.minimumSize = java.awt.Dimension(380, 180)
-                        // 3. Resize + center
-                        window.setSize(420, 520)
-                        window.setLocationRelativeTo(null)
-                        window.isResizable = false
-                    }
+                    window.minimumSize = java.awt.Dimension(1280, 720)
                 }
             }
 
@@ -218,11 +203,16 @@ fun main() {
 
             LifecycleController(decomposeLifecycle, windowState)
 
-            YallaSipPhoneTheme(isDark = isDarkTheme) {
+            YallaSipPhoneTheme(isDark = isDarkTheme, locale = locale) {
                 RootContent(
                     root = rootComponent,
                     isDarkTheme = isDarkTheme,
+                    locale = locale,
                     onThemeToggle = { isDarkTheme = !isDarkTheme },
+                    onLocaleChange = { newLocale ->
+                        locale = newLocale
+                        appSettings.locale = newLocale
+                    },
                 )
             }
         }

@@ -20,15 +20,15 @@ import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.PhoneNumberValidator
-import uz.yalla.sipphone.domain.RegistrationEngine
-import uz.yalla.sipphone.domain.RegistrationState
+import uz.yalla.sipphone.domain.SipAccountManager
+import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.domain.SipConstants
 
 private val logger = KotlinLogging.logger {}
 
 class BridgeRouter(
     private val callEngine: CallEngine,
-    private val registrationEngine: RegistrationEngine,
+    private val sipAccountManager: SipAccountManager,
     private val security: BridgeSecurity,
     private val auditLog: BridgeAuditLog,
     private val agentStatusProvider: () -> AgentStatus,
@@ -137,7 +137,7 @@ class BridgeRouter(
         if (callEngine.callState.value !is CallState.Idle) {
             return CommandResult.error("ALREADY_IN_CALL", "Active call exists", false)
         }
-        if (registrationEngine.registrationState.value !is RegistrationState.Registered) {
+        if (sipAccountManager.accounts.value.none { it.state is SipAccountState.Connected }) {
             return CommandResult.error("NOT_REGISTERED", "SIP not connected", false)
         }
         val result = callEngine.makeCall(validation.getOrThrow())
@@ -246,11 +246,26 @@ class BridgeRouter(
 
     private fun handleGetState(token: String? = null): CommandResult {
         val callState = callEngine.callState.value
-        val regState = registrationEngine.registrationState.value
+        val sipAccounts = sipAccountManager.accounts.value
 
-        val connectionState = when (regState) {
-            is RegistrationState.Registered -> "connected"
-            is RegistrationState.Registering -> "reconnecting"
+        // Build accounts list for bridge
+        val accounts = sipAccounts.map { account ->
+            BridgeAccountState(
+                id = account.id,
+                name = account.name,
+                extension = account.credentials.username,
+                status = when (account.state) {
+                    is SipAccountState.Connected -> "connected"
+                    is SipAccountState.Reconnecting -> "reconnecting"
+                    is SipAccountState.Disconnected -> "disconnected"
+                },
+            )
+        }
+
+        // Aggregate connection state: connected if ANY connected, reconnecting if any reconnecting, else disconnected
+        val connectionState = when {
+            sipAccounts.any { it.state is SipAccountState.Connected } -> "connected"
+            sipAccounts.any { it.state is SipAccountState.Reconnecting } -> "reconnecting"
             else -> "disconnected"
         }
 
@@ -281,6 +296,7 @@ class BridgeRouter(
             agentStatus = agentStatusProvider().name.lowercase(),
             call = call,
             token = token,
+            accounts = accounts,
         )
 
         return CommandResult.success(data = bridgeJson.encodeToJsonElement(BridgeState.serializer(), state))
@@ -289,7 +305,7 @@ class BridgeRouter(
     private fun handleGetVersion(): CommandResult {
         val info = BridgeVersionInfo(
             version = SipConstants.APP_VERSION,
-            capabilities = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer"),
+            capabilities = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer", "multiSip"),
         )
         return CommandResult.success(data = bridgeJson.encodeToJsonElement(BridgeVersionInfo.serializer(), info))
     }

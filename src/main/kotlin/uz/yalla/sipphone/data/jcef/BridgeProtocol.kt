@@ -79,6 +79,16 @@ object BridgeEvent {
     data class ConnectionChanged(
         val state: String,
         val attempt: Int,
+        val accountId: String = "",
+        val seq: Int,
+        val timestamp: Long,
+    )
+
+    @Serializable
+    data class AccountStatusChanged(
+        val accountId: String,
+        val name: String,
+        val status: String,
         val seq: Int,
         val timestamp: Long,
     )
@@ -166,11 +176,20 @@ data class BridgeAgent(
 // --- State Snapshot ---
 
 @Serializable
+data class BridgeAccountState(
+    val id: String,
+    val name: String,
+    val extension: String,
+    val status: String, // "connected" | "reconnecting" | "disconnected"
+)
+
+@Serializable
 data class BridgeState(
     val connection: BridgeConnectionState,
     val agentStatus: String,
     val call: BridgeCallState? = null,
     val token: String? = null,
+    val accounts: List<BridgeAccountState> = emptyList(),
 )
 
 @Serializable

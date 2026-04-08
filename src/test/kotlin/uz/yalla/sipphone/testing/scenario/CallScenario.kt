@@ -115,7 +115,7 @@ class CallScenarioBuilder {
     }
 
     fun ending(holdFor: Duration = Duration.ZERO) {
-        steps += ScenarioStep(state = CallState.Ending, holdFor = holdFor)
+        steps += ScenarioStep(state = CallState.Ending(), holdFor = holdFor)
         lastActive = null
     }
 

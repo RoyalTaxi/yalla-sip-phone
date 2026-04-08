@@ -32,8 +32,6 @@ data class AppTokens(
     val shapeLarge: Shape = RoundedCornerShape(cornerLarge),
 
     // Window sizes
-    val registrationWindowSize: DpSize = DpSize(420.dp, 520.dp),
-    val dialerWindowSize: DpSize = DpSize(800.dp, 180.dp),
     val windowMinWidth: Dp = 380.dp,
     val windowMinHeight: Dp = 180.dp,
 
@@ -77,9 +75,8 @@ data class AppTokens(
     val animSlow: Int = 350,
 
     // Window sizes (extended)
-    val loginWindowSize: DpSize = DpSize(420.dp, 520.dp),
-    val mainWindowMinWidth: Dp = 1280.dp,
-    val mainWindowMinHeight: Dp = 720.dp,
+    val loginWindowSize: DpSize = DpSize(1280.dp, 720.dp),
+    val mainWindowSize: DpSize = DpSize(1280.dp, 720.dp),
 ) {
     fun minimumAwtDimension(): java.awt.Dimension =
         java.awt.Dimension(windowMinWidth.value.toInt(), windowMinHeight.value.toInt())
