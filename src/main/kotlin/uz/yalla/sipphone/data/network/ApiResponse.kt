@@ -5,7 +5,6 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
-import kotlinx.serialization.json.jsonPrimitive
 
 @Serializable
 data class ApiResponse<T>(
@@ -19,7 +18,7 @@ data class ApiResponse<T>(
 fun ApiResponse<*>.errorMessage(): String {
     return when (val e = errors) {
         is JsonPrimitive -> e.contentOrNull ?: message ?: "Unknown error"
-        is JsonObject -> e.entries.joinToString { "${it.key}: ${it.value.jsonPrimitive.content}" }
+        is JsonObject -> e.entries.joinToString { "${it.key}: ${it.value}" }
         else -> message ?: "Unknown error"
     }
 }

@@ -14,8 +14,10 @@ class BridgeEventEmitter(
     private val seqCounter = AtomicInteger(0)
     private val handshakeComplete = AtomicBoolean(false)
     private val bufferedEvents = CopyOnWriteArrayList<String>()
+    @Volatile
     private var currentBrowser: CefBrowser? = null
 
+    @Volatile
     var agentInfo: AgentInfo = AgentInfo("", "")
     var version: String = SipConstants.APP_VERSION
     var capabilities: List<String> = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer")

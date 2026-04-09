@@ -2,6 +2,7 @@ package uz.yalla.sipphone.data.auth
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import uz.yalla.sipphone.domain.SipAccountManager
+import java.util.concurrent.atomic.AtomicBoolean
 
 private val logger = KotlinLogging.logger {}
 
@@ -10,26 +11,24 @@ class LogoutOrchestrator(
     private val authApi: AuthApi,
     private val tokenProvider: TokenProvider,
 ) {
-    @Volatile
-    private var logoutInProgress = false
+    private val logoutInProgress = AtomicBoolean(false)
 
     suspend fun logout() {
-        if (logoutInProgress) return
-        logoutInProgress = true
-        logger.info { "Logout sequence starting..." }
+        if (!logoutInProgress.compareAndSet(false, true)) return
+        try {
+            logger.info { "Logout sequence starting..." }
 
-        runCatching { authApi.logout() }
-            .onFailure { logger.warn { "Server logout failed: ${it.message}" } }
+            runCatching { authApi.logout() }
+                .onFailure { logger.warn { "Server logout failed: ${it.message}" } }
 
-        tokenProvider.clearToken()
+            tokenProvider.clearToken()
 
-        runCatching { sipAccountManager.unregisterAll() }
-            .onFailure { logger.warn { "SIP unregisterAll failed: ${it.message}" } }
+            runCatching { sipAccountManager.unregisterAll() }
+                .onFailure { logger.warn { "SIP unregisterAll failed: ${it.message}" } }
 
-        logger.info { "Logout sequence complete" }
-    }
-
-    fun reset() {
-        logoutInProgress = false
+            logger.info { "Logout sequence complete" }
+        } finally {
+            logoutInProgress.set(false)
+        }
     }
 }

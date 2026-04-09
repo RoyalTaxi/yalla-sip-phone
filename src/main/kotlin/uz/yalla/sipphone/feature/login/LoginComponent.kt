@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
@@ -97,8 +98,14 @@ class LoginComponent(
         logger.info { "Registering ${accounts.size} SIP account(s)" }
         sipAccountManager.registerAll(accounts).fold(
             onSuccess = {
-                sipAccountManager.accounts.first { accs ->
-                    accs.any { it.state is SipAccountState.Connected }
+                val connected = withTimeoutOrNull(15_000) {
+                    sipAccountManager.accounts.first { accs ->
+                        accs.any { it.state is SipAccountState.Connected }
+                    }
+                }
+                if (connected == null) {
+                    _loginState.value = LoginState.Error("SIP registration timed out. Check server settings.")
+                    return@fold
                 }
                 logger.info { "SIP connected, navigating to main" }
                 withContext(mainDispatcher) {

@@ -44,7 +44,6 @@ class RootComponent(
                         logoutOrchestrator.logout()
                         currentAuthResult = null
                         navigateToLogin()
-                        logoutOrchestrator.reset()
                     }
                 }
             }
@@ -65,7 +64,6 @@ class RootComponent(
                         navigateToLogin()
                         scope.launch {
                             logoutOrchestrator.logout()
-                            logoutOrchestrator.reset()
                         }
                     },
                 )

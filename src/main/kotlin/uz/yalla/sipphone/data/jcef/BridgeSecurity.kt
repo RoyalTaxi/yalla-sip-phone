@@ -21,7 +21,7 @@ class BridgeSecurity {
     fun checkRateLimit(command: String): Boolean {
         val limit = limits[command] ?: RateLimit(max = 30, windowMs = 60_000)
         val now = System.currentTimeMillis()
-        val timestamps = commandTimestamps.getOrPut(command) { ArrayDeque() }
+        val timestamps = commandTimestamps.computeIfAbsent(command) { ArrayDeque() }
 
         synchronized(timestamps) {
             while (timestamps.isNotEmpty() && timestamps.first() < now - limit.windowMs) {
