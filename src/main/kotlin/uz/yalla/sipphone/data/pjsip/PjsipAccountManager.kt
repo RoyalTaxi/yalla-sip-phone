@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,11 +33,12 @@ interface AccountProvider {
 
 class PjsipAccountManager(
     private val isDestroyed: () -> Boolean,
+    private val pjScope: CoroutineScope,
 ) : AccountProvider {
 
     private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
 
-    val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
+    private val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
 
     override var lastRegisteredServer: String? = null
         private set
@@ -129,7 +131,7 @@ class PjsipAccountManager(
             accountConfig.natConfig.sipStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
             accountConfig.natConfig.mediaStunUse = pjsua_stun_use.PJSUA_STUN_USE_DISABLED
 
-            val account = PjsipAccount(accountId, this).apply {
+            val account = PjsipAccount(accountId, this, pjScope).apply {
                 create(accountConfig, true)
             }
             accounts[accountId] = account

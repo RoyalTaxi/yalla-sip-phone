@@ -96,7 +96,6 @@ class PjsipEndpointManager(private val pjDispatcher: CoroutineContext) {
         try {
             // Force GC to release any SWIG pointers before destroying
             System.gc()
-            Thread.sleep(100)
             // libDestroy still uses the logWriter for shutdown logging — do NOT delete it before this call
             endpoint.libDestroy()
         } catch (e: Exception) {

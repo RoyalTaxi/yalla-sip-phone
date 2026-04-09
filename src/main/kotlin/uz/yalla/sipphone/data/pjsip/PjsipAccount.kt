@@ -1,6 +1,8 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import org.pjsip.pjsua2.Account
 import org.pjsip.pjsua2.OnIncomingCallParam
 import org.pjsip.pjsua2.OnRegStateParam
@@ -12,36 +14,56 @@ private val logger = KotlinLogging.logger {}
 class PjsipAccount(
     val accountId: String,
     private val accountManager: PjsipAccountManager,
+    private val pjScope: CoroutineScope,
 ) : Account() {
 
     override fun onRegState(prm: OnRegStateParam) {
         if (accountManager.isAccountDestroyed()) return
+        // Capture SWIG pointer values BEFORE dispatching — they become invalid after callback returns
         var info: org.pjsip.pjsua2.AccountInfo? = null
         try {
             info = getInfo()
             val code = prm.code
-            when {
-                code / 100 == SipConstants.STATUS_CLASS_SUCCESS && info.regIsActive -> {
+            val reason = prm.reason
+            val regIsActive = info.regIsActive
+            val uri = info.uri
+            val regExpiresSec = info.regExpiresSec
+            val regLastErr = info.regLastErr
+            pjScope.launch {
+                try {
+                    when {
+                        code / 100 == SipConstants.STATUS_CLASS_SUCCESS && regIsActive -> {
+                            accountManager.updateRegistrationState(
+                                accountId,
+                                PjsipRegistrationState.Registered(server = uri),
+                            )
+                            logger.info { "[$accountId] Registered: $uri, expires: ${regExpiresSec}s" }
+                        }
+                        code / 100 == SipConstants.STATUS_CLASS_SUCCESS && !regIsActive -> {
+                            accountManager.updateRegistrationState(accountId, PjsipRegistrationState.Idle)
+                            logger.info { "[$accountId] Unregistered" }
+                        }
+                        else -> {
+                            val error = SipError.fromSipStatus(code, reason)
+                            accountManager.updateRegistrationState(
+                                accountId,
+                                PjsipRegistrationState.Failed(error = error),
+                            )
+                            logger.warn {
+                                "[$accountId] Registration failed: $code $reason (lastErr=$regLastErr)"
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    logger.error(e) { "[$accountId] Error processing onRegState" }
                     accountManager.updateRegistrationState(
                         accountId,
-                        PjsipRegistrationState.Registered(server = info.uri),
+                        PjsipRegistrationState.Failed(error = SipError.fromException(e)),
                     )
-                    logger.info { "[$accountId] Registered: ${info.uri}, expires: ${info.regExpiresSec}s" }
-                }
-                code / 100 == SipConstants.STATUS_CLASS_SUCCESS && !info.regIsActive -> {
-                    accountManager.updateRegistrationState(accountId, PjsipRegistrationState.Idle)
-                    logger.info { "[$accountId] Unregistered" }
-                }
-                else -> {
-                    val error = SipError.fromSipStatus(prm.code, prm.reason)
-                    accountManager.updateRegistrationState(accountId, PjsipRegistrationState.Failed(error = error))
-                    logger.warn {
-                        "[$accountId] Registration failed: ${prm.code} ${prm.reason} (lastErr=${info.regLastErr})"
-                    }
                 }
             }
         } catch (e: Exception) {
-            logger.error(e) { "[$accountId] Error in onRegState callback" }
+            logger.error(e) { "[$accountId] Error capturing onRegState data" }
             accountManager.updateRegistrationState(
                 accountId,
                 PjsipRegistrationState.Failed(error = SipError.fromException(e)),
@@ -53,10 +75,14 @@ class PjsipAccount(
 
     override fun onIncomingCall(prm: OnIncomingCallParam) {
         if (accountManager.isAccountDestroyed()) return
-        try {
-            accountManager.handleIncomingCall(accountId, prm.callId)
-        } catch (e: Exception) {
-            logger.error(e) { "[$accountId] Error in onIncomingCall callback" }
+        // Capture callId from SWIG pointer BEFORE dispatching
+        val callId = prm.callId
+        pjScope.launch {
+            try {
+                accountManager.handleIncomingCall(accountId, callId)
+            } catch (e: Exception) {
+                logger.error(e) { "[$accountId] Error in onIncomingCall callback" }
+            }
         }
     }
 }

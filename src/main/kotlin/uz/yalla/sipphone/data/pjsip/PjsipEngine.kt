@@ -27,11 +27,11 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
     private val closeableDispatcher: CloseableCoroutineDispatcher = newSingleThreadContext("pjsip-event-loop")
     val pjDispatcher: CoroutineDispatcher get() = closeableDispatcher
 
-    private val scope = CoroutineScope(SupervisorJob() + closeableDispatcher)
+    private val pjScope = CoroutineScope(SupervisorJob() + closeableDispatcher)
 
     private val endpointManager = PjsipEndpointManager(closeableDispatcher)
 
-    val accountManager = PjsipAccountManager(::isDestroyed)
+    val accountManager = PjsipAccountManager(::isDestroyed, pjScope)
 
     private val callManager = PjsipCallManager(
         accountProvider = accountManager,
@@ -76,7 +76,7 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
         } catch (e: Exception) {
             logger.warn(e) { "Error during pjsip shutdown" }
         } finally {
-            scope.cancel()
+            pjScope.cancel()
             runCatching { closeableDispatcher.close() }
         }
     }

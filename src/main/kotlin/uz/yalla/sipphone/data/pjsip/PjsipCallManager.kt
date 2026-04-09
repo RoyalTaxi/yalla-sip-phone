@@ -37,6 +37,7 @@ class PjsipCallManager(
     private var currentCall: PjsipCall? = null
     private var currentCallId: String? = null
     private var currentAccountId: String? = null
+    @Volatile
     private var holdInProgress = false
     private var holdTimeoutJob: Job? = null
     private var hangupTimeoutJob: Job? = null
@@ -91,9 +92,15 @@ class PjsipCallManager(
             }
         }
         _callState.value = state.copy(isOnHold = hold)
-        holdInProgress = false
+        // Start a timeout to reset holdInProgress if media callback never fires
         holdTimeoutJob?.cancel()
-        holdTimeoutJob = null
+        holdTimeoutJob = scope.launch {
+            delay(HOLD_TIMEOUT_MS)
+            if (holdInProgress) {
+                logger.warn { "Hold timeout — resetting holdInProgress flag" }
+                holdInProgress = false
+            }
+        }
     }
 
     suspend fun makeCall(number: String, accountId: String = ""): Result<Unit> {
@@ -115,7 +122,7 @@ class PjsipCallManager(
         val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
         if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
         try {
-            val call = PjsipCall(this, acc)
+            val call = PjsipCall(this, acc, scope)
             val uri = SipConstants.buildCallUri(number, host)
             val prm = CallOpParam(true)
             try {
@@ -286,7 +293,7 @@ class PjsipCallManager(
         if (currentCall != null) {
             logger.warn { "Rejecting incoming call on $accountId (already in call)" }
             try {
-                val call = PjsipCall(this, acc, callId)
+                val call = PjsipCall(this, acc, callId, scope)
                 withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> call.hangup(prm) }
                 call.safeDelete()
             } catch (e: Exception) {
@@ -295,7 +302,7 @@ class PjsipCallManager(
             return
         }
         try {
-            val call = PjsipCall(this, acc, callId)
+            val call = PjsipCall(this, acc, callId, scope)
             currentCall = call
             currentCallId = UUID.randomUUID().toString()
             currentAccountId = accountId
@@ -323,6 +330,10 @@ class PjsipCallManager(
 
     suspend fun sendDtmf(callId: String, digits: String): Result<Unit> {
         val call = currentCall ?: return Result.failure(IllegalStateException("No active call"))
+        if (currentCallId != callId) {
+            logger.warn { "sendDtmf: callId mismatch (expected=$currentCallId, got=$callId)" }
+            return Result.failure(IllegalStateException("callId mismatch"))
+        }
         return try {
             call.dialDtmf(digits)
             logger.info { "DTMF sent: $digits" }
@@ -335,6 +346,10 @@ class PjsipCallManager(
 
     suspend fun transferCall(callId: String, destination: String): Result<Unit> {
         val call = currentCall ?: return Result.failure(IllegalStateException("No active call"))
+        if (currentCallId != callId) {
+            logger.warn { "transferCall: callId mismatch (expected=$currentCallId, got=$callId)" }
+            return Result.failure(IllegalStateException("callId mismatch"))
+        }
         return try {
             val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
             if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
@@ -412,5 +427,9 @@ class PjsipCallManager(
         currentCallId = null
         currentAccountId = null
         _callState.value = CallState.Idle
+    }
+
+    companion object {
+        private const val HOLD_TIMEOUT_MS = 15_000L
     }
 }
