@@ -5,5 +5,15 @@ import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.ComponentFactoryImpl
 
 val featureModule = module {
-    single<ComponentFactory> { ComponentFactoryImpl(getKoin()) }
+    single<ComponentFactory> {
+        ComponentFactoryImpl(
+            authRepository = get(),
+            sipAccountManager = get(),
+            callEngine = get(),
+            jcefManager = get(),
+            eventEmitter = get(),
+            security = get(),
+            auditLog = get(),
+        )
+    }
 }

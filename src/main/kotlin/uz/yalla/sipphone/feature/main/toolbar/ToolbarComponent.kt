@@ -4,8 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,8 +24,9 @@ import javax.sound.sampled.Clip
 private val logger = KotlinLogging.logger {}
 
 class ToolbarComponent(
-    val callEngine: CallEngine,
-    val sipAccountManager: SipAccountManager,
+    private val callEngine: CallEngine,
+    private val sipAccountManager: SipAccountManager,
+    private val scope: CoroutineScope,
 ) {
     val callState: StateFlow<CallState> = callEngine.callState
     val accounts: StateFlow<List<SipAccount>> = sipAccountManager.accounts
@@ -47,7 +46,6 @@ class ToolbarComponent(
     private val _settingsVisible = MutableStateFlow(false)
     val settingsVisible: StateFlow<Boolean> = _settingsVisible.asStateFlow()
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var timerJob: Job? = null
     private var ringtoneClip: Clip? = null
 
@@ -153,10 +151,9 @@ class ToolbarComponent(
         scope.launch { sipAccountManager.unregisterAll() }
     }
 
-    fun destroy() {
+    fun releaseAudioResources() {
         stopRingtone()
         stopTimer()
-        scope.cancel()
     }
 
     private fun startTimer() {

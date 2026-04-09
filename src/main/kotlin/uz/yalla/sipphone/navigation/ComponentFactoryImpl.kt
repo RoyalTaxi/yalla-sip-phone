@@ -1,7 +1,6 @@
 package uz.yalla.sipphone.navigation
 
 import com.arkivanov.decompose.ComponentContext
-import org.koin.core.Koin
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
@@ -13,15 +12,23 @@ import uz.yalla.sipphone.domain.SipAccountManager
 import uz.yalla.sipphone.feature.login.LoginComponent
 import uz.yalla.sipphone.feature.main.MainComponent
 
-class ComponentFactoryImpl(private val koin: Koin) : ComponentFactory {
+class ComponentFactoryImpl(
+    private val authRepository: AuthRepository,
+    private val sipAccountManager: SipAccountManager,
+    private val callEngine: CallEngine,
+    private val jcefManager: JcefManager,
+    private val eventEmitter: BridgeEventEmitter,
+    private val security: BridgeSecurity,
+    private val auditLog: BridgeAuditLog,
+) : ComponentFactory {
 
     override fun createLogin(
         context: ComponentContext,
         onLoginSuccess: (AuthResult) -> Unit,
     ): LoginComponent = LoginComponent(
         componentContext = context,
-        authRepository = koin.get<AuthRepository>(),
-        sipAccountManager = koin.get<SipAccountManager>(),
+        authRepository = authRepository,
+        sipAccountManager = sipAccountManager,
         onLoginSuccess = onLoginSuccess,
     )
 
@@ -32,12 +39,12 @@ class ComponentFactoryImpl(private val koin: Koin) : ComponentFactory {
     ): MainComponent = MainComponent(
         componentContext = context,
         authResult = authResult,
-        callEngine = koin.get<CallEngine>(),
-        sipAccountManager = koin.get<SipAccountManager>(),
-        jcefManager = koin.get<JcefManager>(),
-        eventEmitter = koin.get<BridgeEventEmitter>(),
-        security = koin.get<BridgeSecurity>(),
-        auditLog = koin.get<BridgeAuditLog>(),
+        callEngine = callEngine,
+        sipAccountManager = sipAccountManager,
+        jcefManager = jcefManager,
+        eventEmitter = eventEmitter,
+        security = security,
+        auditLog = auditLog,
         onLogout = onLogout,
     )
 }

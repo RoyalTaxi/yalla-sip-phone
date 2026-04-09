@@ -42,13 +42,15 @@ fun main() {
     val registrationEngine = ScriptableRegistrationEngine()
     val sipAccountManager = FakeSipAccountManager()
 
+    val demoScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
     val toolbar = ToolbarComponent(
         callEngine = callEngine,
         sipAccountManager = sipAccountManager,
+        scope = demoScope,
     )
 
     val runner = ScenarioRunner(callEngine, registrationEngine)
-    val demoScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val logger = DemoLogger()
 
     // Observe state changes and print to console

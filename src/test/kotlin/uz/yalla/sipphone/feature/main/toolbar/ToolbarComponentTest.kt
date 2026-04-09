@@ -1,5 +1,6 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -29,6 +30,7 @@ class ToolbarComponentTest {
         component = ToolbarComponent(
             callEngine = fakeCallEngine,
             sipAccountManager = fakeSipAccountManager,
+            scope = CoroutineScope(testDispatcher),
         )
     }
 

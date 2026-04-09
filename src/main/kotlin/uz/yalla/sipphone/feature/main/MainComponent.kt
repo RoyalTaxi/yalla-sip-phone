@@ -29,9 +29,12 @@ class MainComponent(
     private val onLogout: () -> Unit,
 ) : ComponentContext by componentContext {
 
+    private val scope = coroutineScope()
+
     val toolbar = ToolbarComponent(
         callEngine = callEngine,
         sipAccountManager = sipAccountManager,
+        scope = scope,
     )
 
     val dispatcherUrl: String = if (authResult.token.isNotEmpty())
@@ -39,13 +42,11 @@ class MainComponent(
     else
         authResult.dispatcherUrl
     val agentInfo: AgentInfo = authResult.agent
-
-    private val scope = coroutineScope()
     private var bridgeRouter: BridgeRouter? = null
 
     init {
         lifecycle.doOnDestroy {
-            toolbar.destroy()
+            toolbar.releaseAudioResources()
             eventEmitter.detach()
             bridgeRouter?.dispose()
             jcefManager.teardownBridge()
