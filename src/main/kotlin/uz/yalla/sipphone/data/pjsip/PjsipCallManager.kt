@@ -329,6 +329,9 @@ class PjsipCallManager(
     }
 
     suspend fun sendDtmf(callId: String, digits: String): Result<Unit> {
+        if (!digits.matches(Regex("[0-9*#A-Da-d]+"))) {
+            return Result.failure(IllegalArgumentException("Invalid DTMF digits: $digits"))
+        }
         val call = currentCall ?: return Result.failure(IllegalStateException("No active call"))
         if (currentCallId != callId) {
             logger.warn { "sendDtmf: callId mismatch (expected=$currentCallId, got=$callId)" }

@@ -43,6 +43,7 @@ fun createHttpClient(
             }
         }
         level = LogLevel.HEADERS
+        sanitizeHeader { header -> header == "Authorization" }
     }
 
     defaultRequest {

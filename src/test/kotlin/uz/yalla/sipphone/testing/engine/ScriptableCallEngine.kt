@@ -63,20 +63,29 @@ class ScriptableCallEngine(
         return makeCallResult
     }
 
-    override suspend fun answerCall() {
+    var answerCallResult: Result<Unit> = Result.success(Unit)
+    var hangupCallResult: Result<Unit> = Result.success(Unit)
+    var toggleMuteResult: Result<Unit> = Result.success(Unit)
+    var toggleHoldResult: Result<Unit> = Result.success(Unit)
+
+    override suspend fun answerCall(): Result<Unit> {
         _actions += Action.AnswerCall
+        return answerCallResult
     }
 
-    override suspend fun hangupCall() {
+    override suspend fun hangupCall(): Result<Unit> {
         _actions += Action.HangupCall
+        return hangupCallResult
     }
 
-    override suspend fun toggleMute() {
+    override suspend fun toggleMute(): Result<Unit> {
         _actions += Action.ToggleMute
+        return toggleMuteResult
     }
 
-    override suspend fun toggleHold() {
+    override suspend fun toggleHold(): Result<Unit> {
         _actions += Action.ToggleHold
+        return toggleHoldResult
     }
 
     override suspend fun setMute(callId: String, muted: Boolean) {

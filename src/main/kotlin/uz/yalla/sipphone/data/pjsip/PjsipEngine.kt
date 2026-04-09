@@ -87,17 +87,17 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
     override suspend fun makeCall(number: String, accountId: String): Result<Unit> =
         withContext(pjDispatcher) { callManager.makeCall(number, accountId) }
 
-    override suspend fun answerCall(): Unit =
-        withContext(pjDispatcher) { callManager.answerCall() }
+    override suspend fun answerCall(): Result<Unit> =
+        withContext(pjDispatcher) { runCatching { callManager.answerCall() } }
 
-    override suspend fun hangupCall(): Unit =
-        withContext(pjDispatcher) { callManager.hangupCall() }
+    override suspend fun hangupCall(): Result<Unit> =
+        withContext(pjDispatcher) { runCatching { callManager.hangupCall() } }
 
-    override suspend fun toggleMute(): Unit =
-        withContext(pjDispatcher) { callManager.toggleMute() }
+    override suspend fun toggleMute(): Result<Unit> =
+        withContext(pjDispatcher) { runCatching { callManager.toggleMute() } }
 
-    override suspend fun toggleHold(): Unit =
-        withContext(pjDispatcher) { callManager.toggleHold() }
+    override suspend fun toggleHold(): Result<Unit> =
+        withContext(pjDispatcher) { runCatching { callManager.toggleHold() } }
 
     override suspend fun setMute(callId: String, muted: Boolean): Unit =
         withContext(pjDispatcher) { callManager.setMute(callId, muted) }

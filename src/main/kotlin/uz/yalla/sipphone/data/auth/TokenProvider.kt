@@ -1,8 +1,5 @@
 package uz.yalla.sipphone.data.auth
 
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-
 interface TokenProvider {
     suspend fun getToken(): String?
     suspend fun setToken(token: String)
@@ -12,15 +9,8 @@ interface TokenProvider {
 class InMemoryTokenProvider : TokenProvider {
     @Volatile
     private var token: String? = null
-    private val mutex = Mutex()
 
     override suspend fun getToken(): String? = token
-
-    override suspend fun setToken(token: String) {
-        mutex.withLock { this.token = token }
-    }
-
-    override suspend fun clearToken() {
-        mutex.withLock { token = null }
-    }
+    override suspend fun setToken(token: String) { this.token = token }
+    override suspend fun clearToken() { this.token = null }
 }

@@ -23,6 +23,10 @@ class FakeCallEngine(
     var transferCallCount = 0
     var lastTransferDestination: String? = null
     var transferCallResult: Result<Unit> = Result.success(Unit)
+    var answerCallResult: Result<Unit> = Result.success(Unit)
+    var hangupCallResult: Result<Unit> = Result.success(Unit)
+    var toggleMuteResult: Result<Unit> = Result.success(Unit)
+    var toggleHoldResult: Result<Unit> = Result.success(Unit)
 
     var lastCallAccountId: String? = null
 
@@ -32,20 +36,24 @@ class FakeCallEngine(
         return makeCallResult
     }
 
-    override suspend fun answerCall() {
+    override suspend fun answerCall(): Result<Unit> {
         answerCallCount++
+        return answerCallResult
     }
 
-    override suspend fun hangupCall() {
+    override suspend fun hangupCall(): Result<Unit> {
         hangupCallCount++
+        return hangupCallResult
     }
 
-    override suspend fun toggleMute() {
+    override suspend fun toggleMute(): Result<Unit> {
         toggleMuteCount++
+        return toggleMuteResult
     }
 
-    override suspend fun toggleHold() {
+    override suspend fun toggleHold(): Result<Unit> {
         toggleHoldCount++
+        return toggleHoldResult
     }
 
     override suspend fun setMute(callId: String, muted: Boolean) {
