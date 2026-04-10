@@ -28,6 +28,7 @@ import uz.yalla.sipphone.domain.SipAccountInfo
 import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.feature.login.LoginComponent
+import uz.yalla.sipphone.feature.login.ManualAccountEntry
 import uz.yalla.sipphone.feature.main.MainComponent
 import uz.yalla.sipphone.testing.FakeSipAccountManager
 import kotlin.test.AfterTest
@@ -136,7 +137,7 @@ class RootComponentTest {
         val root = createRoot()
         // Get LoginComponent and simulate successful login + SIP registration
         val loginChild = root.childStack.value.active.instance as RootComponent.Child.Login
-        loginChild.component.manualConnect("192.168.0.22", 5060, "102", "pass")
+        loginChild.component.manualConnect(listOf(ManualAccountEntry("192.168.0.22", 5060, "102", "pass")))
         // FakeSipAccountManager auto-connects accounts on registerAll
         val activeChild = root.childStack.value.active.instance
         assertIs<RootComponent.Child.Main>(activeChild)
@@ -146,7 +147,7 @@ class RootComponentTest {
     fun `navigates back to Login on explicit logout`() {
         val root = createRoot()
         val loginChild = root.childStack.value.active.instance as RootComponent.Child.Login
-        loginChild.component.manualConnect("192.168.0.22", 5060, "102", "pass")
+        loginChild.component.manualConnect(listOf(ManualAccountEntry("192.168.0.22", 5060, "102", "pass")))
         assertIs<RootComponent.Child.Main>(root.childStack.value.active.instance)
 
         val mainChild = root.childStack.value.active.instance as RootComponent.Child.Main
@@ -157,7 +158,7 @@ class RootComponentTest {
     fun `stays on Main when SIP disconnects`() {
         val root = createRoot()
         val loginChild = root.childStack.value.active.instance as RootComponent.Child.Login
-        loginChild.component.manualConnect("192.168.0.22", 5060, "102", "pass")
+        loginChild.component.manualConnect(listOf(ManualAccountEntry("192.168.0.22", 5060, "102", "pass")))
         assertIs<RootComponent.Child.Main>(root.childStack.value.active.instance)
 
         val accountId = fakeSipAccountManager.accounts.value.firstOrNull()?.id ?: "102@192.168.0.22"

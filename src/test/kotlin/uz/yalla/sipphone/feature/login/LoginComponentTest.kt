@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.data.auth.MockAuthRepository
+import uz.yalla.sipphone.feature.login.ManualAccountEntry
 import uz.yalla.sipphone.domain.AuthRepository
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.testing.FakeSipAccountManager
@@ -107,12 +108,10 @@ class LoginComponentTest {
 
     @Test
     fun `manualConnect registers SIP accounts`() = runTest(testDispatcher) {
-        component.manualConnect(
-            server = "192.168.1.1",
-            port = 5060,
-            username = "102",
-            password = "secret",
+        val accounts = listOf(
+            ManualAccountEntry("192.168.1.1", 5060, "102", "secret"),
         )
+        component.manualConnect(accounts)
         advanceUntilIdle()
         assertEquals(1, fakeSipAccountManager.registerAllCallCount)
         val registered = fakeSipAccountManager.lastRegisteredAccounts
@@ -120,5 +119,23 @@ class LoginComponentTest {
         assertEquals("192.168.1.1", registered.first().serverUrl)
         assertEquals(102, registered.first().extensionNumber)
         assertEquals("102", registered.first().credentials.username)
+    }
+
+    @Test
+    fun `manualConnect with multiple accounts registers all`() = runTest(testDispatcher) {
+        val accounts = listOf(
+            ManualAccountEntry("192.168.0.22", 5060, "102", "pass1"),
+            ManualAccountEntry("192.168.0.22", 5060, "103", "pass2"),
+            ManualAccountEntry("10.0.0.5", 5060, "200", "pass3"),
+        )
+        component.manualConnect(accounts, "http://localhost:5173")
+        advanceUntilIdle()
+        assertEquals(1, fakeSipAccountManager.registerAllCallCount)
+        val registered = fakeSipAccountManager.lastRegisteredAccounts
+        assertEquals(3, registered.size)
+        assertEquals("192.168.0.22", registered[0].serverUrl)
+        assertEquals(102, registered[0].extensionNumber)
+        assertEquals("10.0.0.5", registered[2].serverUrl)
+        assertEquals(200, registered[2].extensionNumber)
     }
 }

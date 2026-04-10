@@ -208,7 +208,7 @@ fun LoginScreen(component: LoginComponent) {
                     isLoading = isLoading,
                     onConnect = { server, port, username, pwd, dispatcher ->
                         showManualDialog = false
-                        component.manualConnect(server, port, username, pwd, dispatcher)
+                        component.manualConnect(listOf(ManualAccountEntry(server, port, username, pwd)), dispatcher)
                     },
                     onDismiss = { showManualDialog = false },
                 )
