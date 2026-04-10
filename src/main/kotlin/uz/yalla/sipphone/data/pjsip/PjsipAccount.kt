@@ -76,14 +76,14 @@ class PjsipAccount(
 
     override fun onIncomingCall(prm: OnIncomingCallParam) {
         if (accountManager.isAccountDestroyed()) return
-        // Capture callId from SWIG pointer BEFORE dispatching
+        // Handle synchronously — PJSIP expects the Call object to be created during this
+        // callback. Async dispatch (pjScope.launch) causes PJSIP to reject with 500 because
+        // the call appears unhandled when the callback returns.
         val callId = prm.callId
-        pjScope.launch {
-            try {
-                accountManager.handleIncomingCall(accountId, callId)
-            } catch (e: Exception) {
-                logger.error(e) { "[$accountId] Error in onIncomingCall callback" }
-            }
+        try {
+            accountManager.handleIncomingCall(accountId, callId)
+        } catch (e: Exception) {
+            logger.error(e) { "[$accountId] Error in onIncomingCall callback" }
         }
     }
 }
