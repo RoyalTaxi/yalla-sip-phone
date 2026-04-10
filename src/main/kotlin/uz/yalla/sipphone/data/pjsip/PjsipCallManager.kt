@@ -119,8 +119,7 @@ class PjsipCallManager(
             resolvedAccountId = firstAcc.accountId
         }
 
-        val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
-        if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
+        val host = acc.server
         try {
             val call = PjsipCall(this, acc, scope)
             val uri = SipConstants.buildCallUri(number, host)
@@ -354,8 +353,10 @@ class PjsipCallManager(
             return Result.failure(IllegalStateException("callId mismatch"))
         }
         return try {
-            val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
-            if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
+            val callAccountId = currentAccountId
+                ?: return Result.failure(IllegalStateException("No active call account"))
+            val host = accountProvider.getAccount(callAccountId)?.server
+                ?: return Result.failure(IllegalStateException("No server for account $callAccountId"))
             val destUri = SipConstants.buildCallUri(destination, host)
             withCallOpParam { prm -> call.xfer(destUri, prm) }
             logger.info { "Call transferred to: $destination" }

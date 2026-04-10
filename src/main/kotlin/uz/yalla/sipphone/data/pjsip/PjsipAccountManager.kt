@@ -28,7 +28,6 @@ interface AccountRegistrationListener {
 interface AccountProvider {
     fun getAccount(accountId: String): PjsipAccount?
     fun getFirstConnectedAccount(): PjsipAccount?
-    val lastRegisteredServer: String?
 }
 
 class PjsipAccountManager(
@@ -39,9 +38,6 @@ class PjsipAccountManager(
     private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
 
     private val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
-
-    override var lastRegisteredServer: String? = null
-        private set
 
     var incomingCallListener: IncomingCallListener? = null
     var accountRegistrationListener: AccountRegistrationListener? = null
@@ -55,9 +51,6 @@ class PjsipAccountManager(
     }
 
     fun updateRegistrationState(accountId: String, state: PjsipRegistrationState) {
-        if (state is PjsipRegistrationState.Registered) {
-            lastRegisteredServer = state.uri
-        }
         val flow = _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
         flow.value = state
         accountRegistrationListener?.onAccountRegistrationState(accountId, state)
