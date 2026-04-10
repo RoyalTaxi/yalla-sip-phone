@@ -330,10 +330,20 @@ private fun ManualConnectionDialog(
                         modifier = Modifier.weight(1f), shape = tokens.shapeMedium,
                     )
                 }
+                var passwordVisible by remember { mutableStateOf(false) }
                 OutlinedTextField(
                     value = password, onValueChange = { password = it },
                     label = { Text(strings.labelPassword) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    },
                     singleLine = true, enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
                 )
