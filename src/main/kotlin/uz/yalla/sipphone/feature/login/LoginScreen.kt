@@ -346,7 +346,15 @@ private fun ManualConnectionDialog(
                     )
                 }
 
-                // Dispatcher URL — applies to session
+                // Add button — part of the form
+                TextButton(
+                    onClick = { addAccount() },
+                    enabled = canAdd,
+                    modifier = Modifier.align(Alignment.End),
+                ) { Text(strings.manualAddAccount) }
+
+                // Dispatcher URL — session-level, separate from per-account form
+                Spacer(Modifier.height(tokens.spacingXs))
                 OutlinedTextField(
                     value = dispatcherUrl, onValueChange = { dispatcherUrl = it },
                     label = { Text(strings.labelDispatcherUrl) },
@@ -361,10 +369,6 @@ private fun ManualConnectionDialog(
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
-                TextButton(
-                    onClick = { addAccount() },
-                    enabled = canAdd,
-                ) { Text(strings.manualAddAccount) }
                 Button(
                     onClick = { onConnect(accounts, dispatcherUrl) },
                     enabled = canConnect,
