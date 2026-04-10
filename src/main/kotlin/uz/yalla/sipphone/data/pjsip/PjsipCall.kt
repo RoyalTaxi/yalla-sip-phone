@@ -36,27 +36,24 @@ class PjsipCall : Call {
 
     override fun onCallState(prm: OnCallStateParam) {
         if (callManager.isCallManagerDestroyed()) return
-        // Capture SWIG pointer values BEFORE dispatching — they become invalid after callback returns
+        // Capture SWIG pointer values BEFORE processing — they become invalid after callback returns
         var info: CallInfo? = null
         try {
             info = getInfo()
             val stateText = info.stateText
             val lastStatusCode = info.lastStatusCode
             val state = info.state
-            pjScope.launch {
-                try {
-                    logger.info { "Call state: $stateText ($lastStatusCode)" }
-                    when (state) {
-                        pjsip_inv_state.PJSIP_INV_STATE_CONFIRMED -> callManager.onCallConfirmed(this@PjsipCall)
-                        pjsip_inv_state.PJSIP_INV_STATE_DISCONNECTED -> callManager.onCallDisconnected(this@PjsipCall)
-                        else -> {}
-                    }
-                } catch (e: Exception) {
-                    logger.error(e) { "Error processing onCallState" }
-                }
+            // Handle synchronously — async dispatch (pjScope.launch) caused PJSIP to
+            // invalidate the call object before our coroutine ran, preventing proper
+            // state transitions (callEnded never fired, disconnect not detected).
+            logger.info { "Call state: $stateText ($lastStatusCode)" }
+            when (state) {
+                pjsip_inv_state.PJSIP_INV_STATE_CONFIRMED -> callManager.onCallConfirmed(this)
+                pjsip_inv_state.PJSIP_INV_STATE_DISCONNECTED -> callManager.onCallDisconnected(this)
+                else -> {}
             }
         } catch (e: Exception) {
-            logger.error(e) { "Error capturing onCallState data" }
+            logger.error(e) { "Error processing onCallState" }
         } finally {
             info?.delete()
         }
