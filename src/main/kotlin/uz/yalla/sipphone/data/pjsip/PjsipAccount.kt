@@ -35,7 +35,7 @@ class PjsipAccount(
                         code / 100 == SipConstants.STATUS_CLASS_SUCCESS && regIsActive -> {
                             accountManager.updateRegistrationState(
                                 accountId,
-                                PjsipRegistrationState.Registered(server = uri),
+                                PjsipRegistrationState.Registered(uri = uri),
                             )
                             logger.info { "[$accountId] Registered: $uri, expires: ${regExpiresSec}s" }
                         }

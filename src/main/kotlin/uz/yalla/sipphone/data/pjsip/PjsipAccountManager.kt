@@ -56,7 +56,7 @@ class PjsipAccountManager(
 
     fun updateRegistrationState(accountId: String, state: PjsipRegistrationState) {
         if (state is PjsipRegistrationState.Registered) {
-            lastRegisteredServer = state.server
+            lastRegisteredServer = state.uri
         }
         val flow = _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
         flow.value = state
