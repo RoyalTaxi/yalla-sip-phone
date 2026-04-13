@@ -9,8 +9,16 @@
     <AssemblyName>yalla-update-bootstrap</AssemblyName>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <!-- Self-contained + single-file + trimmed = one fat .exe, ~15 MB,
+         no .NET runtime dependency on the operator machine. We cannot
+         assume .NET 8 Desktop Runtime is pre-installed on operator
+         Windows PCs. This inflates the bootstrapper from 171 KB to
+         ~15 MB — negligible inside a 140 MB MSI. -->
     <PublishSingleFile>true</PublishSingleFile>
-    <SelfContained>false</SelfContained>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
     <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 </Project>
