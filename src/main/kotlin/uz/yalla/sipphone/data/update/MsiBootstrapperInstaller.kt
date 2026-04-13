@@ -55,14 +55,23 @@ class MsiBootstrapperInstaller(
 
     /**
      * Strip Mark-of-the-Web from the downloaded MSI (invariant I18).
+     *
      * No-op on non-Windows. Best-effort — failure is logged, not thrown.
+     *
+     * Uses `java.io.File` rather than `java.nio.file.Path` because Java NIO
+     * refuses to parse the `:Zone.Identifier` alternate data stream suffix
+     * as a valid Path on Windows — `Path.of("C:\\a.msi:Zone.Identifier")`
+     * throws `InvalidPathException`. The legacy `File` API has no such
+     * validation and lets the deletion reach the filesystem.
      */
     fun stripMarkOfTheWeb(msiPath: Path) {
         val os = System.getProperty("os.name").lowercase()
         if (!os.contains("win")) return
-        val adsPath = Path.of("${msiPath}:Zone.Identifier")
-        runCatching { adsPath.deleteIfExists() }
-            .onSuccess { logger.info { "Stripped Zone.Identifier from $msiPath" } }
+        runCatching {
+            val ads = java.io.File("${msiPath}:Zone.Identifier")
+            if (ads.exists()) ads.delete() else true
+        }
+            .onSuccess { logger.info { "Stripped Zone.Identifier from $msiPath (if present)" } }
             .onFailure { logger.warn(it) { "Failed to strip Zone.Identifier (non-fatal)" } }
     }
 
