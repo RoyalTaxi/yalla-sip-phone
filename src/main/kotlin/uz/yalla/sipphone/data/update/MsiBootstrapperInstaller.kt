@@ -94,8 +94,31 @@ class MsiBootstrapperInstaller(
     }
 
     companion object {
-        private fun defaultBootstrapperPath(): Path =
-            Path.of(System.getProperty("user.dir"), "bootstrapper", "yalla-update-bootstrap.exe")
+        /**
+         * Resolve the bootstrapper binary.
+         *
+         * 1. `compose.application.resources.dir` — set by Compose Desktop at
+         *    runtime to the per-platform app-resources directory inside the
+         *    installed MSI. Same mechanism used by [NativeLibraryLoader] for
+         *    `pjsua2.dll`. This is the production path.
+         * 2. Dev fallback: `<project-dir>/app-resources/windows-x64/` — when
+         *    running via `./gradlew run` the above system property is also
+         *    set, but we keep this as a belt-and-braces fallback for ad-hoc
+         *    invocations.
+         */
+        private fun defaultBootstrapperPath(): Path {
+            val resourcesDir = System.getProperty("compose.application.resources.dir")
+            if (resourcesDir != null) {
+                val packaged = Path.of(resourcesDir, "yalla-update-bootstrap.exe")
+                if (packaged.exists()) return packaged
+            }
+            return Path.of(
+                System.getProperty("user.dir"),
+                "app-resources",
+                "windows-x64",
+                "yalla-update-bootstrap.exe",
+            )
+        }
 
         private fun defaultInstallDir(): Path {
             val os = System.getProperty("os.name").lowercase()
