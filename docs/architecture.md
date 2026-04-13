@@ -31,7 +31,7 @@ Main.kt
 │   ├── AuthResult.kt                Login result with agent info + List<SipAccountInfo>
 │   ├── CallState.kt                 Sealed: Idle → Ringing → Active → Ending → Idle (with accountId)
 │   ├── SipCredentials.kt            Server, port, username, password, transport
-│   ├── SipError.kt                  Sealed: AuthFailed, NetworkError, ServerError, InternalError
+│   ├── SipError.kt                  Sealed: AuthFailed, NetworkError, ServerError, NotFound, RequestTimeout, BusyHere, Declined, InternalError
 │   ├── SipConstants.kt              URI builders, validation, magic values
 │   ├── CallerInfo.kt                Parse remote SIP URI → number + name
 │   ├── PhoneNumberValidator.kt      Phone number format validation
@@ -71,7 +71,6 @@ Main.kt
 │   │   ├── TokenProvider.kt         In-memory JWT storage
 │   │   ├── AuthEventBus.kt          Session expiry event bus
 │   │   ├── LogoutOrchestrator.kt    Full logout: SIP unregisterAll → API logout → clear token
-│   │   ├── MockAuthRepository.kt    Hardcoded test credentials (dev only)
 │   │   └── dto/                     API DTOs (LoginRequest, LoginResult, MeResult, SipConnection)
 │   │
 │   └── settings/
@@ -93,7 +92,7 @@ Main.kt
 │       │   ├── PhoneField.kt         Phone number input with dial button
 │       │   ├── SipChipRow.kt         Multi-account status chips (per SIP extension)
 │       │   ├── AgentStatusButton.kt  Agent status selector dropdown
-│       │   └── SettingsDialog.kt     Settings dialog
+│       │   └── SettingsPanel.kt      Settings dialog (agent info, theme, locale, logout)
 │       └── webview/
 │           └── WebviewPanel.kt       JCEF browser Swing interop
 │
