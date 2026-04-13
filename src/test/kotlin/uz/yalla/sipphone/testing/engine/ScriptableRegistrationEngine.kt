@@ -63,8 +63,8 @@ class ScriptableRegistrationEngine(
     }
 
     /** Convenience: transition to [PjsipRegistrationState.Registered]. */
-    fun emitRegistered(server: String = "sip:102@192.168.0.22") {
-        emit(PjsipRegistrationState.Registered(server))
+    fun emitRegistered(uri: String = "sip:102@192.168.0.22") {
+        emit(PjsipRegistrationState.Registered(uri))
     }
 
     /** Convenience: transition to [PjsipRegistrationState.Failed]. */

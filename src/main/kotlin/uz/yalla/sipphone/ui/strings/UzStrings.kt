@@ -46,6 +46,11 @@ object UzStrings : StringResources {
     override val placeholderUsername = "1001"
     override val placeholderDispatcherUrl = "http://192.168.0.234:5173"
 
+    override val manualAddAccount = "Qo'shish"
+    override val manualConnectAll = "Hammasini ulash"
+    override val manualNoAccounts = "Account qo'shilmagan"
+    override val manualDuplicateAccount = "Bu account allaqachon qo'shilgan"
+
     override val updateAvailableBadge = "Yangilanish mavjud"
     override val updateAvailableDialogTitle = "Yangilanish mavjud"
     override val updateInstallButton = "O'rnatish"

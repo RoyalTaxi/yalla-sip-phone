@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -206,9 +209,9 @@ fun LoginScreen(component: LoginComponent) {
             if (showManualDialog) {
                 ManualConnectionDialog(
                     isLoading = isLoading,
-                    onConnect = { server, port, username, pwd, dispatcher ->
+                    onConnect = { accounts, dispatcherUrl ->
                         showManualDialog = false
-                        component.manualConnect(server, port, username, pwd, dispatcher)
+                        component.manualConnect(accounts, dispatcherUrl)
                     },
                     onDismiss = { showManualDialog = false },
                 )
@@ -224,26 +227,85 @@ fun LoginScreen(component: LoginComponent) {
 @Composable
 private fun ManualConnectionDialog(
     isLoading: Boolean,
-    onConnect: (server: String, port: Int, username: String, password: String, dispatcherUrl: String) -> Unit,
+    onConnect: (accounts: List<ManualAccountEntry>, dispatcherUrl: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
     val colors = LocalYallaColors.current
 
+    var accounts by remember { mutableStateOf(listOf<ManualAccountEntry>()) }
     var server by remember { mutableStateOf("") }
     var port by remember { mutableStateOf("5060") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var dispatcherUrl by remember { mutableStateOf("") }
+    var duplicateWarning by remember { mutableStateOf(false) }
+
+    val canAdd = server.isNotBlank() && username.isNotBlank() && !isLoading
+    val canConnect = accounts.isNotEmpty() && !isLoading
+
+    fun addAccount() {
+        val entry = ManualAccountEntry(server, port.toIntOrNull() ?: 5060, username, password)
+        if (accounts.any { it.displayKey == entry.displayKey }) {
+            duplicateWarning = true
+            return
+        }
+        accounts = accounts + entry
+        username = ""
+        password = ""
+        duplicateWarning = false
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.loginManualConnection) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
+                // Account list
+                if (accounts.isEmpty()) {
+                    Text(
+                        strings.manualNoAccounts,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textSubtle,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = tokens.spacingSm),
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        itemsIndexed(accounts, key = { _, entry -> entry.displayKey }) { index, entry ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    entry.displayKey,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                IconButton(
+                                    onClick = {
+                                        accounts = accounts.filterIndexed { i, _ -> i != index }
+                                        duplicateWarning = false
+                                    },
+                                    modifier = Modifier.size(24.dp),
+                                    enabled = !isLoading,
+                                ) {
+                                    Text("x", style = MaterialTheme.typography.bodySmall, color = colors.textSubtle)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Divider
+                Spacer(Modifier.height(tokens.spacingXs))
+
+                // Add form
                 OutlinedTextField(
-                    value = server, onValueChange = { server = it },
+                    value = server, onValueChange = { server = it; duplicateWarning = false },
                     label = { Text(strings.labelServer) },
                     placeholder = {
                         Text(strings.placeholderServer, style = MaterialTheme.typography.bodySmall,
@@ -260,7 +322,7 @@ private fun ManualConnectionDialog(
                         modifier = Modifier.width(100.dp), shape = tokens.shapeMedium,
                     )
                     OutlinedTextField(
-                        value = username, onValueChange = { username = it },
+                        value = username, onValueChange = { username = it; duplicateWarning = false },
                         label = { Text(strings.labelUsername) },
                         placeholder = {
                             Text(strings.placeholderUsername, style = MaterialTheme.typography.bodySmall,
@@ -270,13 +332,41 @@ private fun ManualConnectionDialog(
                         modifier = Modifier.weight(1f), shape = tokens.shapeMedium,
                     )
                 }
+                var passwordVisible by remember { mutableStateOf(false) }
                 OutlinedTextField(
                     value = password, onValueChange = { password = it },
                     label = { Text(strings.labelPassword) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    },
                     singleLine = true, enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
                 )
+
+                if (duplicateWarning) {
+                    Text(
+                        strings.manualDuplicateAccount,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.statusWarning,
+                    )
+                }
+
+                // Add button — part of the form
+                TextButton(
+                    onClick = { addAccount() },
+                    enabled = canAdd,
+                    modifier = Modifier.align(Alignment.End),
+                ) { Text(strings.manualAddAccount) }
+
+                // Dispatcher URL — session-level, separate from per-account form
+                Spacer(Modifier.height(tokens.spacingXs))
                 OutlinedTextField(
                     value = dispatcherUrl, onValueChange = { dispatcherUrl = it },
                     label = { Text(strings.labelDispatcherUrl) },
@@ -290,11 +380,19 @@ private fun ManualConnectionDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onConnect(server, port.toIntOrNull() ?: 5060, username, password, dispatcherUrl) },
-                enabled = !isLoading && server.isNotEmpty() && username.isNotEmpty(),
-                shape = tokens.shapeMedium,
-            ) { Text(strings.buttonConnect) }
+            Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
+                Button(
+                    onClick = { onConnect(accounts, dispatcherUrl) },
+                    enabled = canConnect,
+                    shape = tokens.shapeMedium,
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(modifier = Modifier.size(tokens.iconDefault), strokeWidth = 2.dp, color = Color.White)
+                        Spacer(Modifier.width(tokens.spacingSm))
+                    }
+                    Text(strings.manualConnectAll)
+                }
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(strings.buttonCancel) } },
     )

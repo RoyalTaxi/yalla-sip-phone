@@ -192,7 +192,7 @@ private class DemoLogger {
         val ts = timestamp()
         when {
             new is PjsipRegistrationState.Registered -> {
-                val server = new.server.removePrefix("sip:")
+                val server = new.uri.removePrefix("sip:")
                 log("\uD83D\uDFE2", ts, "Registered as $server")
             }
             new is PjsipRegistrationState.Registering && prev !is PjsipRegistrationState.Registering -> {

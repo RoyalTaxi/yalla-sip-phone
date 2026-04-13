@@ -59,6 +59,12 @@ interface StringResources {
     val placeholderUsername: String
     val placeholderDispatcherUrl: String
 
+    // Manual Connection
+    val manualAddAccount: String
+    val manualConnectAll: String
+    val manualNoAccounts: String
+    val manualDuplicateAccount: String
+
     // Update
     val updateAvailableBadge: String
     val updateAvailableDialogTitle: String

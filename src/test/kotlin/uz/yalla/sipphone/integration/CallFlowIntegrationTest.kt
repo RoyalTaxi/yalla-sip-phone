@@ -227,7 +227,7 @@ class CallFlowIntegrationTest {
             // Already registered
             val registered = awaitItem()
             assertIs<PjsipRegistrationState.Registered>(registered)
-            assertEquals("sip:102@192.168.0.22", registered.server)
+            assertEquals("sip:102@192.168.0.22", registered.uri)
 
             // Network disconnect
             registrationEngine.emitFailed(503, "Service Unavailable")
@@ -260,7 +260,7 @@ class CallFlowIntegrationTest {
             registrationEngine.emitRegistered("sip:102@192.168.0.22")
             val recovered = awaitItem()
             assertIs<PjsipRegistrationState.Registered>(recovered)
-            assertEquals("sip:102@192.168.0.22", recovered.server)
+            assertEquals("sip:102@192.168.0.22", recovered.uri)
 
             cancelAndIgnoreRemainingEvents()
         }

@@ -22,6 +22,16 @@ import uz.yalla.sipphone.domain.SipCredentials
 
 private val logger = KotlinLogging.logger {}
 
+data class ManualAccountEntry(
+    val server: String,
+    val port: Int,
+    val username: String,
+    val password: String,
+) {
+    val displayKey: String get() = "$username@$server:$port"
+    override fun toString(): String = "ManualAccountEntry($displayKey, password=***)"
+}
+
 enum class LoginErrorType {
     WRONG_PASSWORD,
     NETWORK,
@@ -74,23 +84,31 @@ class LoginComponent(
         }
     }
 
-    fun manualConnect(server: String, port: Int, username: String, password: String, dispatcherUrl: String = "") {
-        val credentials = SipCredentials(server = server, port = port, username = username, password = password)
-        val accountInfo = SipAccountInfo(
-            extensionNumber = username.toIntOrNull() ?: 0,
-            serverUrl = server,
-            sipName = null,
-            credentials = credentials,
-        )
+    fun manualConnect(accounts: List<ManualAccountEntry>, dispatcherUrl: String = "") {
+        if (accounts.isEmpty()) return
+        val accountInfos = accounts.map { entry ->
+            val credentials = SipCredentials(
+                server = entry.server,
+                port = entry.port,
+                username = entry.username,
+                password = entry.password,
+            )
+            SipAccountInfo(
+                extensionNumber = entry.username.toIntOrNull() ?: 0,
+                serverUrl = entry.server,
+                sipName = null,
+                credentials = credentials,
+            )
+        }
         val authResult = AuthResult(
             token = "",
-            accounts = listOf(accountInfo),
+            accounts = accountInfos,
             dispatcherUrl = dispatcherUrl,
-            agent = AgentInfo("manual", username),
+            agent = AgentInfo("manual", accounts.first().username),
         )
         _loginState.value = LoginState.Loading
         scope.launch(ioDispatcher) {
-            registerAndNavigate(authResult, listOf(accountInfo))
+            registerAndNavigate(authResult, accountInfos)
         }
     }
 

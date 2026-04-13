@@ -7,13 +7,16 @@ Critical rules and hard-won learnings for working with pjsip via SWIG/JNI in thi
 All pjsip operations MUST run on a single-thread dispatcher (`pjDispatcher`). pjsip is not thread-safe.
 
 ```kotlin
-// Correct — all pjsip calls on pjDispatcher
-private val pjDispatcher = Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+// Correct — all pjsip calls on pjDispatcher (see PjsipEngine.kt)
+private val closeableDispatcher = newSingleThreadContext("pjsip-event-loop")
+val pjDispatcher: CoroutineDispatcher get() = closeableDispatcher
 
 suspend fun makeCall(number: String) = withContext(pjDispatcher) {
     call.makeCall(uri, prm)
 }
 ```
+
+**Callbacks run synchronously on `pjsip-event-loop`.** PJSUA2 invalidates callback parameters (e.g., `OnRegStateParam`) after the callback returns, so callbacks MUST capture needed values into local variables and handle everything inline — do NOT `launch { }` from inside a callback. Safety is enforced via `AtomicBoolean deleted` + `isDestroyed` gates in `PjsipAccount` / `PjsipCall`.
 
 Configuration: `threadCnt = 0`, `mainThreadOnly = false` — we handle all threading ourselves.
 
@@ -38,9 +41,8 @@ media.startTransmit(playbackDev)
 GC finalizers run on unregistered threads. If SWIG destructor calls pjsip from a GC thread → SIGSEGV.
 
 ```kotlin
-// Correct shutdown sequence on pjDispatcher:
-Runtime.getRuntime().gc()  // force GC before destroy
-endpoint.libDestroy(pjsua_destroy_flag.PJSUA_DESTROY_NO_RX_MSG)
+// Correct shutdown sequence on pjDispatcher — see PjsipEndpointManager.kt
+endpoint.libDestroy()  // logWriter still needed here — do NOT delete it before this
 endpoint.delete()
 ```
 

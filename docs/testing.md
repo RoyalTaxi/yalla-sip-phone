@@ -4,10 +4,10 @@
 
 | Metric | Count |
 |--------|-------|
-| Test files | 28 |
-| Test methods | 133 |
-| Test lines | ~3,600 |
-| Framework | JUnit 5, Turbine, Compose UI Test |
+| Test files | 40 |
+| Test methods | 167 |
+| Test lines | ~4,366 |
+| Framework | JUnit 5, Turbine, Compose UI Test, Ktor MockEngine |
 
 ## Run Tests
 
@@ -31,12 +31,14 @@ Launches the full app with `ScriptableCallEngine` and `ScriptableRegistrationEng
 
 ### Fake Engines (domain layer)
 
-Located in `src/test/kotlin/.../domain/`:
+Located in `src/test/kotlin/.../domain/` and `src/test/kotlin/.../testing/`:
 
 | Fake | Replaces | Usage |
 |------|----------|-------|
 | `FakeCallEngine` | `CallEngine` | Direct state manipulation for unit tests |
-| `FakeRegistrationEngine` | `RegistrationEngine` | Simulates registration success/failure |
+| `FakeSipStackLifecycle` | `SipStackLifecycle` | Start/stop lifecycle without native pjsip |
+| `FakeSipAccountManager` | `SipAccountManager` | Multi-account register/connect simulation |
+| `MockAuthRepository` | `AuthRepository` | Hardcoded login responses for component tests |
 
 ```kotlin
 val fakeCall = FakeCallEngine()
@@ -108,10 +110,11 @@ runner.run {
 ```
 src/test/kotlin/uz/yalla/sipphone/
 ├── data/
-│   ├── auth/              MockAuthRepository tests
+│   ├── auth/              AuthRepositoryImpl, TokenProvider, MockAuthRepository tests
+│   ├── network/           ApiResponse, SafeRequest (Ktor MockEngine) tests
 │   ├── jcef/              Bridge protocol, security, audit log tests
 │   └── settings/          AppSettings tests
-├── domain/                Domain model tests + fake engines
+├── domain/                Domain model tests + FakeCallEngine + FakeSipStackLifecycle
 ├── feature/
 │   ├── login/             LoginComponent tests
 │   └── main/toolbar/      ToolbarComponent tests
@@ -120,20 +123,25 @@ src/test/kotlin/uz/yalla/sipphone/
 │   ├── CallFlowIntegrationTest.kt     Call state machine transitions
 │   └── BusyOperatorIntegrationTest.kt Multi-call stress scenarios
 ├── navigation/            RootComponent navigation tests
-├── testing/               Test framework (engines, scenarios, patterns)
+├── testing/               Test framework (engines, fakes, scenarios, patterns)
+│   ├── FakeSipAccountManager.kt       Multi-account fake with state control
 │   ├── engine/            ScriptableCallEngine, ScriptableRegistrationEngine
 │   └── scenario/          CallScenario, ScenarioRunner, TrafficPattern
+├── ui/                    StringResources, YallaColors, AppTokens tests
 ├── util/                  PhoneNumberMasker, TimeFormat tests
 └── demo/                  DemoMain.kt (visual demo entry point)
 ```
 
 ## What's Tested
 
-- Domain models: CallerInfo, SipError, AgentStatus, PhoneNumber validation/masking
-- Domain engines: FakeCallEngine, FakeRegistrationEngine (full state machine)
+- Domain models: CallerInfo, SipError, AgentStatus, SipAccount, CallState accountId routing, PhoneNumber
+- Domain fakes: FakeCallEngine, FakeSipStackLifecycle, FakeSipAccountManager (full state machines)
+- Auth layer: AuthRepositoryImpl (login→me→token), TokenProvider, MockAuthRepository
+- Network layer: ApiResponse parsing, SafeRequest error handling (Ktor MockEngine)
 - Bridge layer: Protocol serialization, security (rate limiting, origin), audit logging
-- Components: LoginComponent (7 tests), ToolbarComponent (6 tests)
-- Integration: Bridge dispatch (23 tests), call flows (9 tests), busy operator (5 tests)
+- Components: LoginComponent (multi-account manual connect), ToolbarComponent
+- Integration: Bridge dispatch, call flows, busy operator multi-call
+- UI: StringResources (Uz/Ru), YallaColors palette, AppTokens
 - Navigation: RootComponent screen transitions
 
 ## What's NOT Tested (known gaps)
@@ -146,7 +154,7 @@ src/test/kotlin/uz/yalla/sipphone/
 
 ## Writing New Tests
 
-1. Use `FakeCallEngine`/`FakeRegistrationEngine` for component tests
+1. Use `FakeCallEngine` / `FakeSipAccountManager` / `MockAuthRepository` for component tests
 2. Use `ScriptableCallEngine` + `CallScenario` DSL for integration tests
 3. Use `Turbine` for StateFlow assertions:
 

@@ -39,7 +39,7 @@ class ScenarioRunner(
         suspend fun register(server: String = "sip:102@192.168.0.22") {
             registrationEngine.emit(PjsipRegistrationState.Registering)
             delay(50) // realistic tiny delay
-            registrationEngine.emitRegistered(server)
+            registrationEngine.emitRegistered(uri = server)
         }
 
         /**

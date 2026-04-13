@@ -6,14 +6,9 @@ local.properties
 .DS_Store
 .kotlin/
 hs_err_pid*.log
-META-INF/
-commonMain/
-jvmMain/
-nonWebMain/
 .worktrees/
 .superpowers/
 jcef-bundle/
-Task
 
 # C# bootstrapper build artifacts
 bootstrapper/bin/

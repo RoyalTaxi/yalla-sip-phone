@@ -48,7 +48,9 @@ class PjsipCallManager(
         statusCode: Int = 200,
         block: (CallOpParam) -> R,
     ): R {
-        val prm = CallOpParam()
+        // useDefaultCallSetting=true ensures opt.audioCount=1 and other defaults.
+        // Without this, reinvite() gets audioCount=0 → empty SDP → local 488 rejection.
+        val prm = CallOpParam(true)
         prm.statusCode = statusCode
         return try {
             block(prm)
@@ -119,10 +121,9 @@ class PjsipCallManager(
             resolvedAccountId = firstAcc.accountId
         }
 
-        val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
-        if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
+        val host = acc.server
         try {
-            val call = PjsipCall(this, acc, scope)
+            val call = PjsipCall(this, acc)
             val uri = SipConstants.buildCallUri(number, host)
             val prm = CallOpParam(true)
             try {
@@ -256,6 +257,7 @@ class PjsipCallManager(
     }
 
     fun onCallConfirmed(call: PjsipCall) {
+        if (call !== currentCall) return
         val state = _callState.value
         if (state is CallState.Ending) {
             logger.warn { "onCallConfirmed ignored — call already in Ending state" }
@@ -275,6 +277,16 @@ class PjsipCallManager(
     }
 
     fun onCallDisconnected(call: PjsipCall) {
+        // Only reset state if this is our active call — rejected calls (486 Busy)
+        // also fire onCallDisconnected and must not clobber the active call state.
+        if (call !== currentCall) {
+            try {
+                call.safeDelete()
+            } catch (e: Exception) {
+                logger.warn(e) { "Error deleting non-current call object" }
+            }
+            return
+        }
         hangupTimeoutJob?.cancel()
         hangupTimeoutJob = null
         resetCallState()
@@ -292,17 +304,18 @@ class PjsipCallManager(
         }
         if (currentCall != null) {
             logger.warn { "Rejecting incoming call on $accountId (already in call)" }
+            val rejectCall = PjsipCall(this, acc, callId)
             try {
-                val call = PjsipCall(this, acc, callId, scope)
-                withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> call.hangup(prm) }
-                call.safeDelete()
+                withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> rejectCall.hangup(prm) }
             } catch (e: Exception) {
                 logger.error(e) { "Failed to reject incoming call" }
+            } finally {
+                rejectCall.safeDelete()
             }
             return
         }
         try {
-            val call = PjsipCall(this, acc, callId, scope)
+            val call = PjsipCall(this, acc, callId)
             currentCall = call
             currentCallId = UUID.randomUUID().toString()
             currentAccountId = accountId
@@ -354,8 +367,10 @@ class PjsipCallManager(
             return Result.failure(IllegalStateException("callId mismatch"))
         }
         return try {
-            val host = SipConstants.extractHostFromUri(accountProvider.lastRegisteredServer)
-            if (host.isBlank()) return Result.failure(IllegalStateException("No server address"))
+            val callAccountId = currentAccountId
+                ?: return Result.failure(IllegalStateException("No active call account"))
+            val host = accountProvider.getAccount(callAccountId)?.server
+                ?: return Result.failure(IllegalStateException("No server for account $callAccountId"))
             val destUri = SipConstants.buildCallUri(destination, host)
             withCallOpParam { prm -> call.xfer(destUri, prm) }
             logger.info { "Call transferred to: $destination" }
@@ -367,6 +382,7 @@ class PjsipCallManager(
     }
 
     fun connectCallAudio(call: PjsipCall) {
+        if (call !== currentCall) return
         // Reset holdInProgress here — media state callback means re-INVITE completed
         holdInProgress = false
         holdTimeoutJob?.cancel()
