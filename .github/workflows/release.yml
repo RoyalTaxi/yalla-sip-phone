@@ -1,0 +1,115 @@
+name: Release
+
+# Build and publish a Windows MSI when a `v*` tag is pushed.
+# Manual workflow_dispatch is also allowed for ad-hoc test runs (no release published).
+#
+# What this produces:
+#   - Runs the full test suite on Windows
+#   - Builds YallaSipPhone-<version>.msi via ./gradlew packageMsi (per-user MSI,
+#     bootstrapper bundled, pjsip + JCEF natives baked in via committed libs/
+#     and app-resources/windows-x64/)
+#   - Computes SHA256 + size of the MSI
+#   - On tag push: uploads the MSI as a GitHub Release asset and writes the
+#     SHA256/size into the release notes so the backend team can copy them
+#     straight into their manifest endpoint.
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required for creating releases
+
+jobs:
+  build-msi:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Run tests
+        shell: pwsh
+        run: .\gradlew.bat test
+
+      - name: Package MSI
+        shell: pwsh
+        run: .\gradlew.bat packageMsi
+
+      - name: Compute MSI metadata
+        id: meta
+        shell: pwsh
+        run: |
+          $msi = Get-ChildItem build\compose\binaries\main\msi\*.msi | Select-Object -First 1
+          if (-not $msi) { throw "No MSI produced" }
+          $sha = (Get-FileHash $msi.FullName -Algorithm SHA256).Hash.ToLower()
+          $size = $msi.Length
+          $name = $msi.Name
+          Write-Host "MSI: $name"
+          Write-Host "SHA256: $sha"
+          Write-Host "Size: $size bytes"
+          "msi_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "msi_name=$name"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "sha256=$sha"               | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "size=$size"                | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Upload MSI as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.meta.outputs.msi_name }}
+          path: ${{ steps.meta.outputs.msi_path }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.meta.outputs.msi_path }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          body: |
+            ## Auto-update manifest payload
+
+            For the backend team — paste these values into the `app-updates/latest`
+            manifest under the `release.installer` object:
+
+            ```json
+            {
+              "version": "${{ github.ref_name }}",
+              "minSupportedVersion": "1.0.0",
+              "releaseNotes": "...",
+              "installer": {
+                "url": "http://192.168.0.98:8080/releases/${{ steps.meta.outputs.msi_name }}",
+                "sha256": "${{ steps.meta.outputs.sha256 }}",
+                "size": ${{ steps.meta.outputs.size }}
+              }
+            }
+            ```
+
+            ### Verification
+
+            ```powershell
+            (Get-FileHash ${{ steps.meta.outputs.msi_name }} -Algorithm SHA256).Hash
+            # ${{ steps.meta.outputs.sha256 }}
+            (Get-Item ${{ steps.meta.outputs.msi_name }}).Length
+            # ${{ steps.meta.outputs.size }}
+            ```
+
+            ### Install
+
+            Per-user, no UAC prompt:
+
+            ```powershell
+            msiexec /i ${{ steps.meta.outputs.msi_name }} /quiet /norestart
+            ```
