@@ -55,13 +55,19 @@ jobs:
           $sha = (Get-FileHash $msi.FullName -Algorithm SHA256).Hash.ToLower()
           $size = $msi.Length
           $name = $msi.Name
+          # Strict-semver version string (no 'v' prefix). The client's
+          # Semver.parse() rejects anything matching /^v/, so the tag name
+          # must be stripped before being pasted into the manifest payload.
+          $version = "${{ github.ref_name }}" -replace '^v', ''
           Write-Host "MSI: $name"
           Write-Host "SHA256: $sha"
           Write-Host "Size: $size bytes"
+          Write-Host "Version: $version"
           "msi_path=$($msi.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "msi_name=$name"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "sha256=$sha"               | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           "size=$size"                | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "version=$version"          | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Upload MSI as workflow artifact
         uses: actions/upload-artifact@v4
@@ -86,7 +92,7 @@ jobs:
 
             ```json
             {
-              "version": "${{ github.ref_name }}",
+              "version": "${{ steps.meta.outputs.version }}",
               "minSupportedVersion": "1.0.0",
               "releaseNotes": "...",
               "installer": {
