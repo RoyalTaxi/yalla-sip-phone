@@ -144,11 +144,23 @@ tasks.matching { it.name == "run" }.configureEach {
     }
 }
 
-tasks.register<JavaExec>("runDemo") {
+tasks.register<JavaExec>("runSipDemo") {
     group = "demo"
     description = "Run visual demo with fake SIP engines simulating a busy operator day"
     classpath = sourceSets["test"].runtimeClasspath
     mainClass.set("uz.yalla.sipphone.demo.DemoMainKt")
+    jvmArgs(
+        "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
+        "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
+        "--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED",
+    )
+}
+
+tasks.register<JavaExec>("runUpdateDemo") {
+    group = "demo"
+    description = "Run visual demo of the auto-update UI — all states, failure modes, and interactions"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("uz.yalla.sipphone.demo.update.UpdateDemoMainKt")
     jvmArgs(
         "--add-opens", "java.desktop/sun.awt=ALL-UNNAMED",
         "--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED",
