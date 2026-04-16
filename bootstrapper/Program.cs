@@ -95,15 +95,25 @@ internal static class Program
             psi.ArgumentList.Add("/L*v");
             psi.ArgumentList.Add(msiLog);
 
+            // Release install.log before msiexec — it lives inside the install
+            // tree and msiexec needs exclusive access to the entire directory.
+            // Without this, msiexec hits error 1306 and exits 1603.
+            _log?.Flush();
+            _log?.Close();
+            _log = null;
+
             var proc = Process.Start(psi);
             if (proc == null)
             {
+                _log = new StreamWriter(opts.LogPath, append: true) { AutoFlush = true };
                 Log("ERROR: failed to start msiexec");
                 TryRestore(backupDir, opts.InstallDir);
                 return 4;
             }
             proc.WaitForExit();
             var exit = proc.ExitCode;
+
+            _log = new StreamWriter(opts.LogPath, append: true) { AutoFlush = true };
             Log($"msiexec exit: {exit}");
 
             // Success codes: 0 OK, 3010 success + reboot required

@@ -86,7 +86,7 @@ private fun UpdateDemoRoot(driver: UpdateDemoDriver, autoPlay: UpdateDemoAutoPla
                 Spacer(Modifier.weight(1f))
                 UpdateBadge(
                     state = driver.state,
-                    onClick = { println("[demo] badge clicked (no-op — dialog auto-shows)") },
+                    onClick = { driver.showDialog() },
                 )
             }
 
@@ -98,8 +98,9 @@ private fun UpdateDemoRoot(driver: UpdateDemoDriver, autoPlay: UpdateDemoAutoPla
                 UpdateDialog(
                     stateFlow = driver.state,
                     callStateFlow = driver.callState,
+                    dismissedFlow = driver.dialogDismissed,
                     onInstall = { driver.mockInstall() },
-                    onDismiss = { driver.reset() },
+                    onDismiss = { driver.dismiss() },
                 )
 
                 UpdateDiagnosticsDialog(

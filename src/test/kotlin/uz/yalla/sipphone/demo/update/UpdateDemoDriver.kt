@@ -33,6 +33,9 @@ class UpdateDemoDriver(private val scope: CoroutineScope) {
     private val _locale = MutableStateFlow("uz")
     val locale: StateFlow<String> = _locale.asStateFlow()
 
+    private val _dialogDismissed = MutableStateFlow(false)
+    val dialogDismissed: StateFlow<Boolean> = _dialogDismissed.asStateFlow()
+
     private val _diagnosticsVisible = MutableStateFlow(false)
     val diagnosticsVisible: StateFlow<Boolean> = _diagnosticsVisible.asStateFlow()
 
@@ -52,7 +55,14 @@ class UpdateDemoDriver(private val scope: CoroutineScope) {
         ),
     )
 
-    fun reset() { _state.value = UpdateState.Idle }
+    fun reset() {
+        _dialogDismissed.value = false
+        _state.value = UpdateState.Idle
+    }
+
+    fun dismiss() { _dialogDismissed.value = true }
+
+    fun showDialog() { _dialogDismissed.value = false }
 
     fun showChecking() { _state.value = UpdateState.Checking }
 

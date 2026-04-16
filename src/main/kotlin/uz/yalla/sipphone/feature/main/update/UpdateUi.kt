@@ -29,14 +29,16 @@ import uz.yalla.sipphone.ui.strings.StringResources
 fun UpdateDialog(
     stateFlow: StateFlow<UpdateState>,
     callStateFlow: StateFlow<CallState>,
+    dismissedFlow: StateFlow<Boolean>,
     onInstall: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val state by stateFlow.collectAsState()
     val callState by callStateFlow.collectAsState()
+    val dismissed by dismissedFlow.collectAsState()
     val strings = LocalStrings.current
 
-    if (state is UpdateState.Idle || state is UpdateState.Checking) return
+    if (state is UpdateState.Idle || state is UpdateState.Checking || dismissed) return
 
     val release = when (val s = state) {
         is UpdateState.Downloading -> s.release

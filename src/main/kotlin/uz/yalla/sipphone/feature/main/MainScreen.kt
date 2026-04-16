@@ -6,9 +6,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import java.time.Instant
 import uz.yalla.sipphone.feature.main.toolbar.SettingsPanel
@@ -27,7 +24,6 @@ fun MainScreen(
     onLocaleChange: (String) -> Unit,
 ) {
     val settingsVisible by component.toolbar.settingsVisible.collectAsState()
-    var updateDialogVisible by remember { mutableStateOf(false) }
     val diagnosticsVisible by component.updateManager.diagnosticsVisible.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().background(LocalYallaColors.current.backgroundBase)) {
@@ -46,7 +42,7 @@ fun MainScreen(
             },
             onLogout = component::logout,
             updateManager = component.updateManager,
-            onUpdateBadgeClick = { updateDialogVisible = true },
+            onUpdateBadgeClick = { component.updateManager.showDialog() },
         )
 
         WebviewPanel(
@@ -73,20 +69,13 @@ fun MainScreen(
         onDismiss = component.toolbar::closeSettings,
     )
 
-    if (updateDialogVisible) {
-        UpdateDialog(
-            stateFlow = component.updateManager.state,
-            callStateFlow = component.toolbar.callState,
-            onInstall = {
-                component.updateManager.confirmInstall()
-                updateDialogVisible = false
-            },
-            onDismiss = {
-                component.updateManager.dismiss()
-                updateDialogVisible = false
-            },
-        )
-    }
+    UpdateDialog(
+        stateFlow = component.updateManager.state,
+        callStateFlow = component.toolbar.callState,
+        dismissedFlow = component.updateManager.dialogDismissed,
+        onInstall = { component.updateManager.confirmInstall() },
+        onDismiss = { component.updateManager.dismiss() },
+    )
 
     val lastCheck = component.updateManager.lastCheckMillis().let { ms ->
         if (ms == 0L) "—" else Instant.ofEpochMilli(ms).toString()

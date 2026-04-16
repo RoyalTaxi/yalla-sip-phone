@@ -94,6 +94,9 @@ class UpdateManager(
     private val _diagnosticsVisible = MutableStateFlow(false)
     val diagnosticsVisible: StateFlow<Boolean> = _diagnosticsVisible.asStateFlow()
 
+    private val _dialogDismissed = MutableStateFlow(false)
+    val dialogDismissed: StateFlow<Boolean> = _dialogDismissed.asStateFlow()
+
     fun toggleDiagnostics() {
         _diagnosticsVisible.value = !_diagnosticsVisible.value
     }
@@ -167,12 +170,14 @@ class UpdateManager(
         }
     }
 
-    /** UI "Later" button — reset state to Idle so the next tick re-checks. */
+    /** UI "Later" button — hide dialog but keep state so the badge stays visible. */
     fun dismiss() {
-        val s = _state.value
-        if (s is UpdateState.ReadyToInstall || s is UpdateState.Failed) {
-            _state.value = UpdateState.Idle
-        }
+        _dialogDismissed.value = true
+    }
+
+    /** Badge click — reopen the dialog if it was dismissed. */
+    fun showDialog() {
+        _dialogDismissed.value = false
     }
 
     private suspend fun runCheckCycle() {
@@ -184,6 +189,7 @@ class UpdateManager(
         if (installInProgress) return
 
         lastCheckEpochMillis = System.currentTimeMillis()
+        _dialogDismissed.value = false
         _state.value = UpdateState.Checking
 
         val result = api.check(
