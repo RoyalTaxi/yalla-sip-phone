@@ -24,7 +24,6 @@ internal static class Program
 {
     private static StreamWriter? _log;
 
-    [STAThread]
     private static int Main(string[] args)
     {
         var opts = ParseArgs(args);
@@ -84,14 +83,20 @@ internal static class Program
                 Log($"WARN: quarantine copy failed: {ex.Message}");
             }
 
-            Log("Running msiexec (elevated)...");
+            Log("Running msiexec...");
             var msiLog = Path.Combine(Path.GetTempPath(), "yalla-update-msiexec.log");
             var psi = new ProcessStartInfo("msiexec.exe")
             {
-                UseShellExecute = true,
-                Verb = "runas",
+                UseShellExecute = false,
+                CreateNoWindow = true,
             };
-            psi.Arguments = $"/i \"{opts.MsiPath}\" /qn /norestart REBOOT=ReallySuppress ALLUSERS=1 /L*v \"{msiLog}\"";
+            psi.ArgumentList.Add("/i");
+            psi.ArgumentList.Add(opts.MsiPath);
+            psi.ArgumentList.Add("/qn");
+            psi.ArgumentList.Add("/norestart");
+            psi.ArgumentList.Add("REBOOT=ReallySuppress");
+            psi.ArgumentList.Add("/L*v");
+            psi.ArgumentList.Add(msiLog);
 
             // Release install.log before msiexec — it lives inside the install
             // tree and msiexec needs exclusive access to the entire directory.
@@ -100,18 +105,7 @@ internal static class Program
             _log?.Close();
             _log = null;
 
-            Process? proc;
-            try
-            {
-                proc = Process.Start(psi);
-            }
-            catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
-            {
-                _log = new StreamWriter(opts.LogPath, append: true) { AutoFlush = true };
-                Log("User declined UAC elevation prompt");
-                LaunchApp(opts.InstallDir);
-                return 1602;
-            }
+            var proc = Process.Start(psi);
             if (proc == null)
             {
                 _log = new StreamWriter(opts.LogPath, append: true) { AutoFlush = true };
