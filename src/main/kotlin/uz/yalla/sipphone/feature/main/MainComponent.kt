@@ -13,9 +13,7 @@ import uz.yalla.sipphone.data.update.UpdateManager
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
-import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipAccountManager
-import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarComponent
 
 class MainComponent(
@@ -45,6 +43,13 @@ class MainComponent(
         authResult.dispatcherUrl
     val agentInfo: AgentInfo = authResult.agent
     private var bridgeRouter: BridgeRouter? = null
+
+    private val callEventOrchestrator = CallEventOrchestrator(
+        callEngine = callEngine,
+        sipAccountManager = sipAccountManager,
+        eventEmitter = eventEmitter,
+        agentStatusProvider = { toolbar.agentStatus },
+    )
 
     init {
         lifecycle.doOnDestroy {
@@ -78,108 +83,7 @@ class MainComponent(
             )
         }
 
-        var previousCallState: CallState = CallState.Idle
-        var callStartTimestamp: Long = 0L
-
-        scope.launch {
-            callEngine.callState.collect { newState ->
-                val prev = previousCallState
-                previousCallState = newState
-
-                when {
-                    // Idle → Ringing (inbound)
-                    prev is CallState.Idle && newState is CallState.Ringing && !newState.isOutbound -> {
-                        callStartTimestamp = System.currentTimeMillis()
-                        eventEmitter.emitIncomingCall(newState.callId, newState.callerNumber)
-                    }
-                    // Idle → Ringing (outbound)
-                    prev is CallState.Idle && newState is CallState.Ringing && newState.isOutbound -> {
-                        callStartTimestamp = System.currentTimeMillis()
-                        eventEmitter.emitOutgoingCall(newState.callId, newState.callerNumber)
-                    }
-                    // Ringing → Active (call connected)
-                    prev is CallState.Ringing && newState is CallState.Active -> {
-                        callStartTimestamp = System.currentTimeMillis()
-                        val direction = if (newState.isOutbound) "outbound" else "inbound"
-                        eventEmitter.emitCallConnected(newState.callId, newState.remoteNumber, direction)
-                    }
-                    // Active → Active (mute/hold changed)
-                    prev is CallState.Active && newState is CallState.Active -> {
-                        if (prev.isMuted != newState.isMuted) {
-                            eventEmitter.emitCallMuteChanged(newState.callId, newState.isMuted)
-                        }
-                        if (prev.isOnHold != newState.isOnHold) {
-                            eventEmitter.emitCallHoldChanged(newState.callId, newState.isOnHold)
-                        }
-                    }
-                    // Any → Idle (call ended)
-                    newState is CallState.Idle &&
-                        (prev is CallState.Ringing || prev is CallState.Active || prev is CallState.Ending) -> {
-                        val duration = ((System.currentTimeMillis() - callStartTimestamp) / 1000).toInt()
-                        val callId: String
-                        val number: String
-                        val direction: String
-                        val reason: String
-
-                        when (prev) {
-                            is CallState.Ringing -> {
-                                callId = prev.callId
-                                number = prev.callerNumber
-                                direction = if (prev.isOutbound) "outbound" else "inbound"
-                                reason = if (prev.isOutbound) "hangup" else "missed"
-                            }
-                            is CallState.Active -> {
-                                callId = prev.callId
-                                number = prev.remoteNumber
-                                direction = if (prev.isOutbound) "outbound" else "inbound"
-                                reason = "hangup"
-                            }
-                            else -> return@collect // Ending state doesn't carry call info
-                        }
-
-                        eventEmitter.emitCallEnded(callId, number, direction, duration, reason)
-                        callStartTimestamp = 0L
-                    }
-                }
-            }
-        }
-
-        var previousConnState: String = "disconnected"
-
-        scope.launch {
-            sipAccountManager.accounts.collect { accounts ->
-                val state = when {
-                    accounts.any { it.state is SipAccountState.Connected } -> "connected"
-                    accounts.any { it.state is SipAccountState.Reconnecting } -> "reconnecting"
-                    else -> "disconnected"
-                }
-                val connectedCount = accounts.count { it.state is SipAccountState.Connected }
-
-                if (state != previousConnState) {
-                    previousConnState = state
-                    eventEmitter.emitConnectionChanged(state, connectedCount)
-                }
-            }
-        }
-
-        var previousAgentStatus = toolbar.agentStatus.value
-
-        scope.launch {
-            toolbar.agentStatus.collect { newStatus ->
-                val prev = previousAgentStatus
-                previousAgentStatus = newStatus
-                if (prev != newStatus) {
-                    eventEmitter.emitAgentStatusChanged(
-                        status = newStatus.name.lowercase(),
-                        previousStatus = prev.name.lowercase(),
-                    )
-                }
-            }
-        }
-
-        // Auto-logout on disconnect when no active call
-        // No auto-logout on SIP disconnect — user stays on main screen
-        // and can reconnect by clicking the SIP chip
+        callEventOrchestrator.start(scope)
     }
 
     fun onThemeChanged(isDark: Boolean) {
@@ -193,9 +97,13 @@ class MainComponent(
     fun logout() {
         toolbar.closeSettings()
         scope.launch {
-            kotlinx.coroutines.delay(350)
+            kotlinx.coroutines.delay(SETTINGS_CLOSE_ANIMATION_MS)
             toolbar.disconnect()
             onLogout()
         }
+    }
+
+    companion object {
+        private const val SETTINGS_CLOSE_ANIMATION_MS = 350L
     }
 }

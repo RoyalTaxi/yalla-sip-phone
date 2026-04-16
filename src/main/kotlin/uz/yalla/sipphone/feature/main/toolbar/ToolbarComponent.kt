@@ -2,7 +2,6 @@ package uz.yalla.sipphone.feature.main.toolbar
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,8 +17,6 @@ import uz.yalla.sipphone.domain.SipAccount
 import uz.yalla.sipphone.domain.SipAccountManager
 import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.util.formatDuration
-import javax.sound.sampled.AudioSystem
-import javax.sound.sampled.Clip
 
 private val logger = KotlinLogging.logger {}
 
@@ -47,17 +44,23 @@ class ToolbarComponent(
     val settingsVisible: StateFlow<Boolean> = _settingsVisible.asStateFlow()
 
     private var timerJob: Job? = null
-    private var ringtoneClip: Clip? = null
+    private val ringtonePlayer = RingtonePlayer()
+    private val notificationService = NotificationService()
 
     init {
         scope.launch {
             callEngine.callState.collect { state ->
                 when {
                     state is CallState.Ringing && !state.isOutbound -> {
-                        playRingtone()
-                        showIncomingNotification()
+                        _phoneInput.value = state.callerNumber
+                        ringtonePlayer.play()
+                        notificationService.showIncomingCall(scope)
                     }
-                    else -> stopRingtone()
+                    state is CallState.Idle -> {
+                        _phoneInput.value = ""
+                        ringtonePlayer.stop()
+                    }
+                    else -> ringtonePlayer.stop()
                 }
 
                 when (state) {
@@ -89,12 +92,12 @@ class ToolbarComponent(
     }
 
     fun answerCall() {
-        stopRingtone()
+        ringtonePlayer.stop()
         scope.launch { callEngine.answerCall() }
     }
 
     fun rejectCall() {
-        stopRingtone()
+        ringtonePlayer.stop()
         scope.launch { callEngine.hangupCall() }
     }
 
@@ -118,14 +121,7 @@ class ToolbarComponent(
         val account = accounts.value.find { it.id == accountId } ?: return
 
         // Cannot disconnect account with active call
-        val currentCall = callState.value
-        val activeCallAccountId = when (currentCall) {
-            is CallState.Ringing -> currentCall.accountId
-            is CallState.Active -> currentCall.accountId
-            is CallState.Ending -> currentCall.accountId
-            else -> null
-        }
-        if (activeCallAccountId == accountId && account.state is SipAccountState.Connected) {
+        if (callState.value.activeAccountId == accountId && account.state is SipAccountState.Connected) {
             logger.warn { "Cannot disconnect SIP account with active call: $accountId" }
             return
         }
@@ -152,7 +148,7 @@ class ToolbarComponent(
     }
 
     fun releaseAudioResources() {
-        stopRingtone()
+        ringtonePlayer.release()
         stopTimer()
     }
 
@@ -172,43 +168,5 @@ class ToolbarComponent(
         timerJob?.cancel()
         timerJob = null
         _callDuration.value = null
-    }
-
-    private fun playRingtone() {
-        try {
-            stopRingtone()
-            val resourceStream = javaClass.getResourceAsStream("/ringtone.wav") ?: return
-            val audioStream = AudioSystem.getAudioInputStream(resourceStream)
-            ringtoneClip = AudioSystem.getClip().apply {
-                open(audioStream)
-                loop(Clip.LOOP_CONTINUOUSLY)
-            }
-        } catch (e: Exception) {
-            logger.warn(e) { "Failed to play ringtone" }
-        }
-    }
-
-    private fun stopRingtone() {
-        ringtoneClip?.let { clip ->
-            if (clip.isRunning) clip.stop()
-            clip.close()
-        }
-        ringtoneClip = null
-    }
-
-    private fun showIncomingNotification() {
-        scope.launch(Dispatchers.IO) {
-            try {
-                if (System.getProperty("os.name").lowercase().contains("mac")) {
-                    val process = ProcessBuilder(
-                        "osascript", "-e",
-                        "display notification \"Incoming Call\" with title \"Yalla SIP Phone\" sound name \"default\""
-                    ).start()
-                    process.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)
-                }
-            } catch (e: Exception) {
-                logger.warn(e) { "Failed to show notification" }
-            }
-        }
     }
 }

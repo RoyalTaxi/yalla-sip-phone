@@ -42,6 +42,7 @@ fun PhoneField(
     val strings = LocalStrings.current
 
     val isRinging = callState is CallState.Ringing
+    val isInCall = callState is CallState.Ringing || callState is CallState.Active
     var isFocused by remember { mutableStateOf(false) }
 
     val borderColor = when {
@@ -67,7 +68,8 @@ fun PhoneField(
         onValueChange = onValueChange,
         textStyle = fieldTextStyle,
         singleLine = true,
-        cursorBrush = if (isFocused) SolidColor(colors.brandPrimary) else SolidColor(Color.Transparent),
+        enabled = !isInCall,
+        cursorBrush = if (isFocused && !isInCall) SolidColor(colors.brandPrimary) else SolidColor(Color.Transparent),
         decorationBox = { innerTextField ->
             Box(
                 modifier = Modifier

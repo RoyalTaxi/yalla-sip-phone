@@ -7,6 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.SwingUtilities
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -42,8 +43,27 @@ class BridgeRouter(
     private var installedClient: CefClient? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    @Volatile
-    private var disposed = false
+    private val disposed = AtomicBoolean(false)
+
+    companion object {
+        private const val COMMAND_TIMEOUT_MS = 30_000L
+    }
+
+    private object Commands {
+        const val READY = "_ready"
+        const val MAKE_CALL = "makeCall"
+        const val ANSWER = "answer"
+        const val REJECT = "reject"
+        const val HANGUP = "hangup"
+        const val SET_MUTE = "setMute"
+        const val SET_HOLD = "setHold"
+        const val SEND_DTMF = "sendDtmf"
+        const val TRANSFER_CALL = "transferCall"
+        const val SET_AGENT_STATUS = "setAgentStatus"
+        const val GET_STATE = "getState"
+        const val GET_VERSION = "getVersion"
+        const val REQUEST_LOGOUT = "requestLogout"
+    }
 
     fun install(client: CefClient) {
         val config = CefMessageRouterConfig().apply {
@@ -57,7 +77,7 @@ class BridgeRouter(
     }
 
     fun dispose() {
-        disposed = true
+        if (!disposed.compareAndSet(false, true)) return
         scope.cancel()
         messageRouter?.let { router ->
             installedClient?.removeMessageRouter(router)
@@ -74,12 +94,12 @@ class BridgeRouter(
             persistent: Boolean,
             callback: CefQueryCallback,
         ): Boolean {
-            if (disposed) return false
+            if (disposed.get()) return false
             scope.launch {
                 try {
                     val cmd = bridgeJson.decodeFromString<BridgeCommand>(request)
 
-                    if (cmd.command != "_ready" && !security.checkRateLimit(cmd.command)) {
+                    if (cmd.command != Commands.READY && !security.checkRateLimit(cmd.command)) {
                         val result = CommandResult.error("RATE_LIMITED", "Too many requests", true)
                         callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
                         return@launch
@@ -87,7 +107,7 @@ class BridgeRouter(
 
                     auditLog.logCommand(cmd.command, cmd.params, "processing")
 
-                    val result = withTimeout(30_000) { dispatch(cmd) }
+                    val result = withTimeout(COMMAND_TIMEOUT_MS) { dispatch(cmd) }
 
                     auditLog.logCommand(
                         cmd.command,
@@ -107,19 +127,19 @@ class BridgeRouter(
 
     private suspend fun dispatch(cmd: BridgeCommand): CommandResult {
         return when (cmd.command) {
-            "_ready" -> handleReady()
-            "makeCall" -> handleMakeCall(cmd.params)
-            "answer" -> handleAnswer()
-            "reject" -> handleReject()
-            "hangup" -> handleHangup()
-            "setMute" -> handleSetMute(cmd.params)
-            "setHold" -> handleSetHold(cmd.params)
-            "sendDtmf" -> handleSendDtmf(cmd.params)
-            "transferCall" -> handleTransferCall(cmd.params)
-            "setAgentStatus" -> handleSetAgentStatus(cmd.params)
-            "getState" -> handleGetState(tokenProvider())
-            "getVersion" -> handleGetVersion()
-            "requestLogout" -> {
+            Commands.READY -> handleReady()
+            Commands.MAKE_CALL -> handleMakeCall(cmd.params)
+            Commands.ANSWER -> handleAnswer()
+            Commands.REJECT -> handleReject()
+            Commands.HANGUP -> handleHangup()
+            Commands.SET_MUTE -> handleSetMute(cmd.params)
+            Commands.SET_HOLD -> handleSetHold(cmd.params)
+            Commands.SEND_DTMF -> handleSendDtmf(cmd.params)
+            Commands.TRANSFER_CALL -> handleTransferCall(cmd.params)
+            Commands.SET_AGENT_STATUS -> handleSetAgentStatus(cmd.params)
+            Commands.GET_STATE -> handleGetState(tokenProvider())
+            Commands.GET_VERSION -> handleGetVersion()
+            Commands.REQUEST_LOGOUT -> {
                 logger.info { "Frontend requested logout (token likely invalidated by another session)" }
                 SwingUtilities.invokeLater { onRequestLogout() }
                 CommandResult.success(null)
@@ -281,7 +301,7 @@ class BridgeRouter(
             is CallState.Ringing -> BridgeCallState(
                 callId = callState.callId,
                 number = callState.callerNumber,
-                direction = if (callState.isOutbound) "outbound" else "inbound",
+                direction = callState.direction,
                 state = if (callState.isOutbound) "outgoing" else "incoming",
                 isMuted = false,
                 isOnHold = false,
@@ -290,7 +310,7 @@ class BridgeRouter(
             is CallState.Active -> BridgeCallState(
                 callId = callState.callId,
                 number = callState.remoteNumber,
-                direction = if (callState.isOutbound) "outbound" else "inbound",
+                direction = callState.direction,
                 state = if (callState.isOnHold) "on_hold" else "active",
                 isMuted = callState.isMuted,
                 isOnHold = callState.isOnHold,

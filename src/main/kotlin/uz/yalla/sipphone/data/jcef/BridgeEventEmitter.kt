@@ -19,8 +19,8 @@ class BridgeEventEmitter(
 
     @Volatile
     var agentInfo: AgentInfo = AgentInfo("", "")
-    var version: String = SipConstants.APP_VERSION
-    var capabilities: List<String> = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer")
+    val version: String = SipConstants.APP_VERSION
+    val capabilities: List<String> = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer")
 
     fun nextSeq(): Int = seqCounter.incrementAndGet()
     fun now(): Long = System.currentTimeMillis()
@@ -76,8 +76,8 @@ class BridgeEventEmitter(
         emit("outgoingCall", bridgeJson.encodeToString(event))
     }
 
-    fun emitCallConnected(callId: String, number: String, direction: String) {
-        val event = BridgeEvent.CallConnected(callId, number, direction, seq = nextSeq(), timestamp = now())
+    fun emitCallConnected(callId: String, number: String, sipFrom: String, direction: String) {
+        val event = BridgeEvent.CallConnected(callId, number, sipFrom, direction, seq = nextSeq(), timestamp = now())
         emit("callConnected", bridgeJson.encodeToString(event))
     }
 

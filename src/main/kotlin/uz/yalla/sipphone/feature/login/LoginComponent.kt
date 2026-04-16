@@ -53,6 +53,10 @@ class LoginComponent(
     private val mainDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : ComponentContext by componentContext {
 
+    companion object {
+        private const val SIP_REGISTRATION_TIMEOUT_MS = 15_000L
+    }
+
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState.asStateFlow()
 
@@ -69,14 +73,7 @@ class LoginComponent(
                     registerAndNavigate(authResult, authResult.accounts)
                 },
                 onFailure = { error ->
-                    val errorType = if (error.message?.contains("401") == true ||
-                        error.message?.contains("unauthorized", ignoreCase = true) == true ||
-                        error.message?.contains("password", ignoreCase = true) == true
-                    ) {
-                        LoginErrorType.WRONG_PASSWORD
-                    } else {
-                        LoginErrorType.NETWORK
-                    }
+                    val errorType = classifyAuthError(error)
                     _loginState.value = LoginState.Error(error.message ?: "Login failed", errorType)
                     logger.warn { "Auth failed: ${error.message}" }
                 },
@@ -117,7 +114,7 @@ class LoginComponent(
         logger.info { "Registering ${accounts.size} SIP account(s)" }
         sipAccountManager.registerAll(accounts).fold(
             onSuccess = {
-                val connected = withTimeoutOrNull(15_000) {
+                val connected = withTimeoutOrNull(SIP_REGISTRATION_TIMEOUT_MS) {
                     sipAccountManager.accounts.first { accs ->
                         accs.any { it.state is SipAccountState.Connected }
                     }
@@ -138,5 +135,14 @@ class LoginComponent(
                 logger.warn { "SIP registration failed: ${error.message}" }
             },
         )
+    }
+
+    private fun classifyAuthError(error: Throwable): LoginErrorType {
+        val msg = error.message?.lowercase() ?: return LoginErrorType.NETWORK
+        return if ("401" in msg || "unauthorized" in msg || "password" in msg) {
+            LoginErrorType.WRONG_PASSWORD
+        } else {
+            LoginErrorType.NETWORK
+        }
     }
 }

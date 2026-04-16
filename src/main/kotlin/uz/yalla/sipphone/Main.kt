@@ -42,6 +42,9 @@ import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 
 private val logger = KotlinLogging.logger {}
 
+private const val WINDOW_WIDTH = 1280
+private const val WINDOW_HEIGHT = 720
+
 fun main() {
     System.setProperty("compose.interop.blending", "true")
     System.setProperty("compose.layers.type", "WINDOW")
@@ -109,7 +112,7 @@ fun main() {
         val isMainScreen = childStack.active.instance is RootComponent.Child.Main
 
         val windowState = rememberWindowState(
-            size = DpSize(1280.dp, 720.dp),
+            size = DpSize(WINDOW_WIDTH.dp, WINDOW_HEIGHT.dp),
             position = WindowPosition(Alignment.Center),
         )
 
@@ -133,7 +136,7 @@ fun main() {
         ) {
             LaunchedEffect(isMainScreen) {
                 javax.swing.SwingUtilities.invokeLater {
-                    window.minimumSize = java.awt.Dimension(1280, 720)
+                    window.minimumSize = java.awt.Dimension(WINDOW_WIDTH, WINDOW_HEIGHT)
                 }
             }
 

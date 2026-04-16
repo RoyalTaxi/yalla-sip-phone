@@ -149,8 +149,8 @@ class UpdateManager(
     fun confirmInstall() {
         val ready = _state.value as? UpdateState.ReadyToInstall ?: return
         scope.launch {
+            // Suspends until call becomes Idle; .first{} guarantees Idle on resume.
             callState.first { it is CallState.Idle }
-            if (callState.value !is CallState.Idle) return@launch
             _state.value = UpdateState.Installing(ready.release)
             installInProgress = true
             runCatching {
@@ -209,7 +209,7 @@ class UpdateManager(
                     UpdateState.Failed.Stage.MALFORMED_MANIFEST,
                     result.reason,
                 )
-                delay(1500)
+                delay(TRANSIENT_STATE_DISPLAY_MS)
                 if (_state.value is UpdateState.Failed) _state.value = UpdateState.Idle
             }
             is UpdateCheckResult.Error -> {
@@ -242,7 +242,7 @@ class UpdateManager(
                 UpdateState.Failed.Stage.DISK_FULL,
                 "size * 2 = ${release.installer.size * 2} bytes required",
             )
-            delay(1500)
+            delay(TRANSIENT_STATE_DISPLAY_MS)
             if (_state.value is UpdateState.Failed) _state.value = UpdateState.Idle
             return
         }
@@ -263,7 +263,7 @@ class UpdateManager(
                     logger.warn { "Blacklisting ${release.version} after $verifyFailureCount verify failures" }
                 }
                 _state.value = UpdateState.Failed(UpdateState.Failed.Stage.VERIFY, "sha256 mismatch")
-                delay(1500)
+                delay(TRANSIENT_STATE_DISPLAY_MS)
                 if (_state.value is UpdateState.Failed) _state.value = UpdateState.Idle
             }
             is DownloadResult.Failed -> {
@@ -272,7 +272,7 @@ class UpdateManager(
                     UpdateState.Failed.Stage.DOWNLOAD,
                     lastError ?: "download failed",
                 )
-                delay(1500)
+                delay(TRANSIENT_STATE_DISPLAY_MS)
                 if (_state.value is UpdateState.Failed) _state.value = UpdateState.Idle
             }
         }
@@ -290,4 +290,8 @@ class UpdateManager(
         val store: FileStore = Files.getFileStore(paths.updatesDir)
         store.usableSpace >= neededBytes
     }.getOrDefault(true)
+
+    companion object {
+        private const val TRANSIENT_STATE_DISPLAY_MS = 1_500L
+    }
 }

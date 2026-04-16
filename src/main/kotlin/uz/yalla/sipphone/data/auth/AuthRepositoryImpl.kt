@@ -8,11 +8,6 @@ import uz.yalla.sipphone.domain.AuthResult
 
 private val logger = KotlinLogging.logger {}
 
-object ApiConfig {
-    const val BASE_URL = "http://192.168.0.98:8080/api/v1/"
-    const val DISPATCHER_URL = "http://192.168.0.60:5173"
-}
-
 class AuthRepositoryImpl(
     private val authApi: AuthApi,
     private val tokenProvider: TokenProvider,
@@ -54,7 +49,8 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun logout(): Result<Unit> {
-        runCatching { authApi.logout() }
+        val result = runCatching { authApi.logout() }
+        result.onFailure { logger.warn(it) { "Logout API call failed, clearing token anyway" } }
         tokenProvider.clearToken()
         logger.info { "Logged out, token cleared" }
         return Result.success(Unit)

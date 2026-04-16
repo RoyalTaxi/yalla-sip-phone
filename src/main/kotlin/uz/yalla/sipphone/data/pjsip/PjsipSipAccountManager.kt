@@ -133,14 +133,7 @@ class PjsipSipAccountManager(
     }
 
     override suspend fun disconnect(accountId: String): Result<Unit> {
-        val currentCallState = callEngine.callState.value
-        val callAccountId = when (currentCallState) {
-            is CallState.Ringing -> currentCallState.accountId
-            is CallState.Active -> currentCallState.accountId
-            is CallState.Ending -> currentCallState.accountId
-            is CallState.Idle -> null
-        }
-        if (callAccountId == accountId) {
+        if (callEngine.callState.value.activeAccountId == accountId) {
             return Result.failure(
                 IllegalStateException("Cannot disconnect account $accountId — active call in progress"),
             )

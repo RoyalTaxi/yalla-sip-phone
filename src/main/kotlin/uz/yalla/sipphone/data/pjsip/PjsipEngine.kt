@@ -79,6 +79,7 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
         } finally {
             pjScope.cancel()
             runCatching { closeableDispatcher.close() }
+                .onFailure { logger.warn(it) { "Failed to close pjDispatcher" } }
         }
     }
 

@@ -63,7 +63,7 @@ class BridgeIntegrationTest {
     fun `emitter buffers events before handshake`() {
         // Before handshake, events should be buffered
         eventEmitter.emitIncomingCall("call-1", "998901234567")
-        eventEmitter.emitCallConnected("call-1", "998901234567", "inbound")
+        eventEmitter.emitCallConnected("call-1", "998901234567", "", "inbound")
 
         // Complete handshake — should return buffered events
         eventEmitter.agentInfo = AgentInfo("agent-1", "Alisher")
@@ -268,7 +268,7 @@ class BridgeIntegrationTest {
         events.add("incomingCall")
 
         // Answer (connected)
-        eventEmitter.emitCallConnected("call-1", "998901234567", "inbound")
+        eventEmitter.emitCallConnected("call-1", "998901234567", "", "inbound")
         events.add("callConnected")
 
         // Mute
@@ -332,7 +332,7 @@ class BridgeIntegrationTest {
             val number = "99890${1000000 + i}"
 
             eventEmitter.emitIncomingCall(callId, number)
-            eventEmitter.emitCallConnected(callId, number, "inbound")
+            eventEmitter.emitCallConnected(callId, number, "", "inbound")
             if (i % 3 == 0) eventEmitter.emitCallMuteChanged(callId, true)
             if (i % 3 == 0) eventEmitter.emitCallMuteChanged(callId, false)
             if (i % 5 == 0) eventEmitter.emitCallHoldChanged(callId, true)

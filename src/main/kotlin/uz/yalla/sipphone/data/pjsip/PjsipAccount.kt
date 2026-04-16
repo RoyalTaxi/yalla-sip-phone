@@ -72,6 +72,21 @@ class PjsipAccount(
         if (accountManager.isAccountDestroyed()) return
         val callId = prm.callId
         try {
+            // Snapshot raw SIP message from SWIG before it's invalidated
+            val rdata = prm.rdata
+            val wholeMsg = rdata.wholeMsg
+            val srcAddress = rdata.srcAddress
+            val info = rdata.info
+            logger.info {
+                """
+                |=== RAW SIP INVITE (onIncomingCall) ===
+                |  srcAddress: $srcAddress
+                |  info:       $info
+                |--- Full SIP Message ---
+                |$wholeMsg
+                |========================================
+                """.trimMargin()
+            }
             accountManager.handleIncomingCall(accountId, callId)
         } catch (e: Exception) {
             logger.error(e) { "[$accountId] Error in onIncomingCall callback" }

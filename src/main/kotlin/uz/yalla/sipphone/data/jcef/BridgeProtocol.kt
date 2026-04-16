@@ -32,6 +32,7 @@ object BridgeEvent {
     data class CallConnected(
         val callId: String,
         val number: String,
+        val sipFrom: String,
         val direction: String,
         val seq: Int,
         val timestamp: Long,

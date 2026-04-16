@@ -171,7 +171,7 @@ class PjsipCallManager(
             // Safety net: force Idle after 10s if onCallDisconnected never fires
             hangupTimeoutJob?.cancel()
             hangupTimeoutJob = scope.launch {
-                delay(10_000)
+                delay(HANGUP_TIMEOUT_MS)
                 if (_callState.value is CallState.Ending) {
                     logger.warn { "Hangup timeout — forcing Idle state" }
                     try {
@@ -272,6 +272,7 @@ class PjsipCallManager(
                 isMuted = false,
                 isOnHold = false,
                 accountId = state.accountId,
+                remoteUri = state.remoteUri,
             )
         }
     }
@@ -321,13 +322,45 @@ class PjsipCallManager(
             currentAccountId = accountId
             val info = call.getInfo()
             try {
-                val callerInfo = parseRemoteUri(info.remoteUri)
+                // Snapshot all SWIG fields to Kotlin types before any escape
+                val remoteUri = info.remoteUri
+                val remoteContact = info.remoteContact
+                val localUri = info.localUri
+                val localContact = info.localContact
+                val callIdString = info.callIdString
+                val stateText = info.stateText
+                val lastStatusCode = info.lastStatusCode
+                val lastReason = info.lastReason
+                val role = info.role
+                val mediaCount = info.media?.size ?: 0
+
+                logger.info {
+                    """
+                    |=== INCOMING CALL DATA DUMP ===
+                    |  accountId:     $accountId
+                    |  callId (pj):   $callId
+                    |  callIdString:  $callIdString
+                    |  role:          $role
+                    |  stateText:     $stateText
+                    |  lastStatus:    $lastStatusCode
+                    |  lastReason:    $lastReason
+                    |  remoteUri:     $remoteUri
+                    |  remoteContact: $remoteContact
+                    |  localUri:      $localUri
+                    |  localContact:  $localContact
+                    |  mediaCount:    $mediaCount
+                    |===============================
+                    """.trimMargin()
+                }
+
+                val callerInfo = parseRemoteUri(remoteUri)
                 _callState.value = CallState.Ringing(
                     callId = currentCallId!!,
                     callerNumber = callerInfo.number,
                     callerName = callerInfo.displayName,
                     isOutbound = false,
                     accountId = accountId,
+                    remoteUri = remoteUri,
                 )
                 logger.info {
                     "Incoming call on $accountId from: ${callerInfo.displayName ?: callerInfo.number}"
@@ -450,5 +483,6 @@ class PjsipCallManager(
 
     companion object {
         private const val HOLD_TIMEOUT_MS = 15_000L
+        private const val HANGUP_TIMEOUT_MS = 10_000L
     }
 }
