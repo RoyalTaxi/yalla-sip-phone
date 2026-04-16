@@ -1,7 +1,7 @@
 ---
 title: "Features Index"
-last_verified_sha: TBD
-last_updated: 2026-04-15
+last_verified_sha: bfb118c
+last_updated: 2026-04-16
 last_author: claude
 status: draft
 tags: [features, index]
@@ -19,4 +19,4 @@ Per-feature pages explaining what each feature does, how it works, and edge case
 - `settings.md` — App settings, sound device selection, SIP account management
 - `webview-bridge.md` — JCEF browser features (cross-ref `docs/js-bridge-api.md`)
 - `multi-sip.md` — Running multiple SIP accounts in parallel
-- `auto-update.md` — Future: see `docs/planned/auto-update.md`
+- `auto-update.md` — Windows MSI auto-update: bootstrapper, two-step uninstall/install, backend contract

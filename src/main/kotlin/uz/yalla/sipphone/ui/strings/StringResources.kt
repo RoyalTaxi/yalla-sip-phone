@@ -55,9 +55,11 @@ interface StringResources {
     val labelUsername: String
     val labelPassword: String
     val labelDispatcherUrl: String
+    val labelBackendUrl: String
     val placeholderServer: String
     val placeholderUsername: String
     val placeholderDispatcherUrl: String
+    val placeholderBackendUrl: String
 
     // Manual Connection
     val manualAddAccount: String

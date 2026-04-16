@@ -84,7 +84,7 @@ class LoginComponent(
         }
     }
 
-    fun manualConnect(accounts: List<ManualAccountEntry>, dispatcherUrl: String = "") {
+    fun manualConnect(accounts: List<ManualAccountEntry>, dispatcherUrl: String = "", backendUrl: String = "") {
         if (accounts.isEmpty()) return
         val accountInfos = accounts.map { entry ->
             val credentials = SipCredentials(
@@ -104,6 +104,7 @@ class LoginComponent(
             token = "",
             accounts = accountInfos,
             dispatcherUrl = dispatcherUrl,
+            backendUrl = backendUrl,
             agent = AgentInfo("manual", accounts.first().username),
         )
         _loginState.value = LoginState.Loading

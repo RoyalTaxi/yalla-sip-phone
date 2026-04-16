@@ -41,6 +41,7 @@ class AuthRepositoryImpl(
         val authResult = meDto.toAuthResult(
             token = loginDto.token,
             dispatcherUrl = ApiConfig.DISPATCHER_URL,
+            backendUrl = ApiConfig.BASE_URL,
         )
 
         if (authResult.accounts.isEmpty()) {

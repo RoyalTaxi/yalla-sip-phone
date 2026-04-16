@@ -29,7 +29,7 @@ data class SipConnectionDto(
     @SerialName("connection_type") val connectionType: String,
 )
 
-fun MeResultDto.toAuthResult(token: String, dispatcherUrl: String): AuthResult {
+fun MeResultDto.toAuthResult(token: String, dispatcherUrl: String, backendUrl: String = ""): AuthResult {
     val activeAccounts = sips
         .filter { it.isActive }
         .map { sip ->
@@ -50,6 +50,7 @@ fun MeResultDto.toAuthResult(token: String, dispatcherUrl: String): AuthResult {
         token = token,
         accounts = activeAccounts,
         dispatcherUrl = dispatcherUrl,
+        backendUrl = backendUrl,
         agent = AgentInfo(id = id.toString(), name = fullName),
     )
 }

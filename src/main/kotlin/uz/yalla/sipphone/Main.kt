@@ -175,6 +175,26 @@ private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent
     val ctrl = event.isControlDown
     val shift = event.isShiftDown
 
+    // Global shortcuts — work on any screen (login, main, etc.)
+    when {
+        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_B -> {
+            val settings: AppSettings =
+                org.koin.java.KoinJavaComponent.get(AppSettings::class.java)
+            settings.updateChannel = if (settings.updateChannel == "beta") "stable" else "beta"
+            logger.info { "Update channel toggled: ${settings.updateChannel}" }
+            event.consume()
+            return
+        }
+        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_D -> {
+            val um: UpdateManager =
+                org.koin.java.KoinJavaComponent.get(UpdateManager::class.java)
+            um.toggleDiagnostics()
+            event.consume()
+            return
+        }
+    }
+
+    // Main-screen-only shortcuts — require toolbar and call state
     val currentChild = rootComponent.childStack.value.active.instance
     if (currentChild !is RootComponent.Child.Main) return
     val toolbar = currentChild.component.toolbar
@@ -204,21 +224,6 @@ private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent
         }
         ctrl && !shift && event.keyCode == KeyEvent.VK_L && callState is CallState.Idle -> {
             toolbar.requestPhoneInputFocus()
-            event.consume()
-        }
-        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_B -> {
-            // Hidden channel toggle (Ctrl+Shift+Alt+B) — cycles stable ↔ beta.
-            val settings: AppSettings =
-                org.koin.java.KoinJavaComponent.get(AppSettings::class.java)
-            settings.updateChannel = if (settings.updateChannel == "beta") "stable" else "beta"
-            logger.info { "Update channel toggled: ${settings.updateChannel}" }
-            event.consume()
-        }
-        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_D -> {
-            // Hidden diagnostics toggle (Ctrl+Shift+Alt+D) — shows the in-app panel.
-            val um: UpdateManager =
-                org.koin.java.KoinJavaComponent.get(UpdateManager::class.java)
-            um.toggleDiagnostics()
             event.consume()
         }
     }

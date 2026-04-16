@@ -1,48 +1,48 @@
 ---
+title: "Troubleshooting"
 last_verified_sha: bfb118c
 last_updated: 2026-04-16
 last_author: claude
 status: current
+tags: [operations, troubleshooting, debug]
 ---
 
 # Troubleshooting
 
-## MSI Auto-Update Failures (msiexec 1603)
+## MSI Update Failures
 
-See [[06-sessions/2026-04-16-msi-update-debugging]] for the full debugging story.
+### msiexec exit 1603 — generic fatal error
 
-### Cross-context upgrade (Error 1316)
+**Check logs at:**
+- Bootstrapper: `%LOCALAPPDATA%\YallaSipPhone\updates\install.log`
+- msiexec verbose: `%TEMP%\yalla-update-msiexec.log`
+- Uninstall: `%TEMP%\yalla-update-uninstall.log`
 
-**Symptom:** msiexec log shows `Error 1316. The specified account already exists.` and `FindRelatedProducts: current install is per-machine. Related install for product ... is per-user. Skipping...`
+**Common causes:**
 
-**Cause:** Windows Installer cannot upgrade across installation contexts. If the old version was installed per-machine (HKLM) and the new one tries per-user (HKCU) or vice versa, `ProcessComponents` fails because components are registered in the other context.
+| Symptom in msiexec log | Cause | Fix |
+|------------------------|-------|-----|
+| `SECREPAIR: Error determining package source type` | MSI source was inside install dir, got deleted during upgrade | Ensure MSI is copied to %TEMP% before msiexec (bootstrapper does this) |
+| `Error 1316. The specified account already exists` | Component GUID conflict — old product not fully removed | Use two-step /x then /i (bootstrapper does this) |
+| `Error 1406. Could not write value to key` | Registry write failure during nested RemoveExistingProducts transaction | Use two-step /x then /i (bootstrapper does this) |
+| `FindRelatedProducts: per-user / per-machine. Skipping` | ALLUSERS mismatch — trying per-machine upgrade on per-user install | Never pass ALLUSERS=1; app is per-user |
+| `MsiSystemRebootPending = 1` | Previous failed install left pending file operations | Reboot the machine |
 
-**Fix:** Never pass `ALLUSERS=1` in the bootstrapper. Let the MSI default to per-user (set by jpackage `perUserInstall = true`). If someone installed per-machine by running the MSI as admin, they must manually uninstall first.
+### Ghost "Another version already installed" after failed upgrades
 
-### Pending reboot poisons installs
+Previous failed ALLUSERS=1 installs can leave entries in HKLM. Clean manually:
 
-**Symptom:** msiexec log shows `MsiSystemRebootPending = 1` and installs fail even though nothing seems wrong.
+```cmd
+reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{ProductCode}" /f
+reg delete "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Installer\UserData\<SID>\Products\<packed-code>" /f
+```
 
-**Cause:** A prior failed install left `PendingFileRenameOperations` in the registry.
+### App files gone after failed update
 
-**Fix:** Reboot the machine. Check with: `reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager" /v PendingFileRenameOperations`
+The old product gets uninstalled but the new one fails to install. Reinstall manually:
 
-### Bootstrapper fix doesn't take effect
+```cmd
+msiexec /i YallaSipPhone-<version>.msi /quiet /norestart
+```
 
-**Symptom:** Fixed the bootstrapper code, rebuilt, but the update still uses old behavior.
-
-**Cause:** The INSTALLED app copies ITS OWN bootstrapper (from `app/resources/`) to `%TEMP%` before launching it. The update MSI's bootstrapper is irrelevant — it's the installed version's binary that runs.
-
-**Fix:** Both the installed version and the update must be built from the same codebase containing the fix. CI-built versions with old bootstrapper binaries cannot self-update correctly.
-
-### File locks during MSI install
-
-**Symptom:** msiexec 1603 with Restart Manager timeouts, files "in use".
-
-**Cause:** JCEF child processes (`jcef_helper.exe`) or the bootstrapper itself hold file locks inside the install directory.
-
-**Fixes applied:**
-1. Bootstrapper copies itself to `%TEMP%` before launch (doesn't lock install tree)
-2. `onBeforeExit` callback does graceful JCEF/PJSIP shutdown before `exitProcess(0)`
-3. Bootstrapper kills orphaned `jcef_helper` and `YallaSipPhone` processes after parent exit
-4. Bootstrapper closes its own log file before running msiexec (log lives inside install tree)
+Related: [[04-features/auto-update]], [[06-sessions/2026-04-16-auto-update-msi-fix]]

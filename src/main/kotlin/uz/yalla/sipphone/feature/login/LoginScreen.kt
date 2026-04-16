@@ -209,9 +209,9 @@ fun LoginScreen(component: LoginComponent) {
             if (showManualDialog) {
                 ManualConnectionDialog(
                     isLoading = isLoading,
-                    onConnect = { accounts, dispatcherUrl ->
+                    onConnect = { accounts, dispatcherUrl, backendUrl ->
                         showManualDialog = false
-                        component.manualConnect(accounts, dispatcherUrl)
+                        component.manualConnect(accounts, dispatcherUrl, backendUrl)
                     },
                     onDismiss = { showManualDialog = false },
                 )
@@ -227,7 +227,7 @@ fun LoginScreen(component: LoginComponent) {
 @Composable
 private fun ManualConnectionDialog(
     isLoading: Boolean,
-    onConnect: (accounts: List<ManualAccountEntry>, dispatcherUrl: String) -> Unit,
+    onConnect: (accounts: List<ManualAccountEntry>, dispatcherUrl: String, backendUrl: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val tokens = LocalAppTokens.current
@@ -240,6 +240,7 @@ private fun ManualConnectionDialog(
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var dispatcherUrl by remember { mutableStateOf("") }
+    var backendUrl by remember { mutableStateOf("") }
     var duplicateWarning by remember { mutableStateOf(false) }
 
     val canAdd = server.isNotBlank() && username.isNotBlank() && !isLoading
@@ -377,12 +378,22 @@ private fun ManualConnectionDialog(
                     singleLine = true, enabled = !isLoading,
                     modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
                 )
+                OutlinedTextField(
+                    value = backendUrl, onValueChange = { backendUrl = it },
+                    label = { Text(strings.labelBackendUrl) },
+                    placeholder = {
+                        Text(strings.placeholderBackendUrl, style = MaterialTheme.typography.bodySmall,
+                            color = colors.textSubtle.copy(alpha = tokens.alphaDisabled))
+                    },
+                    singleLine = true, enabled = !isLoading,
+                    modifier = Modifier.fillMaxWidth(), shape = tokens.shapeMedium,
+                )
             }
         },
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
                 Button(
-                    onClick = { onConnect(accounts, dispatcherUrl) },
+                    onClick = { onConnect(accounts, dispatcherUrl, backendUrl) },
                     enabled = canConnect,
                     shape = tokens.shapeMedium,
                 ) {
