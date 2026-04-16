@@ -95,6 +95,7 @@ internal static class Program
             psi.ArgumentList.Add("/qn");
             psi.ArgumentList.Add("/norestart");
             psi.ArgumentList.Add("REBOOT=ReallySuppress");
+            psi.ArgumentList.Add("ALLUSERS=");
             psi.ArgumentList.Add("/L*v");
             psi.ArgumentList.Add(msiLog);
 
