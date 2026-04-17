@@ -53,7 +53,7 @@ class AuthRepositoryImplTest {
             {"status":true,"code":200,"message":"login successful","result":{"token":"jwt-test","token_type":"Bearer ","expire":9999999999},"errors":null}
         """.trimIndent()
         val meResponse = """
-            {"status":true,"code":200,"message":"success","result":{"id":1,"tm_user_id":1,"full_name":"Test Agent","roles":"admin","created_at":"2026-01-01","sips":[{"extension_number":103,"password":"demo","is_active":true,"sip_name":"Test SIP","server_url":"http://test.uz","server_port":5060,"domain":"test.uz","connection_type":"udp"}]},"errors":null}
+            {"status":true,"code":200,"message":"success","result":{"id":1,"tm_user_id":1,"full_name":"Test Agent","roles":"admin","created_at":"2026-01-01","panel_path":"http://panel.test:5173","sips":[{"extension_number":103,"password":"demo","is_active":true,"sip_name":"Test SIP","server_url":"http://test.uz","server_port":5060,"domain":"test.uz","connection_type":"udp"}]},"errors":null}
         """.trimIndent()
 
         var requestCount = 0
@@ -84,11 +84,34 @@ class AuthRepositoryImplTest {
         assertEquals("103", firstAccount.credentials.username)
         assertEquals("demo", firstAccount.credentials.password)
         assertEquals("UDP", firstAccount.credentials.transport)
-        assertEquals(appSettings.dispatcherUrl, authResult.dispatcherUrl)
+        assertEquals("http://panel.test:5173", authResult.dispatcherUrl)
 
         // Token should be stored
         assertNotNull(tokenProvider.getToken())
         assertEquals("jwt-test", tokenProvider.getToken())
+    }
+
+    @Test
+    fun `login falls back to appSettings dispatcherUrl when panel_path is absent`() = runTest {
+        val loginResponse = """
+            {"status":true,"code":200,"message":"login successful","result":{"token":"jwt-test","token_type":"Bearer ","expire":9999999999},"errors":null}
+        """.trimIndent()
+        val meResponse = """
+            {"status":true,"code":200,"message":"success","result":{"id":1,"tm_user_id":1,"full_name":"Test Agent","roles":"admin","created_at":"2026-01-01","sips":[{"extension_number":103,"password":"demo","is_active":true,"sip_name":"Test SIP","server_url":"http://test.uz","server_port":5060,"domain":"test.uz","connection_type":"udp"}]},"errors":null}
+        """.trimIndent()
+
+        val repo = createRepo { request ->
+            val content = if (request.url.encodedPath.contains("login")) loginResponse else meResponse
+            respond(
+                content = content,
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+
+        val result = repo.login("1234")
+        assertTrue(result.isSuccess)
+        assertEquals(appSettings.dispatcherUrl, result.getOrThrow().dispatcherUrl)
     }
 
     @Test

@@ -15,6 +15,7 @@ data class MeResultDto(
     val roles: String,
     @SerialName("created_at") val createdAt: String,
     val sips: List<SipConnectionDto>,
+    @SerialName("panel_path") val panelPath: String? = null,
 )
 
 @Serializable
@@ -49,7 +50,7 @@ fun MeResultDto.toAuthResult(token: String, dispatcherUrl: String, backendUrl: S
     return AuthResult(
         token = token,
         accounts = activeAccounts,
-        dispatcherUrl = dispatcherUrl,
+        dispatcherUrl = panelPath?.takeIf { it.isNotBlank() } ?: dispatcherUrl,
         backendUrl = backendUrl,
         agent = AgentInfo(id = id.toString(), name = fullName),
     )
