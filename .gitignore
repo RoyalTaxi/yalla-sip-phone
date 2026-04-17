@@ -9,6 +9,7 @@ hs_err_pid*.log
 .worktrees/
 .superpowers/
 jcef-bundle/
+app-resources/*/jcef-bundle/
 
 # C# bootstrapper build artifacts
 bootstrapper/bin/

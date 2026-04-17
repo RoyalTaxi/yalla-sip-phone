@@ -1,5 +1,10 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath("me.friwi:jcefmaven:122.1.10") }
+}
+
 plugins {
     kotlin("jvm") version "2.1.20"
     id("org.jetbrains.compose") version "1.8.2"
@@ -215,6 +220,38 @@ compose.desktop {
         }
     }
 }
+
+// Pre-download JCEF natives into app-resources/<platform>/jcef-bundle so packagers ship them.
+// Without this, jcefmaven tries to download ~200 MB of Chromium at first launch — fatal on
+// offline / locked-down targets (e.g. call-center guest accounts).
+val installJcefNatives by tasks.registering {
+    group = "build"
+    description = "Pre-download JCEF natives into app-resources for offline installers"
+
+    val os = org.gradle.internal.os.OperatingSystem.current()
+    val platformDir = when {
+        os.isWindows -> "windows-x64"
+        os.isMacOsX && System.getProperty("os.arch") == "aarch64" -> "macos-arm64"
+        os.isMacOsX -> "macos-x64"
+        else -> "linux-x64"
+    }
+    val targetDir = layout.projectDirectory.dir("app-resources/$platformDir/jcef-bundle").asFile
+
+    outputs.dir(targetDir)
+    outputs.upToDateWhen { File(targetDir, "install.lock").exists() }
+
+    doLast {
+        targetDir.mkdirs()
+        me.friwi.jcefmaven.CefAppBuilder()
+            .apply { setInstallDir(targetDir) }
+            .install()
+        logger.lifecycle("JCEF natives installed to $targetDir")
+    }
+}
+
+tasks.matching {
+    it.name in setOf("packageMsi", "packageDmg", "packageDeb", "createDistributable")
+}.configureEach { dependsOn(installJcefNatives) }
 
 // Fix JCEF helper executable permissions after packaging (macOS strips +x from app-resources)
 tasks.matching { it.name == "createDistributable" || it.name == "packageDmg" }.configureEach {
