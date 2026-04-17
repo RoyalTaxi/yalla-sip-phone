@@ -4,7 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -32,7 +31,7 @@ class PjsipAccountManager(
 
     private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
     private val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
-    private val lastRegisterAttemptMs = mutableMapOf<String, Long>()
+    private val rateLimiter = RegisterRateLimiter()
 
     var incomingCallHandler: ((accountId: String, callId: Int) -> Unit)? = null
 
@@ -67,7 +66,7 @@ class PjsipAccountManager(
             return Result.failure(IllegalStateException("Registration already in progress for $accountId"))
         }
 
-        rateLimitRegister(accountId)
+        rateLimiter.awaitSlot(accountId)
 
         val wasRegistered = stateFlow.value is PjsipRegistrationState.Registered
         stateFlow.value = PjsipRegistrationState.Registering
@@ -127,18 +126,11 @@ class PjsipAccountManager(
         accounts.clear()
         _accountStates.values.forEach { it.value = PjsipRegistrationState.Idle }
         _accountStates.clear()
-        lastRegisterAttemptMs.clear()
+        rateLimiter.clear()
     }
 
     private fun stateFlowFor(accountId: String): MutableStateFlow<PjsipRegistrationState> =
         _accountStates.getOrPut(accountId) { MutableStateFlow(PjsipRegistrationState.Idle) }
-
-    private suspend fun rateLimitRegister(accountId: String) {
-        val last = lastRegisterAttemptMs[accountId] ?: 0L
-        val wait = SipConstants.RATE_LIMIT_MS - (System.currentTimeMillis() - last)
-        if (wait > 0) delay(wait)
-        lastRegisterAttemptMs[accountId] = System.currentTimeMillis()
-    }
 
     private suspend fun teardownPrevious(
         accountId: String,
