@@ -249,9 +249,8 @@ val installJcefNatives by tasks.registering {
     }
 }
 
-tasks.matching {
-    it.name in setOf("packageMsi", "packageDmg", "packageDeb", "createDistributable")
-}.configureEach { dependsOn(installJcefNatives) }
+tasks.matching { it.name == "prepareAppResources" }
+    .configureEach { dependsOn(installJcefNatives) }
 
 // Fix JCEF helper executable permissions after packaging (macOS strips +x from app-resources)
 tasks.matching { it.name == "createDistributable" || it.name == "packageDmg" }.configureEach {
