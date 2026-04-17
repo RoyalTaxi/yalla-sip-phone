@@ -40,9 +40,7 @@ class PjsipCallManager(
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
     private var active: ActiveCall? = null
 
-    @Volatile
-    private var holdInProgress = false
-    private var holdTimeoutJob: Job? = null
+    private val holdController = HoldController(scope)
     private var hangupTimeoutJob: Job? = null
 
     fun isCallManagerDestroyed(): Boolean = isDestroyed()
@@ -58,25 +56,17 @@ class PjsipCallManager(
         }
     }
 
-    private fun applyHoldState(call: PjsipCall, hold: Boolean, state: CallState.Active) {
-        withCallOpParam { prm ->
-            if (hold) {
-                call.setHold(prm)
-            } else {
-                prm.opt.flag = pjsua_call_flag.PJSUA_CALL_UNHOLD.toLong()
-                call.reinvite(prm)
+    private fun issueHoldOp(call: PjsipCall, hold: Boolean): Boolean =
+        holdController.request {
+            withCallOpParam { prm ->
+                if (hold) {
+                    call.setHold(prm)
+                } else {
+                    prm.opt.flag = pjsua_call_flag.PJSUA_CALL_UNHOLD.toLong()
+                    call.reinvite(prm)
+                }
             }
         }
-        _callState.value = state.copy(isOnHold = hold)
-        holdTimeoutJob?.cancel()
-        holdTimeoutJob = scope.launch {
-            delay(HOLD_TIMEOUT_MS)
-            if (holdInProgress) {
-                logger.warn { "Hold timeout — resetting holdInProgress flag" }
-                holdInProgress = false
-            }
-        }
-    }
 
     suspend fun makeCall(number: String, accountId: String = ""): Result<Unit> {
         if (active != null) return Result.failure(IllegalStateException("Call already active"))
@@ -154,18 +144,16 @@ class PjsipCallManager(
 
     suspend fun toggleHold() {
         val state = _callState.value as? CallState.Active ?: return
-        if (holdInProgress) {
-            logger.warn { "Hold/resume operation already in progress, ignoring" }
+        val call = active?.call ?: return
+        val targetHold = !state.isOnHold
+        val issued = runCatching { issueHoldOp(call, targetHold) }
+            .onFailure { logger.error(it) { "toggleHold failed" } }
+            .getOrDefault(false)
+        if (!issued) {
+            logger.warn { "Hold/resume operation already in progress or failed, ignoring" }
             return
         }
-        val call = active?.call ?: return
-        holdInProgress = true
-        runCatching {
-            applyHoldState(call, hold = !state.isOnHold, state = state)
-        }.onFailure {
-            holdInProgress = false
-            logger.error(it) { "toggleHold failed" }
-        }
+        _callState.value = state.copy(isOnHold = targetHold)
     }
 
     suspend fun setMute(callId: String, muted: Boolean) {
@@ -189,18 +177,15 @@ class PjsipCallManager(
             return
         }
         if (state.isOnHold == onHold) return
-        if (holdInProgress) {
-            logger.warn { "Hold/resume operation already in progress, ignoring" }
+        val call = active?.call ?: return
+        val issued = runCatching { issueHoldOp(call, onHold) }
+            .onFailure { logger.error(it) { "setHold failed" } }
+            .getOrDefault(false)
+        if (!issued) {
+            logger.warn { "Hold/resume operation already in progress or failed, ignoring" }
             return
         }
-        val call = active?.call ?: return
-        holdInProgress = true
-        runCatching {
-            applyHoldState(call, hold = onHold, state = state)
-        }.onFailure {
-            holdInProgress = false
-            logger.error(it) { "setHold failed" }
-        }
+        _callState.value = state.copy(isOnHold = onHold)
     }
 
     fun onCallConfirmed(call: PjsipCall) {
@@ -310,10 +295,7 @@ class PjsipCallManager(
 
     fun connectCallAudio(call: PjsipCall) {
         if (call !== active?.call) return
-        // Media state callback = re-INVITE completed; reset hold guard
-        holdInProgress = false
-        holdTimeoutJob?.cancel()
-        holdTimeoutJob = null
+        holdController.onMediaStateChanged()
 
         call.getInfo().use { info ->
             info.forEachActiveAudioMedia { i, _ ->
@@ -337,6 +319,7 @@ class PjsipCallManager(
     }
 
     fun destroy() {
+        holdController.cancel()
         scope.cancel()
         active?.call?.let { call ->
             runCatching { withCallOpParam { prm -> call.hangup(prm) } }
@@ -351,7 +334,6 @@ class PjsipCallManager(
     }
 
     companion object {
-        private const val HOLD_TIMEOUT_MS = 15_000L
         private const val HANGUP_TIMEOUT_MS = 10_000L
     }
 }
