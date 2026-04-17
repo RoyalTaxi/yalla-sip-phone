@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
+
 import org.pjsip.pjsua2.AccountConfig
 import org.pjsip.pjsua2.AuthCredInfo
 import org.pjsip.pjsua2.pjsua_stun_use
@@ -20,12 +21,9 @@ import uz.yalla.sipphone.domain.SipError
 
 private val logger = KotlinLogging.logger {}
 
-data class IncomingCallEvent(val accountId: String, val callId: Int)
-
 interface AccountProvider {
     fun getAccount(accountId: String): PjsipAccount?
     fun getFirstConnectedAccount(): PjsipAccount?
-    val incomingCalls: SharedFlow<IncomingCallEvent>
 }
 
 class PjsipAccountManager(
@@ -36,8 +34,7 @@ class PjsipAccountManager(
     private val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
     private val lastRegisterAttemptMs = mutableMapOf<String, Long>()
 
-    private val _incomingCalls = MutableSharedFlow<IncomingCallEvent>(extraBufferCapacity = 32)
-    override val incomingCalls: SharedFlow<IncomingCallEvent> = _incomingCalls.asSharedFlow()
+    var incomingCallHandler: ((accountId: String, callId: Int) -> Unit)? = null
 
     private val _registrationEvents = MutableSharedFlow<Pair<String, PjsipRegistrationState>>(
         extraBufferCapacity = 64,
@@ -53,7 +50,7 @@ class PjsipAccountManager(
     fun isAccountDestroyed(): Boolean = isDestroyed()
 
     fun handleIncomingCall(accountId: String, callId: Int) {
-        _incomingCalls.tryEmit(IncomingCallEvent(accountId, callId))
+        incomingCallHandler?.invoke(accountId, callId)
     }
 
     override fun getAccount(accountId: String): PjsipAccount? = accounts[accountId]

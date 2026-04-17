@@ -47,12 +47,6 @@ class PjsipCallManager(
     private var holdTimeoutJob: Job? = null
     private var hangupTimeoutJob: Job? = null
 
-    init {
-        scope.launch {
-            accountProvider.incomingCalls.collect { handleIncomingCall(it) }
-        }
-    }
-
     fun isCallManagerDestroyed(): Boolean = isDestroyed()
 
     // captureDevMedia is owned by the audio device manager — never delete it here
@@ -247,9 +241,7 @@ class PjsipCallManager(
         call.safeDelete()
     }
 
-    private fun handleIncomingCall(event: IncomingCallEvent) {
-        val accountId = event.accountId
-        val callId = event.callId
+    fun handleIncomingCall(accountId: String, callId: Int) {
         val acc = accountProvider.getAccount(accountId) ?: run {
             logger.warn { "Incoming call on unknown account $accountId — ignoring" }
             return
