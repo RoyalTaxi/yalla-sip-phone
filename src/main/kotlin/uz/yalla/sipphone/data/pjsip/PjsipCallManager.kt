@@ -13,9 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 import org.pjsip.pjsua2.AudioMedia
-import org.pjsip.pjsua2.pjmedia_type
 import org.pjsip.pjsua2.pjsua_call_flag
-import org.pjsip.pjsua2.pjsua_call_media_status
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.parseRemoteUri
@@ -49,18 +47,13 @@ class PjsipCallManager(
 
     fun isCallManagerDestroyed(): Boolean = isDestroyed()
 
-    // captureDevMedia is owned by the audio device manager — never delete it here
     private fun applyMuteState(call: PjsipCall, muted: Boolean) {
         call.getInfo().use { info ->
-            for (i in 0 until info.media.size) {
-                val media = info.media[i]
-                if (media.type != pjmedia_type.PJMEDIA_TYPE_AUDIO) continue
-                if (media.status != pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE) continue
+            info.forEachActiveAudioMedia { i, _ ->
                 val audioMedia = call.getAudioMedia(i)
                 val captureMedia = audioMediaProvider.getCaptureDevMedia()
                 if (muted) captureMedia.stopTransmit(audioMedia)
                 else captureMedia.startTransmit(audioMedia)
-                return@use
             }
         }
     }
@@ -323,10 +316,7 @@ class PjsipCallManager(
         holdTimeoutJob = null
 
         call.getInfo().use { info ->
-            for (i in 0 until info.media.size) {
-                val media = info.media[i]
-                if (media.type != pjmedia_type.PJMEDIA_TYPE_AUDIO) continue
-                if (media.status != pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE) continue
+            info.forEachActiveAudioMedia { i, _ ->
                 val audioMedia = call.getAudioMedia(i)
                 val playbackMedia = audioMediaProvider.getPlaybackDevMedia()
                 val captureMedia = audioMediaProvider.getCaptureDevMedia()
@@ -342,7 +332,6 @@ class PjsipCallManager(
                         }
                     }
                 }.onFailure { logger.warn(it) { "Could not get stream info" } }
-                break
             }
         }
     }
