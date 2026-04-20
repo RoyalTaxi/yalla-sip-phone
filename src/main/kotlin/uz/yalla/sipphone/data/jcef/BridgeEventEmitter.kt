@@ -1,20 +1,26 @@
 package uz.yalla.sipphone.data.jcef
 
+import javax.swing.SwingUtilities
 import kotlinx.serialization.encodeToString
 import org.cef.browser.CefBrowser
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.SipConstants
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 class BridgeEventEmitter(
     private val auditLog: BridgeAuditLog,
+    private val keyRegistry: KeyShortcutRegistry? = null,
 ) {
     private val seqCounter = AtomicInteger(0)
-    private val handshakeComplete = AtomicBoolean(false)
-    private val bufferedEvents = CopyOnWriteArrayList<String>()
-    @Volatile
+
+    // Guards transitions between (browser, handshake, buffer). Without it:
+    //   (a) detach() had a window where handshakeComplete=true && currentBrowser=null,
+    //       so emit() would silently drop instead of buffering.
+    //   (b) emit() and completeHandshake() could interleave: emit checks handshake=false,
+    //       handshake completes + flushes buffer, emit appends to buffer — event stranded.
+    private val lock = Any()
+    private var handshakeComplete = false
+    private val bufferedEvents = ArrayDeque<String>()
     private var currentBrowser: CefBrowser? = null
 
     @Volatile
@@ -25,23 +31,30 @@ class BridgeEventEmitter(
     fun nextSeq(): Int = seqCounter.incrementAndGet()
     fun now(): Long = System.currentTimeMillis()
 
-    fun resetHandshake() {
-        handshakeComplete.set(false)
+    fun resetHandshake() = synchronized(lock) {
+        handshakeComplete = false
         bufferedEvents.clear()
+        // Registered key listeners belong to the current web session — clear them so stale
+        // registrations don't leak across page reload / logout.
+        keyRegistry?.clear()
     }
 
-    fun detach() {
+    fun detach() = synchronized(lock) {
+        // Reset handshake *before* nulling the browser so emit() can never observe
+        // (handshake=true, browser=null) and drop.
+        handshakeComplete = false
+        bufferedEvents.clear()
+        keyRegistry?.clear()
         currentBrowser = null
-        resetHandshake()
     }
 
     fun injectBridgeScript(browser: CefBrowser) {
-        currentBrowser = browser
-        browser.executeJavaScript(BRIDGE_SCRIPT, browser.url ?: "", 0)
+        synchronized(lock) { currentBrowser = browser }
+        runOnEdt { browser.executeJavaScript(BRIDGE_SCRIPT, browser.url ?: "", 0) }
     }
 
-    fun completeHandshake(): String {
-        handshakeComplete.set(true)
+    fun completeHandshake(): String = synchronized(lock) {
+        handshakeComplete = true
         val init = BridgeInitPayload(
             version = version,
             capabilities = capabilities,
@@ -49,21 +62,32 @@ class BridgeEventEmitter(
             bufferedEvents = bufferedEvents.toList(),
         )
         bufferedEvents.clear()
-        return bridgeJson.encodeToString(init)
+        bridgeJson.encodeToString(init)
     }
 
     fun emit(eventName: String, payloadJson: String) {
         auditLog.logEvent(eventName, payloadJson)
 
-        if (!handshakeComplete.get()) {
-            bufferedEvents.add("""{"event":"$eventName","data":$payloadJson}""")
-            return
-        }
-
-        val browser = currentBrowser ?: return
+        val encoded = """{"event":"$eventName","data":$payloadJson}"""
+        val targetBrowser = synchronized(lock) {
+            // If the handshake isn't complete OR we have no live browser, buffer the event.
+            // Buffering on null-browser covers the page-reload gap: CEF re-creates the renderer,
+            // we get a fresh onPageLoadEnd → ready() → completeHandshake() which flushes.
+            if (!handshakeComplete || currentBrowser == null) {
+                bufferedEvents.addLast(encoded)
+                if (bufferedEvents.size > MAX_BUFFERED_EVENTS) bufferedEvents.removeFirst()
+                return
+            }
+            currentBrowser
+        } ?: return
 
         val js = "window.__yallaSipEmit && window.__yallaSipEmit('$eventName', $payloadJson);"
-        browser.executeJavaScript(js, browser.url ?: "", 0)
+        runOnEdt { targetBrowser.executeJavaScript(js, targetBrowser.url ?: "", 0) }
+    }
+
+    private inline fun runOnEdt(crossinline block: () -> Unit) {
+        if (SwingUtilities.isEventDispatchThread()) block()
+        else SwingUtilities.invokeLater { block() }
     }
 
     fun emitIncomingCall(callId: String, number: String) {
@@ -142,7 +166,19 @@ class BridgeEventEmitter(
         emit("callRejectedBusy", bridgeJson.encodeToString(event))
     }
 
+    /**
+     * Fired when a key combo the frontend registered via `registerKeyListeners` is pressed
+     * in the Compose window. Payload carries the combo string exactly as the frontend passed
+     * it, so the frontend can use `switch (e.key) { case "ctrl+enter": ... }` directly.
+     */
+    fun emitKeyPressed(key: String) {
+        val event = BridgeEvent.KeyPressed(key, seq = nextSeq(), timestamp = now())
+        emit("keyPressed", bridgeJson.encodeToString(event))
+    }
+
     companion object {
+        private const val MAX_BUFFERED_EVENTS = 256
+
         private val BRIDGE_SCRIPT = """
 (function() {
     var listeners = {};
@@ -194,6 +230,15 @@ class BridgeEventEmitter(
         getState: function() { return query({ command: 'getState' }).then(function(r) { return r.data; }); },
         getVersion: function() { return query({ command: 'getVersion' }).then(function(r) { return r.data; }); },
         requestLogout: function() { return query({ command: 'requestLogout' }); },
+        // Register the set of keyboard combos the native app should listen for. When any of
+        // these fire (e.g. "ctrl+enter"), native emits a `keyPressed` event with that exact
+        // string. Replaces any previous registration.
+        //   YallaSIP.registerKeyListeners(["ctrl+enter","ctrl+m","space"])
+        //   YallaSIP.on('keyPressed', function(e) { if (e.key === 'ctrl+enter') answerCall(); })
+        registerKeyListeners: function(keys) {
+            return query({ command: 'registerKeyListeners', params: { keys: JSON.stringify(keys || []) } });
+        },
+        unregisterKeyListeners: function() { return query({ command: 'unregisterKeyListeners' }); },
 
         // --- Simulator for DevTools testing ---
         simulate: (function() {

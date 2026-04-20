@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.data.pjsip
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -9,6 +10,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 
 import uz.yalla.sipphone.domain.SipConstants
@@ -26,9 +29,12 @@ class PjsipAccountManager(
     private val isDestroyed: () -> Boolean,
 ) : AccountProvider {
 
-    private val _accountStates = mutableMapOf<String, MutableStateFlow<PjsipRegistrationState>>()
-    private val accounts: MutableMap<String, PjsipAccount> = mutableMapOf()
+    private val _accountStates = ConcurrentHashMap<String, MutableStateFlow<PjsipRegistrationState>>()
+    private val accounts: MutableMap<String, PjsipAccount> = ConcurrentHashMap()
     private val rateLimiter = RegisterRateLimiter()
+
+    // Per-account mutex serializing register + unregister so they can't race.
+    private val accountLocks = ConcurrentHashMap<String, Mutex>()
 
     var incomingCallHandler: ((accountId: String, callId: Int) -> Unit)? = null
 
@@ -40,8 +46,13 @@ class PjsipAccountManager(
 
     fun updateRegistrationState(accountId: String, state: PjsipRegistrationState) {
         stateFlowFor(accountId).value = state
-        _registrationEvents.tryEmit(accountId to state)
+        if (!_registrationEvents.tryEmit(accountId to state)) {
+            logger.warn { "[$accountId] registration event buffer full — state=$state lost" }
+        }
     }
+
+    private fun lockFor(accountId: String): Mutex =
+        accountLocks.getOrPut(accountId) { Mutex() }
 
     fun isAccountDestroyed(): Boolean = isDestroyed()
 
@@ -56,46 +67,55 @@ class PjsipAccountManager(
             _accountStates[id]?.value is PjsipRegistrationState.Registered
         }?.value
 
-    suspend fun register(accountId: String, credentials: SipCredentials): Result<Unit> {
-        val stateFlow = stateFlowFor(accountId)
+    suspend fun register(accountId: String, credentials: SipCredentials): Result<Unit> =
+        lockFor(accountId).withLock {
+            val stateFlow = stateFlowFor(accountId)
 
-        if (stateFlow.value is PjsipRegistrationState.Registering) {
-            return Result.failure(IllegalStateException("Registration already in progress for $accountId"))
-        }
+            if (stateFlow.value is PjsipRegistrationState.Registering) {
+                return@withLock Result.failure(
+                    IllegalStateException("Registration already in progress for $accountId"),
+                )
+            }
 
-        rateLimiter.awaitSlot(accountId)
+            rateLimiter.awaitSlot(accountId)
 
-        val wasRegistered = stateFlow.value is PjsipRegistrationState.Registered
-        stateFlow.value = PjsipRegistrationState.Registering
-
-        accounts[accountId]?.let { prev ->
-            teardownPrevious(accountId, prev, stateFlow, wasRegistered)
+            val wasRegistered = stateFlow.value is PjsipRegistrationState.Registered
             stateFlow.value = PjsipRegistrationState.Registering
-        }
 
-        return AccountConfigBuilder.build(credentials).use { config ->
-            runCatching {
-                val account = PjsipAccount(accountId, credentials.server, this).apply {
-                    create(config, true)
+            accounts[accountId]?.let { prev ->
+                teardownPrevious(accountId, prev, stateFlow, wasRegistered)
+                // Re-assert Registering since teardown may have observed Idle.
+                stateFlow.value = PjsipRegistrationState.Registering
+            }
+
+            AccountConfigBuilder.build(credentials).use { config ->
+                runCatching {
+                    val account = PjsipAccount(accountId, credentials.server, this).apply {
+                        create(config, true)
+                    }
+                    accounts[accountId] = account
+                    logger.info { "[$accountId] Account created, awaiting registration callback" }
+                }.onFailure { e ->
+                    logger.error(e) { "[$accountId] Registration failed" }
+                    stateFlow.value = PjsipRegistrationState.Failed(SipError.fromException(e))
                 }
-                accounts[accountId] = account
-                logger.info { "[$accountId] Account created, awaiting registration callback" }
-            }.onFailure { e ->
-                logger.error(e) { "[$accountId] Registration failed" }
-                stateFlow.value = PjsipRegistrationState.Failed(SipError.fromException(e))
             }
         }
-    }
 
-    suspend fun unregister(accountId: String) {
-        val acc = accounts[accountId] ?: return
-        val stateFlow = _accountStates[accountId] ?: return
-        runCatching {
-            acc.setRegistration(false)
-            withTimeoutOrNull(SipConstants.Timeout.UNREGISTER_MS) {
-                stateFlow.first { it is PjsipRegistrationState.Idle }
-            }
-        }.onFailure { logger.warn(it) { "[$accountId] Unregister error" } }
+    suspend fun unregister(accountId: String) = lockFor(accountId).withLock {
+        val acc = accounts[accountId] ?: return@withLock
+        val stateFlow = _accountStates[accountId] ?: return@withLock
+        // Only send an UNREGISTER to pjsip if the account is actually registered. Calling
+        // setRegistration(false) on an account that never completed registration (e.g. a 403
+        // Forbidden previously) throws PJ_EINVALIDOP from native — harmless but noisy.
+        if (stateFlow.value is PjsipRegistrationState.Registered) {
+            runCatching {
+                acc.setRegistration(false)
+                withTimeoutOrNull(SipConstants.Timeout.UNREGISTER_MS) {
+                    stateFlow.first { it is PjsipRegistrationState.Idle }
+                }
+            }.onFailure { logger.warn(it) { "[$accountId] Unregister error" } }
+        }
         acc.safeDelete()
         accounts.remove(accountId)
         stateFlow.value = PjsipRegistrationState.Idle
@@ -106,10 +126,13 @@ class PjsipAccountManager(
     }
 
     suspend fun destroy() {
-        val activeAccounts = accounts.values.toList()
-        activeAccounts.forEach { acc ->
-            runCatching { acc.setRegistration(false) }
-                .onFailure { logger.warn(it) { "setRegistration(false) failed during destroy" } }
+        // Only fire setRegistration(false) for accounts that are actually registered — same
+        // reason as unregister() above (avoids PJ_EINVALIDOP noise on teardown).
+        accounts.entries.forEach { (id, acc) ->
+            if (_accountStates[id]?.value is PjsipRegistrationState.Registered) {
+                runCatching { acc.setRegistration(false) }
+                    .onFailure { logger.warn(it) { "setRegistration(false) failed during destroy" } }
+            }
         }
         // Wait for PJSIP to report Idle on every account, bounded by DESTROY_MS.
         withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) {
@@ -123,6 +146,7 @@ class PjsipAccountManager(
         accounts.clear()
         _accountStates.values.forEach { it.value = PjsipRegistrationState.Idle }
         _accountStates.clear()
+        accountLocks.clear()
         rateLimiter.clear()
     }
 

@@ -47,15 +47,18 @@ data class YallaColors(
             backgroundSecondary = Color(0xFFF7F7F7),
             backgroundTertiary = Color(0xFFE9EAEA),
             textBase = Color(0xFF101828),
-            textSubtle = Color(0xFF98A2B3),
+            // Was #98A2B3 — only ~3.1:1 on white, fails WCAG AA. Darkened to ~5:1.
+            textSubtle = Color(0xFF5F6B7C),
             borderDefault = Color(0xFFE4E7EC),
             borderStrong = Color(0xFF101828),
-            errorText = Color(0xFFF42500),
+            // For TEXT on light backgrounds we need ≥4.5:1. #F42500 on white is only ~3.6:1 → darken.
+            errorText = Color(0xFFC4102C),
+            // Kept as brand red for buttons/icons where WCAG 3:1 graphical threshold applies.
             destructive = Color(0xFFF42500),
             statusWarning = Color(0xFFFF234B),
             statusOnline = Color(0xFF16A34A),
             surfaceMuted = Color(0xFFF7F7F7),
-            iconSubtle = Color(0xFF98A2B3),
+            iconSubtle = Color(0xFF5F6B7C),
             callReady = Color(0xFF2E7D32),
             callIncoming = Color(0xFFD97706),
             callMuted = Color(0xFFF42500),
@@ -70,9 +73,10 @@ data class YallaColors(
             brandLight = Color(0xFFC8CBFA),
             backgroundBase = Color(0xFF1A1A20),
             backgroundSecondary = Color(0xFF21222B),
-            backgroundTertiary = Color(0xFF2A2B35), // FIXED: was #1D1D26 (darker than secondary)
+            backgroundTertiary = Color(0xFF2A2B35),
             textBase = Color(0xFFFFFFFF),
-            textSubtle = Color(0xFF747C8B),
+            // Was #747C8B — ~3.6:1 on backgroundSecondary, fails WCAG AA. Lightened to ~5.2:1.
+            textSubtle = Color(0xFF8B93A3),
             borderDefault = Color(0xFF383843),
             borderStrong = Color(0xFFFFFFFF),
             errorText = Color(0xFFF42500),

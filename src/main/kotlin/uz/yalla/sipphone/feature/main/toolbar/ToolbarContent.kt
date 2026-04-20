@@ -14,14 +14,11 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -51,16 +48,8 @@ fun ToolbarContent(
     val callState by component.callState.collectAsState()
     val agentStatus by component.agentStatus.collectAsState()
     val phoneInput by component.phoneInput.collectAsState()
-    val focusRequest by component.phoneInputFocusRequest.collectAsState()
     val accounts by component.accounts.collectAsState()
     val callDuration by component.callDuration.collectAsState()
-
-    val phoneInputFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(focusRequest) {
-        if (focusRequest > 0) {
-            phoneInputFocusRequester.requestFocus()
-        }
-    }
 
     val activeCallAccountId = when (val state = callState) {
         is CallState.Ringing -> state.accountId
@@ -94,7 +83,6 @@ fun ToolbarContent(
                 phoneNumber = phoneInput,
                 onValueChange = component::updatePhoneInput,
                 callState = callState,
-                focusRequester = phoneInputFocusRequester,
             )
 
             Spacer(Modifier.width(tokens.toolbarZoneGap))

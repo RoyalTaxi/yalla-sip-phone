@@ -47,6 +47,11 @@ class FakeSipAccountManager : SipAccountManager {
         updateAccountState(accountId, state)
     }
 
+    /** Directly seed the accounts list — useful for tests that don't want to exercise registerAll. */
+    fun seedAccounts(accounts: List<SipAccount>) {
+        _accounts.value = accounts
+    }
+
     private fun updateAccountState(accountId: String, state: SipAccountState) {
         _accounts.update { list ->
             list.map { if (it.id == accountId) it.copy(state = state) else it }

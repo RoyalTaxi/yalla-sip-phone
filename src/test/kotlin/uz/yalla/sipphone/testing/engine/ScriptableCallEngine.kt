@@ -1,7 +1,9 @@
 package uz.yalla.sipphone.testing.engine
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import uz.yalla.sipphone.domain.CallEngine
 import uz.yalla.sipphone.domain.CallState
@@ -34,6 +36,13 @@ class ScriptableCallEngine(
     // region State
     private val _callState = MutableStateFlow(initialState)
     override val callState = _callState.asStateFlow()
+
+    private val _busyRejections = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    override val busyRejections = _busyRejections.asSharedFlow()
+
+    fun emitBusyRejection(callerNumber: String) {
+        _busyRejections.tryEmit(callerNumber)
+    }
     // endregion
 
     // region Action recording

@@ -128,6 +128,14 @@ object BridgeEvent {
         val seq: Int,
         val timestamp: Long,
     )
+
+    /** Emitted when a key combo previously registered via `registerKeyListeners` is pressed. */
+    @Serializable
+    data class KeyPressed(
+        val key: String,
+        val seq: Int,
+        val timestamp: Long,
+    )
 }
 
 @Serializable

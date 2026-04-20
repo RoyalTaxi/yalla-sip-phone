@@ -33,7 +33,7 @@ class PjsipSipAccountManager(
     )
 
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
-    private val sessions = mutableMapOf<String, AccountSession>()
+    private val sessions = java.util.concurrent.ConcurrentHashMap<String, AccountSession>()
 
     private val _accounts = MutableStateFlow<List<SipAccount>>(emptyList())
     override val accounts: StateFlow<List<SipAccount>> = _accounts.asStateFlow()
@@ -135,6 +135,7 @@ class PjsipSipAccountManager(
     }
 
     override suspend fun unregisterAll() {
+        // Stop reconnect loops *first* so they can't resurrect a cleared session.
         sessions.values.forEach { it.reconnect.stop() }
         sessions.clear()
         withContext(pjDispatcher) { accountManager.unregisterAll() }
@@ -159,8 +160,13 @@ class PjsipSipAccountManager(
             return
         }
         session.reconnect.start {
+            // Re-verify the session still exists at attempt time — unregisterAll() may have
+            // cleared it between the schedule and this attempt.
+            val current = sessions[accountId] ?: return@start Result.failure(
+                IllegalStateException("[$accountId] session cleared before reconnect attempt"),
+            )
             val result = withContext(pjDispatcher) {
-                accountManager.register(accountId, session.info.credentials)
+                accountManager.register(accountId, current.info.credentials)
             }
             result.onFailure {
                 logger.warn { "[$accountId] Reconnect attempt failed: ${it.message}" }

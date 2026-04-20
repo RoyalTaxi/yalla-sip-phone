@@ -7,7 +7,10 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 import org.pjsip.pjsua2.AudioMedia
@@ -35,10 +38,24 @@ class PjsipCallManager(
     private val stateMachine = CallStateMachine()
     val callState: StateFlow<CallState> get() = stateMachine.state
 
+    // Signals a caller number when we auto-reject an incoming call while busy (486).
+    // CallEventOrchestrator collects this to emit the `callRejectedBusy` bridge event.
+    private val _busyRejections = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    val busyRejections: SharedFlow<String> = _busyRejections.asSharedFlow()
+
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
     private var active: ActiveCall? = null
 
-    private val holdController = HoldController(scope)
+    private val holdController = HoldController(
+        scope = scope,
+        onTimeout = {
+            // Hold/unhold never confirmed by pjsip — resync UI to whatever the state flow says
+            // by re-dispatching the current hold state to clear any stuck in-progress indicator.
+            (stateMachine.state.value as? CallState.Active)?.let { active ->
+                stateMachine.dispatch(CallEvent.HoldChanged(active.isOnHold))
+            }
+        },
+    )
     private var hangupTimeoutJob: Job? = null
 
     fun isCallManagerDestroyed(): Boolean = isDestroyed()
@@ -215,10 +232,16 @@ class PjsipCallManager(
         if (active != null) {
             logger.warn { "Rejecting incoming call on $accountId (already in call)" }
             val rejectCall = PjsipCall(this, acc, callId)
+            val callerNumber = runCatching {
+                rejectCall.getInfo().use { info -> parseRemoteUri(info.remoteUri).number }
+            }.getOrDefault("")
             runCatching {
                 withCallOpParam(statusCode = SipConstants.STATUS_BUSY_HERE) { prm -> rejectCall.hangup(prm) }
             }.onFailure { logger.error(it) { "Failed to reject incoming call" } }
             rejectCall.safeDelete()
+            if (callerNumber.isNotEmpty() && !_busyRejections.tryEmit(callerNumber)) {
+                logger.warn { "busyRejections buffer full — event for $callerNumber dropped" }
+            }
             return
         }
         runCatching {

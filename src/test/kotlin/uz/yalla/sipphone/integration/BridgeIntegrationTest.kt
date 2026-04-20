@@ -13,6 +13,7 @@ import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
 import uz.yalla.sipphone.data.jcef.BridgeInitPayload
 import uz.yalla.sipphone.data.jcef.BridgeRouter
 import uz.yalla.sipphone.data.jcef.BridgeSecurity
+import uz.yalla.sipphone.data.jcef.KeyShortcutRegistry
 import uz.yalla.sipphone.data.jcef.bridgeJson
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.AgentStatus
@@ -44,11 +45,14 @@ class BridgeIntegrationTest {
     private var lastAgentStatus: AgentStatus = AgentStatus.READY
     private var readyPayload: String = ""
 
+    private val keyRegistry = KeyShortcutRegistry()
+
     private val router = BridgeRouter(
         callEngine = callEngine,
         sipAccountManager = sipAccountManager,
         security = security,
         auditLog = auditLog,
+        keyRegistry = keyRegistry,
         agentStatusProvider = { lastAgentStatus },
         onAgentStatusChange = { lastAgentStatus = it },
         onReady = {

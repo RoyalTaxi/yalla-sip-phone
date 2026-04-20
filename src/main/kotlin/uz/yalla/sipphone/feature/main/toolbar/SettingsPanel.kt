@@ -1,11 +1,14 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,8 +38,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
@@ -44,6 +45,7 @@ import androidx.compose.ui.window.PopupProperties
 import uz.yalla.sipphone.domain.AgentInfo
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.ui.component.YallaSegmentedControl
+import uz.yalla.sipphone.ui.component.hoverClickable
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -77,8 +79,17 @@ fun SettingsPanel(
     ) {
         AnimatedVisibility(
             visibleState = animState,
-            enter = slideInHorizontally(initialOffsetX = { it }),
-            exit = slideOutHorizontally(targetOffsetX = { it }),
+            // Desktop-tuned: panel slides in from the right edge (valid pattern — Finder
+            // inspector, macOS System Settings both do this), but snappier than mobile.
+            // Combined fade reduces the "slam" feel the raw slide otherwise has at short durations.
+            enter = slideInHorizontally(
+                initialOffsetX = { it },
+                animationSpec = tween(tokens.animMedium, easing = LinearOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(tokens.animFast)),
+            exit = slideOutHorizontally(
+                targetOffsetX = { it },
+                animationSpec = tween(tokens.animFast, easing = LinearOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(tokens.animFast)),
         ) {
             Column(
                 modifier = Modifier
@@ -103,15 +114,19 @@ fun SettingsPanel(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(tokens.shapeXs)
-                            .background(colors.backgroundTertiary)
-                            .pointerHoverIcon(PointerIcon.Hand)
-                            .clickable(onClick = onDismiss),
+                            .background(colors.backgroundTertiary, tokens.shapeXs)
+                            .hoverClickable(
+                                // Slightly lighter than the resting backgroundTertiary so hover is visible.
+                                hoverBackground = colors.borderDefault,
+                                shape = tokens.shapeXs,
+                                onClick = onDismiss,
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             Icons.Filled.Close, null,
                             modifier = Modifier.size(14.dp),
-                            tint = colors.iconSubtle,
+                            tint = colors.textBase,
                         )
                     }
                 }
@@ -176,14 +191,27 @@ fun SettingsPanel(
                 HorizontalDivider(color = colors.borderDefault)
                 Spacer(Modifier.height(tokens.spacingSm))
 
-                TextButton(
-                    onClick = onLogout,
+                // Replace the unstyled TextButton with an explicit hoverable Box so the hover
+                // state is a visible destructive-tinted background, not Material3's near-invisible
+                // default ripple on a dark surface.
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .pointerHoverIcon(PointerIcon.Hand),
-                    colors = ButtonDefaults.textButtonColors(contentColor = colors.destructive),
+                        .clip(tokens.shapeSmall)
+                        .hoverClickable(
+                            hoverBackground = colors.destructive.copy(alpha = tokens.alphaSubtle),
+                            shape = tokens.shapeSmall,
+                            onClick = onLogout,
+                        )
+                        .padding(vertical = tokens.spacingSm),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(strings.settingsLogout, fontSize = tokens.textMd, fontWeight = FontWeight.Medium)
+                    Text(
+                        strings.settingsLogout,
+                        fontSize = tokens.textMd,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.destructive,
+                    )
                 }
 
                 Spacer(Modifier.height(tokens.spacingXs))

@@ -1,5 +1,8 @@
 package uz.yalla.sipphone.domain
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class SipAccountInfo(
     val extensionNumber: Int,
     val serverUrl: String,

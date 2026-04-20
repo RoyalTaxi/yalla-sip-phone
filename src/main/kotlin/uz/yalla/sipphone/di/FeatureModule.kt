@@ -15,6 +15,7 @@ val featureModule = module {
             eventEmitter = get(),
             security = get(),
             auditLog = get(),
+            keyRegistry = get(),
             updateManager = get(),
         )
     }

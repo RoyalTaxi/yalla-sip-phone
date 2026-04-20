@@ -98,9 +98,12 @@ data class AppTokens(
     val progressStrokeSmall: Dp = 2.dp,
 
     // ── Animation ──
-    val animFast: Int = 200,
-    val animMedium: Int = 300,
-    val animSlow: Int = 350,
+    // Desktop-tuned durations. Anything over ~200 ms on desktop reads as sluggish/gummy
+    // — we're not on a phone where gesture-physics feel is expected. Previous values
+    // (200/300/350) were mobile-ported and made every transition feel slow.
+    val animFast: Int = 120,
+    val animMedium: Int = 180,
+    val animSlow: Int = 220,
 
     // ── Window sizes ──
     val loginWindowSize: DpSize = DpSize(1280.dp, 720.dp),

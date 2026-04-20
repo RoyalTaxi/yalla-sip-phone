@@ -84,7 +84,7 @@ fun MainScreen(
         visible = diagnosticsVisible,
         installId = "—",
         channel = "—",
-        currentVersion = uz.yalla.sipphone.di.BuildVersion.CURRENT,
+        currentVersion = uz.yalla.sipphone.domain.BuildVersion.CURRENT,
         stateText = component.updateManager.state.value.toString(),
         lastCheckText = lastCheck,
         lastErrorText = component.updateManager.lastErrorMessage() ?: "—",

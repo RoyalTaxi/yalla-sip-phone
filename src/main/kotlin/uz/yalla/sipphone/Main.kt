@@ -22,21 +22,25 @@ import java.awt.AWTEvent
 import java.awt.event.KeyEvent
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.SwingUtilities
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
 import uz.yalla.sipphone.data.settings.AppSettings
 import uz.yalla.sipphone.data.auth.AuthEventBus
 import uz.yalla.sipphone.data.auth.LogoutOrchestrator
+import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
 import uz.yalla.sipphone.data.jcef.JcefManager
+import uz.yalla.sipphone.data.jcef.KeyShortcutRegistry
 import uz.yalla.sipphone.data.update.UpdateManager
 import uz.yalla.sipphone.di.appModules
-import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.SipConstants
 import uz.yalla.sipphone.domain.SipStackLifecycle
 import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.RootComponent
 import uz.yalla.sipphone.navigation.RootContent
+import uz.yalla.sipphone.ui.component.SplashScreen
 import uz.yalla.sipphone.ui.strings.Strings
 import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 
@@ -72,18 +76,30 @@ fun main() {
     }
 
     val jcefManager: JcefManager = koin.get()
-    jcefManager.initialize(debugPort = 9222)
+    // NOTE: JCEF is intentionally NOT initialized here.
+    // Per JetBrains/compose-multiplatform#2939, initializing JCEF before the Compose Window
+    // exists causes (on macOS) the Chromium NSView to attach with broken geometry — the
+    // webview then renders blank until the user triggers a resize. Init is moved into a
+    // LaunchedEffect inside the Window composable below, so JCEF attaches to a live window.
 
-    val jcefShutdownDone = AtomicBoolean(false)
+    // gracefulShutdown can fire from three sources concurrently:
+    //   (a) AWT window close (onCloseRequest)
+    //   (b) Runtime shutdown hook (Ctrl+C / SIGTERM)
+    //   (c) UpdateManager.onBeforeExit (before MSI installer launches)
+    // A single gate ensures each step runs exactly once.
+    val shutdownDone = AtomicBoolean(false)
 
     fun gracefulShutdown() {
-        updateManager.stop()
-        runBlocking {
-            withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
-        }
-        if (jcefShutdownDone.compareAndSet(false, true)) {
-            jcefManager.shutdown()
-        }
+        if (!shutdownDone.compareAndSet(false, true)) return
+        runCatching { updateManager.stop() }
+            .onFailure { logger.warn(it) { "updateManager.stop() failed" } }
+        runCatching {
+            runBlocking {
+                withTimeoutOrNull(SipConstants.Timeout.DESTROY_MS) { lifecycle.shutdown() }
+            }
+        }.onFailure { logger.warn(it) { "lifecycle.shutdown() failed" } }
+        runCatching { jcefManager.shutdown() }
+            .onFailure { logger.warn(it) { "jcefManager.shutdown() failed" } }
     }
 
     Runtime.getRuntime().addShutdownHook(Thread(::gracefulShutdown))
@@ -140,6 +156,27 @@ fun main() {
                 }
             }
 
+            // Fixes compose-multiplatform#2939 on macOS: if JCEF is initialized before the
+            // Compose Window exists, the Chromium NSView attaches with broken geometry and
+            // the webview stays blank until a manual resize. Init here, after the Window is
+            // live, then block navigation behind a splash until it finishes so downstream
+            // components (MainComponent's bridge router, WebviewPanel's createBrowser) are
+            // guaranteed a ready JcefManager.
+            //
+            // Offloaded to Dispatchers.IO because JcefManager.initialize uses
+            // SwingUtilities.invokeAndWait internally — calling it from the AWT EDT
+            // (Compose Desktop's Dispatchers.Main) would deadlock.
+            var jcefReady by remember { mutableStateOf(jcefManager.isInitialized) }
+            LaunchedEffect(Unit) {
+                if (!jcefManager.isInitialized) {
+                    withContext(Dispatchers.IO) {
+                        runCatching { jcefManager.initialize(debugPort = 9222) }
+                            .onFailure { logger.error(it) { "JCEF initialization failed" } }
+                    }
+                }
+                jcefReady = true
+            }
+
             // AWT-level shortcuts — bypasses Compose/JCEF focus issues
             DisposableEffect(Unit) {
                 val listener = java.awt.event.AWTEventListener { event ->
@@ -156,19 +193,23 @@ fun main() {
             LifecycleController(decomposeLifecycle, windowState)
 
             YallaSipPhoneTheme(isDark = isDarkTheme, locale = locale) {
-                RootContent(
-                    root = rootComponent,
-                    isDarkTheme = isDarkTheme,
-                    locale = locale,
-                    onThemeToggle = {
-                        isDarkTheme = !isDarkTheme
-                        appSettings.isDarkTheme = isDarkTheme
-                    },
-                    onLocaleChange = { newLocale ->
-                        locale = newLocale
-                        appSettings.locale = newLocale
-                    },
-                )
+                if (!jcefReady) {
+                    SplashScreen()
+                } else {
+                    RootContent(
+                        root = rootComponent,
+                        isDarkTheme = isDarkTheme,
+                        locale = locale,
+                        onThemeToggle = {
+                            isDarkTheme = !isDarkTheme
+                            appSettings.isDarkTheme = isDarkTheme
+                        },
+                        onLocaleChange = { newLocale ->
+                            locale = newLocale
+                            appSettings.locale = newLocale
+                        },
+                    )
+                }
             }
         }
     }
@@ -178,7 +219,10 @@ private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent
     val ctrl = event.isControlDown
     val shift = event.isShiftDown
 
-    // Global shortcuts — work on any screen (login, main, etc.)
+    // Two native-only debug shortcuts stay hardcoded — they're app-level debug surfaces that
+    // the web team shouldn't own or be able to override through the bridge. Everything else
+    // is frontend-driven: the web panel calls `registerKeyListeners` on handshake and native
+    // only listens for the combos it's explicitly asked to.
     when {
         ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_B -> {
             val settings: AppSettings =
@@ -197,39 +241,20 @@ private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent
         }
     }
 
-    // Main-screen-only shortcuts — require toolbar and call state
+    // Only dispatch registered shortcuts once the main screen is showing — on the login
+    // screen there's no bridge to emit events to.
     val currentChild = rootComponent.childStack.value.active.instance
     if (currentChild !is RootComponent.Child.Main) return
-    val toolbar = currentChild.component.toolbar
-    val callState = toolbar.callState.value
 
-    when {
-        ctrl && event.keyCode == KeyEvent.VK_ENTER
-            && callState is CallState.Ringing && !callState.isOutbound -> {
-            toolbar.answerCall()
-            event.consume()
-        }
-        ctrl && shift && event.keyCode == KeyEvent.VK_E -> {
-            when (callState) {
-                is CallState.Ringing -> toolbar.rejectCall()
-                is CallState.Active -> toolbar.hangupCall()
-                else -> {}
-            }
-            event.consume()
-        }
-        ctrl && !shift && event.keyCode == KeyEvent.VK_M && callState is CallState.Active -> {
-            toolbar.toggleMute()
-            event.consume()
-        }
-        ctrl && !shift && event.keyCode == KeyEvent.VK_H && callState is CallState.Active -> {
-            toolbar.toggleHold()
-            event.consume()
-        }
-        ctrl && !shift && event.keyCode == KeyEvent.VK_L && callState is CallState.Idle -> {
-            toolbar.requestPhoneInputFocus()
-            event.consume()
-        }
-    }
+    val registry: KeyShortcutRegistry =
+        org.koin.java.KoinJavaComponent.get(KeyShortcutRegistry::class.java)
+    val matched = registry.match(event) ?: return
+    val emitter: BridgeEventEmitter =
+        org.koin.java.KoinJavaComponent.get(BridgeEventEmitter::class.java)
+    emitter.emitKeyPressed(matched)
+    // Consume the event so JCEF / Compose don't process it a second time — the frontend
+    // is solely responsible for acting on registered shortcuts from here.
+    event.consume()
 }
 
 private fun <T> runOnUiThread(block: () -> T): T {

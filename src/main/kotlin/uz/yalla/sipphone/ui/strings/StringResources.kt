@@ -81,6 +81,8 @@ interface StringResources {
     val updateInstallingMessage: String
     val updateFailedVerify: String
     val updateFailedDownload: String
+    val updateFailedInstall: String
+    val updateFailedCheck: String
     val updateFailedDisk: String
     val updateFailedUntrustedUrl: String
     val updateFailedMalformedManifest: String

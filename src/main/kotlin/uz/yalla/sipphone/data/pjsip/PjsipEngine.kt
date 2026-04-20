@@ -8,6 +8,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.withContext
@@ -85,6 +86,9 @@ class PjsipEngine : SipStackLifecycle, CallEngine {
 
     override val callState: StateFlow<CallState>
         get() = callManager.callState
+
+    override val busyRejections: SharedFlow<String>
+        get() = callManager.busyRejections
 
     override suspend fun makeCall(number: String, accountId: String): Result<Unit> =
         withContext(pjDispatcher) { callManager.makeCall(number, accountId) }

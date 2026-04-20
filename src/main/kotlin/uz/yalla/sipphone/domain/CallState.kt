@@ -1,5 +1,8 @@
 package uz.yalla.sipphone.domain
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 sealed interface CallState {
     /** Account ID of the current call, or null if idle. */
     val activeAccountId: String?

@@ -66,6 +66,8 @@ object RuStrings : StringResources {
     override val updateInstallingMessage = "Установка..."
     override val updateFailedVerify = "Файл поврежден. Попробуйте снова."
     override val updateFailedDownload = "Не удалось загрузить. Проверьте сеть."
+    override val updateFailedInstall = "Не удалось установить обновление"
+    override val updateFailedCheck = "Не удалось проверить обновления"
     override val updateFailedDisk = "Недостаточно места на диске"
     override val updateFailedUntrustedUrl = "Ненадежный источник. Обратитесь в IT."
     override val updateFailedMalformedManifest = "Неверный ответ сервера"

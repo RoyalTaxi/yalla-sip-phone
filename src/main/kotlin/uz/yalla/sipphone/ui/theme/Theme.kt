@@ -11,6 +11,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.materialkolor.rememberDynamicColorScheme
+import uz.yalla.sipphone.ui.component.TooltipHost
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.strings.RuStrings
 import uz.yalla.sipphone.ui.strings.StringResources
@@ -66,7 +67,11 @@ fun YallaSipPhoneTheme(
             LocalAppTokens provides tokens,
             LocalYallaColors provides yallaColors,
             LocalStrings provides strings,
-            content = content,
-        )
+        ) {
+            // TooltipHost installed at theme root — renders at-most-one tooltip as an in-window
+            // Compose overlay, so no native Popup can cause focus-capture flicker. See
+            // YallaTooltip.kt for the full rationale.
+            TooltipHost(content = content)
+        }
     }
 }

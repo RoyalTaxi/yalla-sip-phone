@@ -1,12 +1,17 @@
 package uz.yalla.sipphone.data.jcef
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.SwingUtilities
 import kotlinx.serialization.json.buildJsonObject
@@ -33,6 +38,7 @@ class BridgeRouter(
     private val sipAccountManager: SipAccountManager,
     private val security: BridgeSecurity,
     private val auditLog: BridgeAuditLog,
+    private val keyRegistry: KeyShortcutRegistry,
     private val agentStatusProvider: () -> AgentStatus,
     private val onAgentStatusChange: (AgentStatus) -> Unit,
     private val onReady: () -> String,
@@ -47,6 +53,11 @@ class BridgeRouter(
 
     companion object {
         private const val COMMAND_TIMEOUT_MS = 30_000L
+        private const val CALL_ID_SETTLE_MS = 2_000L
+        // How long dispose() waits for in-flight commands to complete naturally before
+        // hard-cancelling. Long enough for typical dispatch (most <100ms) but short enough
+        // that app shutdown / navigation still feels responsive.
+        private const val DISPOSE_GRACE_MS = 500L
     }
 
     private object Commands {
@@ -63,6 +74,8 @@ class BridgeRouter(
         const val GET_STATE = "getState"
         const val GET_VERSION = "getVersion"
         const val REQUEST_LOGOUT = "requestLogout"
+        const val REGISTER_KEY_LISTENERS = "registerKeyListeners"
+        const val UNREGISTER_KEY_LISTENERS = "unregisterKeyListeners"
     }
 
     fun install(client: CefClient) {
@@ -78,6 +91,17 @@ class BridgeRouter(
 
     fun dispose() {
         if (!disposed.compareAndSet(false, true)) return
+        // Give in-flight commands DISPOSE_GRACE_MS to finish naturally so their JS callbacks
+        // resolve normally instead of erroring out. After the grace period, cancel the scope
+        // — remaining coroutines hit CancellationException inside onQuery's catch block and
+        // send a DISPOSED error response, so the JS side never hangs.
+        runCatching {
+            runBlocking {
+                withTimeoutOrNull(DISPOSE_GRACE_MS) {
+                    scope.coroutineContext[Job]?.children?.toList()?.forEach { it.join() }
+                }
+            }
+        }.onFailure { logger.warn(it) { "Grace-wait during dispose() failed" } }
         scope.cancel()
         messageRouter?.let { router ->
             installedClient?.removeMessageRouter(router)
@@ -95,13 +119,33 @@ class BridgeRouter(
             callback: CefQueryCallback,
         ): Boolean {
             if (disposed.get()) return false
-            scope.launch {
+            // Guarantee exactly one response per query regardless of whether the coroutine
+            // body completes, is cancelled before it starts, or is cancelled mid-flight.
+            val responded = AtomicBoolean(false)
+            fun respond(payloadJson: String) {
+                if (responded.compareAndSet(false, true)) {
+                    runCatching { callback.success(payloadJson) }
+                        .onFailure { logger.warn(it) { "callback.success() threw" } }
+                }
+            }
+            fun respondError(code: String, message: String) {
+                if (responded.compareAndSet(false, true)) {
+                    safeFailure(callback, code, message)
+                }
+            }
+
+            val job = scope.launch {
+                if (disposed.get()) {
+                    respondError("DISPOSED", "Bridge shutting down")
+                    return@launch
+                }
                 try {
                     val cmd = bridgeJson.decodeFromString<BridgeCommand>(request)
 
                     if (cmd.command != Commands.READY && !security.checkRateLimit(cmd.command)) {
+                        auditLog.logCommand(cmd.command, cmd.params, "RATE_LIMITED")
                         val result = CommandResult.error("RATE_LIMITED", "Too many requests", true)
-                        callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
+                        respond(bridgeJson.encodeToString(CommandResult.serializer(), result))
                         return@launch
                     }
 
@@ -114,18 +158,37 @@ class BridgeRouter(
                         cmd.params,
                         if (result.success) "OK" else result.error?.code ?: "ERROR",
                     )
-                    callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
+                    respond(bridgeJson.encodeToString(CommandResult.serializer(), result))
+                } catch (e: CancellationException) {
+                    // Scope was cancelled while we were running. Answer the JS caller with a
+                    // DISPOSED error before propagating so the caller's Promise resolves.
+                    respondError("DISPOSED", "Bridge disposed")
+                    throw e
                 } catch (e: Exception) {
                     val cmdName = runCatching {
                         bridgeJson.decodeFromString<BridgeCommand>(request).command
                     }.getOrDefault("unknown")
                     logger.error(e) { "Bridge command failed: $cmdName" }
-                    val result = CommandResult.error("INTERNAL_ERROR", e.message ?: "Unknown error", false)
-                    callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
+                    auditLog.logCommand(cmdName, emptyMap(), "INTERNAL_ERROR")
+                    respondError("INTERNAL_ERROR", e.message ?: "Unknown error")
+                }
+            }
+            // If the scope was already cancelled at launch time, the body above never runs.
+            // invokeOnCompletion still fires synchronously and lets us answer the callback.
+            job.invokeOnCompletion { cause ->
+                if (cause != null) {
+                    respondError("DISPOSED", cause.message ?: "Bridge disposed before dispatch")
                 }
             }
             return true
         }
+    }
+
+    private fun safeFailure(callback: CefQueryCallback, code: String, message: String) {
+        runCatching {
+            val result = CommandResult.error(code, message, false)
+            callback.success(bridgeJson.encodeToString(CommandResult.serializer(), result))
+        }.onFailure { logger.warn(it) { "Failed to deliver $code to JS callback" } }
     }
 
     private suspend fun dispatch(cmd: BridgeCommand): CommandResult {
@@ -147,8 +210,35 @@ class BridgeRouter(
                 SwingUtilities.invokeLater { onRequestLogout() }
                 CommandResult.success(null)
             }
+            Commands.REGISTER_KEY_LISTENERS -> handleRegisterKeyListeners(cmd.params)
+            Commands.UNREGISTER_KEY_LISTENERS -> handleUnregisterKeyListeners()
             else -> CommandResult.error("INTERNAL_ERROR", "Unknown command: ${cmd.command}", false)
         }
+    }
+
+    private fun handleRegisterKeyListeners(params: Map<String, String>): CommandResult {
+        // Params carry a JSON array in `keys` (e.g. `["ctrl+enter","ctrl+m"]`). Bridge params
+        // are Map<String,String>, so the array is passed as its JSON-encoded string.
+        val keysJson = params["keys"]
+            ?: return CommandResult.error("INVALID_ARGS", "Missing 'keys' parameter", true)
+        val keys = runCatching {
+            kotlinx.serialization.json.Json.decodeFromString<List<String>>(keysJson)
+        }.getOrElse {
+            return CommandResult.error(
+                "INVALID_ARGS",
+                "'keys' must be a JSON array of strings: ${it.message}",
+                true,
+            )
+        }
+        val count = keyRegistry.register(keys)
+        return CommandResult.success(
+            buildJsonObject { put("registered", count) },
+        )
+    }
+
+    private fun handleUnregisterKeyListeners(): CommandResult {
+        keyRegistry.clear()
+        return CommandResult.success(null)
     }
 
     private fun handleReady(): CommandResult {
@@ -175,8 +265,21 @@ class BridgeRouter(
         }
         val result = callEngine.makeCall(validation.getOrThrow())
         return if (result.isSuccess) {
-            val callId = (callEngine.callState.value as? CallState.Ringing)?.callId ?: "unknown"
-            CommandResult.success(buildJsonObject { put("callId", callId) })
+            // Wait briefly for the state machine to transition to Ringing so we can report the
+            // real callId. Without this the cast can fire before pjsip's dispatch has propagated
+            // and the frontend gets "unknown" — which then fails every subsequent DTMF/transfer.
+            val ringing = withTimeoutOrNull(CALL_ID_SETTLE_MS) {
+                callEngine.callState.first { it is CallState.Ringing } as CallState.Ringing
+            }
+            if (ringing == null) {
+                logger.warn { "makeCall: state did not transition to Ringing within ${CALL_ID_SETTLE_MS}ms" }
+                return CommandResult.error(
+                    "INTERNAL_ERROR",
+                    "Call initiated but state did not transition",
+                    true,
+                )
+            }
+            CommandResult.success(buildJsonObject { put("callId", ringing.callId) })
         } else {
             CommandResult.error(
                 "INTERNAL_ERROR",

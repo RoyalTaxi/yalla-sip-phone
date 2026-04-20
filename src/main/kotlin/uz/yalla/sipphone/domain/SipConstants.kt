@@ -1,9 +1,12 @@
 package uz.yalla.sipphone.domain
 
 object SipConstants {
-    const val APP_VERSION = "1.2.0"
+    // Sourced from the generated BuildVersion (written by build.gradle.kts from the git tag).
+    // Kept as a `val` rather than `const val` because BuildVersion.CURRENT is resolved at
+    // runtime — which is what we want so a compiler doesn't inline a stale value into callers.
+    val APP_VERSION: String = BuildVersion.CURRENT
     const val DEFAULT_PORT = 5060
-    const val USER_AGENT = "YallaSipPhone/$APP_VERSION"
+    val USER_AGENT: String = "YallaSipPhone/$APP_VERSION"
     const val AUTH_SCHEME_DIGEST = "digest"
     const val AUTH_REALM_ANY = "*"
     const val AUTH_DATA_TYPE_PLAINTEXT = 0

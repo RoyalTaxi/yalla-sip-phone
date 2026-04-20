@@ -2,7 +2,6 @@ package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -11,17 +10,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.SipAccount
 import uz.yalla.sipphone.domain.SipAccountState
 import uz.yalla.sipphone.ui.component.YallaTooltip
+import uz.yalla.sipphone.ui.component.hoverClickable
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -65,7 +64,11 @@ private fun SipChip(
     val strings = LocalStrings.current
 
     val isClickable = account.state !is SipAccountState.Reconnecting
-    val chipStyle = resolveChipStyle(colors, tokens, account.state, isActiveCall, isMutedByCall)
+    // Memoize chip style — the Color.copy(alpha=...) calls inside allocate a new Color each
+    // recomposition; wasted work on every call-state flick.
+    val chipStyle = remember(account.state, isActiveCall, isMutedByCall, colors, tokens) {
+        resolveChipStyle(colors, tokens, account.state, isActiveCall, isMutedByCall)
+    }
 
     val statusText = when (account.state) {
         is SipAccountState.Connected -> strings.sipConnected
@@ -80,7 +83,6 @@ private fun SipChip(
 
     YallaTooltip(
         tooltip = {
-            Text(account.name, fontSize = tokens.textMd, fontWeight = FontWeight.SemiBold, color = colors.textBase)
             Text(account.credentials.username, fontSize = tokens.textSm, color = colors.textSubtle)
             Text("${account.credentials.server}:${account.credentials.port}", fontSize = tokens.textSm, color = colors.textSubtle)
             if (account.credentials.transport != "UDP") {
@@ -98,9 +100,12 @@ private fun SipChip(
                 .clip(tokens.shapeXs)
                 .background(chipStyle.bgColor, tokens.shapeXs)
                 .border(tokens.dividerThickness, chipStyle.borderColor, tokens.shapeXs)
-                .then(
-                    if (isClickable) Modifier.pointerHoverIcon(PointerIcon.Hand).clickable(onClick = onClick)
-                    else Modifier,
+                .hoverClickable(
+                    // Hover overlay derived from the chip's own border color so status hues stay consistent.
+                    hoverBackground = chipStyle.borderColor.copy(alpha = tokens.alphaMedium),
+                    shape = tokens.shapeXs,
+                    enabled = isClickable,
+                    onClick = onClick,
                 )
                 .padding(horizontal = tokens.spacingMdSm - 2.dp),
             verticalAlignment = Alignment.CenterVertically,

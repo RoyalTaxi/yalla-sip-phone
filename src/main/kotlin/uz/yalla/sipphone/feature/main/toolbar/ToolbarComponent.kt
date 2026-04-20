@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -34,9 +35,6 @@ class ToolbarComponent(
     private val _phoneInput = MutableStateFlow("")
     val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
 
-    private val _phoneInputFocusRequest = MutableStateFlow(0)
-    val phoneInputFocusRequest: StateFlow<Int> = _phoneInputFocusRequest.asStateFlow()
-
     private val _callDuration = MutableStateFlow<String?>(null)
     val callDuration: StateFlow<String?> = _callDuration.asStateFlow()
 
@@ -46,6 +44,10 @@ class ToolbarComponent(
     private var timerJob: Job? = null
     private val ringtonePlayer = RingtonePlayer()
     private val notificationService = NotificationService()
+
+    // Serialize bulk SIP operations so rapid button-mashing can't pile up parallel
+    // unregister/connect calls on the same account.
+    private val disconnectInFlight = AtomicBoolean(false)
 
     init {
         scope.launch {
@@ -86,8 +88,13 @@ class ToolbarComponent(
             return false
         }
         val firstConnected = accounts.value.firstOrNull { it.state is SipAccountState.Connected }
-        val accountId = firstConnected?.id ?: ""
-        scope.launch { callEngine.makeCall(validation.getOrThrow(), accountId) }
+        if (firstConnected == null) {
+            // Reject early so the UI can show "no account connected" instead of pretending the
+            // call was dialed. Previous behaviour passed "" and the call silently failed downstream.
+            logger.info { "makeCall rejected: no connected SIP account" }
+            return false
+        }
+        scope.launch { callEngine.makeCall(validation.getOrThrow(), firstConnected.id) }
         return true
     }
 
@@ -113,21 +120,17 @@ class ToolbarComponent(
         scope.launch { callEngine.toggleHold() }
     }
 
-    fun requestPhoneInputFocus() {
-        _phoneInputFocusRequest.value++
-    }
-
     fun onSipChipClick(accountId: String) {
-        val account = accounts.value.find { it.id == accountId } ?: return
-
-        // Cannot disconnect account with active call
-        if (callState.value.activeAccountId == accountId && account.state is SipAccountState.Connected) {
-            logger.debug { "Cannot disconnect SIP account with active call: $accountId" }
-            return
-        }
-
+        // Only gate the action here — the scope.launch below re-reads state inside the coroutine
+        // so it doesn't act on a stale snapshot from this frame (account could change state
+        // between click and dispatch).
         scope.launch {
-            when (account.state) {
+            val current = sipAccountManager.accounts.value.find { it.id == accountId } ?: return@launch
+            if (callState.value.activeAccountId == accountId && current.state is SipAccountState.Connected) {
+                logger.debug { "Cannot disconnect SIP account with active call: $accountId" }
+                return@launch
+            }
+            when (current.state) {
                 is SipAccountState.Connected -> sipAccountManager.disconnect(accountId)
                 is SipAccountState.Disconnected -> sipAccountManager.connect(accountId)
                 is SipAccountState.Reconnecting -> { /* ignore — transition state */ }
@@ -144,7 +147,15 @@ class ToolbarComponent(
     }
 
     fun disconnect() {
-        scope.launch { sipAccountManager.unregisterAll() }
+        // Guard against parallel unregisterAll invocations from button-mashing.
+        if (!disconnectInFlight.compareAndSet(false, true)) return
+        scope.launch {
+            try {
+                sipAccountManager.unregisterAll()
+            } finally {
+                disconnectInFlight.set(false)
+            }
+        }
     }
 
     fun releaseAudioResources() {

@@ -71,7 +71,9 @@ class LoginComponent(
             val result = authRepository.login(password)
             result.fold(
                 onSuccess = { authResult ->
-                    _loginState.value = LoginState.Authenticated(authResult)
+                    // Stay in Loading until SIP registration succeeds. If we set Authenticated
+                    // here and registerAndNavigate() fails, the UI shows "logged in" but the
+                    // navigation to Main never happens — confusing the operator.
                     registerAndNavigate(authResult, authResult.accounts)
                 },
                 onFailure = { error ->
@@ -156,6 +158,10 @@ class LoginComponent(
                     return@fold
                 }
                 logger.info { "SIP connected, navigating to main" }
+                // Only transition to Authenticated once the navigation callback has fired so
+                // the UI never shows a gap where LoginState = Authenticated but the screen
+                // is still the login form.
+                _loginState.value = LoginState.Authenticated(authResult)
                 withContext(mainDispatcher) {
                     onLoginSuccess(authResult)
                 }

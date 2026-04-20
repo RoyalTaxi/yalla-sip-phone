@@ -147,12 +147,19 @@ class UpdateManager(
      * Waits until the call state is Idle, then triggers the install and exits.
      */
     fun confirmInstall() {
-        val ready = _state.value as? UpdateState.ReadyToInstall ?: return
+        val ready = _state.value as? UpdateState.ReadyToInstall ?: run {
+            // Likely a race: a new check cycle finished between the operator clicking Install
+            // and this handler running. Log so we don't silently no-op — the caller can retry.
+            logger.warn { "confirmInstall ignored: state is ${_state.value::class.simpleName}, expected ReadyToInstall" }
+            return
+        }
+        // Flip the flag *before* the state transition so concurrent check cycles bail
+        // on `if (installInProgress) return` even if they see the old state briefly.
+        installInProgress = true
         scope.launch {
             // Suspends until call becomes Idle; .first{} guarantees Idle on resume.
             callState.first { it is CallState.Idle }
             _state.value = UpdateState.Installing(ready.release)
-            installInProgress = true
             runCatching {
                 installer.install(
                     msiPath = Path.of(ready.msiPath),
@@ -195,11 +202,19 @@ class UpdateManager(
         _dialogDismissed.value = false
         _state.value = UpdateState.Checking
 
-        val result = api.check(
-            channel = channelProvider(),
-            currentVersion = currentVersion,
-            installId = installIdProvider(),
-        )
+        // Guard against the api.check() throwing anything the API class forgot to wrap —
+        // without this, the state gets stuck at Checking and the diagnostics panel becomes the
+        // only way to know the updater is broken.
+        val result = runCatching {
+            api.check(
+                channel = channelProvider(),
+                currentVersion = currentVersion,
+                installId = installIdProvider(),
+            )
+        }.getOrElse { t ->
+            logger.warn(t) { "api.check() threw unexpectedly" }
+            UpdateCheckResult.Error(t)
+        }
 
         when (result) {
             is UpdateCheckResult.NoUpdate -> _state.value = UpdateState.Idle

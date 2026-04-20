@@ -1,5 +1,8 @@
 package uz.yalla.sipphone.domain
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 data class SipCredentials(
     val server: String,
     val port: Int = SipConstants.DEFAULT_PORT,

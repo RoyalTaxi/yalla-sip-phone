@@ -30,11 +30,12 @@ sealed interface CallEvent {
 class CallStateMachine {
     private val _state = MutableStateFlow<CallState>(CallState.Idle)
     val state: StateFlow<CallState> = _state.asStateFlow()
+    private val lock = Any()
 
-    fun dispatch(event: CallEvent): CallState {
+    fun dispatch(event: CallEvent): CallState = synchronized(lock) {
         val next = transition(_state.value, event)
         _state.value = next
-        return next
+        next
     }
 
     private fun transition(current: CallState, event: CallEvent): CallState = when (event) {

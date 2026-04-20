@@ -21,16 +21,59 @@ class CallEventOrchestrator(
         launchCallStateCollector(scope)
         launchConnectionStateCollector(scope)
         launchAgentStatusCollector(scope)
+        launchBusyRejectionCollector(scope)
     }
+
+    private fun launchBusyRejectionCollector(scope: CoroutineScope) {
+        scope.launch {
+            callEngine.busyRejections.collect { callerNumber ->
+                eventEmitter.emitCallRejectedBusy(callerNumber)
+            }
+        }
+    }
+
+    private data class CallSnapshot(
+        val callId: String,
+        val number: String,
+        val direction: String,
+        val isOutbound: Boolean,
+        val everActive: Boolean,
+        val terminatedLocally: Boolean,
+    )
 
     private fun launchCallStateCollector(scope: CoroutineScope) {
         var previousCallState: CallState = CallState.Idle
         var callStartTimestamp = 0L
+        var lastSnapshot: CallSnapshot? = null
 
         scope.launch {
             callEngine.callState.collect { newState ->
                 val prev = previousCallState
                 previousCallState = newState
+
+                // Cache call info from Ringing/Active so it survives the Ending bridge.
+                // `Ending` carries only callId/accountId, so without this cache `Ending → Idle`
+                // (local hangup/reject) would drop the callEnded event.
+                when (newState) {
+                    is CallState.Ringing -> lastSnapshot = CallSnapshot(
+                        callId = newState.callId,
+                        number = newState.callerNumber,
+                        direction = newState.direction,
+                        isOutbound = newState.isOutbound,
+                        everActive = lastSnapshot?.everActive ?: false,
+                        terminatedLocally = false,
+                    )
+                    is CallState.Active -> lastSnapshot = CallSnapshot(
+                        callId = newState.callId,
+                        number = newState.remoteNumber,
+                        direction = newState.direction,
+                        isOutbound = newState.isOutbound,
+                        everActive = true,
+                        terminatedLocally = false,
+                    )
+                    is CallState.Ending -> lastSnapshot = lastSnapshot?.copy(terminatedLocally = true)
+                    is CallState.Idle -> Unit
+                }
 
                 when {
                     // Idle → Ringing (inbound)
@@ -59,33 +102,26 @@ class CallEventOrchestrator(
                             eventEmitter.emitCallHoldChanged(newState.callId, newState.isOnHold)
                         }
                     }
-                    // Any → Idle (call ended)
-                    newState is CallState.Idle &&
-                        (prev is CallState.Ringing || prev is CallState.Active || prev is CallState.Ending) -> {
-                        val duration = ((System.currentTimeMillis() - callStartTimestamp) / 1000).toInt()
-                        val callId: String
-                        val number: String
-                        val direction: String
-                        val reason: String
-
-                        when (prev) {
-                            is CallState.Ringing -> {
-                                callId = prev.callId
-                                number = prev.callerNumber
-                                direction = prev.direction
-                                reason = if (prev.isOutbound) "hangup" else "missed"
-                            }
-                            is CallState.Active -> {
-                                callId = prev.callId
-                                number = prev.remoteNumber
-                                direction = prev.direction
-                                reason = "hangup"
-                            }
-                            else -> return@collect // Ending state doesn't carry call info
+                    // Any → Idle (call ended) — covers Ringing→Idle, Active→Idle, and Ending→Idle.
+                    newState is CallState.Idle && prev !is CallState.Idle -> {
+                        val snap = lastSnapshot
+                        if (snap == null) {
+                            callStartTimestamp = 0L
+                            return@collect
                         }
-
-                        eventEmitter.emitCallEnded(callId, number, direction, duration, reason)
+                        val duration = if (callStartTimestamp == 0L) 0
+                            else ((System.currentTimeMillis() - callStartTimestamp) / 1000).toInt()
+                        val reason = when {
+                            // Inbound call rejected while ringing (never answered, ended locally).
+                            !snap.isOutbound && !snap.everActive && snap.terminatedLocally -> "rejected"
+                            // Inbound ringing timed out / caller abandoned (never answered, remote ended).
+                            !snap.isOutbound && !snap.everActive -> "missed"
+                            // Everything else — outbound dial abort, active hangup (local or remote).
+                            else -> "hangup"
+                        }
+                        eventEmitter.emitCallEnded(snap.callId, snap.number, snap.direction, duration, reason)
                         callStartTimestamp = 0L
+                        lastSnapshot = null
                     }
                 }
             }

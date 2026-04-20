@@ -1,6 +1,8 @@
 package uz.yalla.sipphone.domain
 
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class FakeCallEngine(
@@ -9,6 +11,13 @@ class FakeCallEngine(
 
     private val _callState = MutableStateFlow<CallState>(CallState.Idle)
     override val callState = _callState.asStateFlow()
+
+    private val _busyRejections = MutableSharedFlow<String>(extraBufferCapacity = 16)
+    override val busyRejections = _busyRejections.asSharedFlow()
+
+    fun simulateBusyRejection(number: String) {
+        _busyRejections.tryEmit(number)
+    }
 
     var lastCallNumber: String? = null
     var answerCallCount = 0

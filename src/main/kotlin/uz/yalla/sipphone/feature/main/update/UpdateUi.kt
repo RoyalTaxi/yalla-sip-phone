@@ -149,8 +149,9 @@ private fun percentOf(read: Long, total: Long): Int =
 private fun failureText(failed: UpdateState.Failed, s: StringResources): String = when (failed.stage) {
     UpdateState.Failed.Stage.VERIFY -> s.updateFailedVerify
     UpdateState.Failed.Stage.DOWNLOAD -> s.updateFailedDownload
+    UpdateState.Failed.Stage.INSTALL -> s.updateFailedInstall
+    UpdateState.Failed.Stage.CHECK -> s.updateFailedCheck
     UpdateState.Failed.Stage.DISK_FULL -> s.updateFailedDisk
     UpdateState.Failed.Stage.UNTRUSTED_URL -> s.updateFailedUntrustedUrl
     UpdateState.Failed.Stage.MALFORMED_MANIFEST -> s.updateFailedMalformedManifest
-    else -> failed.reason
 }

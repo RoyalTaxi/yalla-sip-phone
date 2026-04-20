@@ -1,7 +1,6 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -20,10 +19,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import uz.yalla.sipphone.domain.AgentStatus
+import uz.yalla.sipphone.ui.component.hoverClickable
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -73,8 +71,11 @@ fun AgentStatusButton(
                 .size(tokens.iconButtonSize)
                 .clip(tokens.shapeSmall)
                 .background(colors.backgroundSecondary)
-                .pointerHoverIcon(PointerIcon.Hand)
-                .clickable { showDropdown = true },
+                .hoverClickable(
+                    hoverBackground = colors.backgroundTertiary,
+                    shape = tokens.shapeSmall,
+                    onClick = { showDropdown = true },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -95,17 +96,21 @@ fun AgentStatusButton(
         ) {
             DisplayAgentStatus.entries.forEach { status ->
                 val isSelected = status == displayStatus
+                val baseBg = if (isSelected) colors.backgroundTertiary else Color.Transparent
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(tokens.shapeSmall)
-                        .then(if (isSelected) Modifier.background(colors.backgroundTertiary) else Modifier)
-                        .clickable {
-                            onStatusSelected(status.toAgentStatus())
-                            showDropdown = false
-                        }
-                        .pointerHoverIcon(PointerIcon.Hand)
+                        .background(baseBg, tokens.shapeSmall)
+                        .hoverClickable(
+                            hoverBackground = colors.backgroundTertiary,
+                            shape = tokens.shapeSmall,
+                            onClick = {
+                                onStatusSelected(status.toAgentStatus())
+                                showDropdown = false
+                            },
+                        )
                         .padding(horizontal = tokens.spacingMdSm, vertical = tokens.spacingSm),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm),

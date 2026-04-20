@@ -9,6 +9,9 @@ import kotlinx.coroutines.test.setMain
 import uz.yalla.sipphone.domain.AgentStatus
 import uz.yalla.sipphone.domain.CallState
 import uz.yalla.sipphone.domain.FakeCallEngine
+import uz.yalla.sipphone.domain.SipAccount
+import uz.yalla.sipphone.domain.SipAccountState
+import uz.yalla.sipphone.domain.SipCredentials
 import uz.yalla.sipphone.testing.FakeSipAccountManager
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -57,7 +60,27 @@ class ToolbarComponentTest {
 
     @Test
     fun `makeCall accepts valid number`() {
+        // makeCall now correctly rejects if no SIP account is connected (otherwise the call
+        // silently fails downstream). Seed a connected account so the test actually exercises
+        // phone-number validation, which is what this test is about.
+        fakeSipAccountManager.seedAccounts(
+            listOf(
+                SipAccount(
+                    id = "1001@example",
+                    name = "SIP 1001",
+                    credentials = SipCredentials(server = "example", username = "1001", password = ""),
+                    state = SipAccountState.Connected,
+                ),
+            ),
+        )
         assertTrue(component.makeCall("+998901234567"))
+    }
+
+    @Test
+    fun `makeCall rejects when no connected account`() {
+        // With zero connected accounts, makeCall should refuse — the old behaviour pretended
+        // to succeed and produced a silent downstream failure.
+        assertFalse(component.makeCall("+998901234567"))
     }
 
     @Test

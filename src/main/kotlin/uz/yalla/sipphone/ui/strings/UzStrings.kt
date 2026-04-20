@@ -66,6 +66,8 @@ object UzStrings : StringResources {
     override val updateInstallingMessage = "O'rnatilmoqda..."
     override val updateFailedVerify = "Fayl buzilgan. Qayta urinib ko'ring."
     override val updateFailedDownload = "Yuklab bo'lmadi. Tarmoqni tekshiring."
+    override val updateFailedInstall = "O'rnatish muvaffaqiyatsiz yakunlandi"
+    override val updateFailedCheck = "Yangilanishni tekshirib bo'lmadi"
     override val updateFailedDisk = "Diskda joy yetarli emas"
     override val updateFailedUntrustedUrl = "Ishonchsiz manba. IT xodimiga murojaat qiling."
     override val updateFailedMalformedManifest = "Server javobi noto'g'ri"

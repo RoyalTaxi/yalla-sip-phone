@@ -7,6 +7,7 @@ import uz.yalla.sipphone.data.jcef.BridgeAuditLog
 import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
 import uz.yalla.sipphone.data.jcef.BridgeSecurity
 import uz.yalla.sipphone.data.jcef.JcefManager
+import uz.yalla.sipphone.data.jcef.KeyShortcutRegistry
 import uz.yalla.sipphone.data.update.UpdateManager
 import uz.yalla.sipphone.domain.AuthResult
 import uz.yalla.sipphone.domain.CallEngine
@@ -23,6 +24,7 @@ class ComponentFactoryImpl(
     private val eventEmitter: BridgeEventEmitter,
     private val security: BridgeSecurity,
     private val auditLog: BridgeAuditLog,
+    private val keyRegistry: KeyShortcutRegistry,
     private val updateManager: UpdateManager,
 ) : ComponentFactory {
 
@@ -50,6 +52,7 @@ class ComponentFactoryImpl(
         eventEmitter = eventEmitter,
         security = security,
         auditLog = auditLog,
+        keyRegistry = keyRegistry,
         updateManager = updateManager,
         onLogout = onLogout,
     )

@@ -164,6 +164,7 @@ class RootComponentTest {
                 eventEmitter = BridgeEventEmitter(auditLog = BridgeAuditLog()),
                 security = BridgeSecurity(),
                 auditLog = BridgeAuditLog(),
+                keyRegistry = uz.yalla.sipphone.data.jcef.KeyShortcutRegistry(),
                 updateManager = stubUpdateManager(),
                 onLogout = onLogout,
             )
