@@ -1,7 +1,7 @@
 # YallaSIP Bridge API — Frontend Integration Guide
 
 **Version**: 1.2.0
-**Last updated**: 2026-04-08
+**Last updated**: 2026-04-21
 **Audience**: Frontend developers integrating with Yalla SIP Phone desktop app
 
 ---
@@ -223,6 +223,54 @@ const result = await YallaSIP.requestLogout();
 The native app will: unregister from SIP server, call the backend logout API,
 clear the token, and navigate to the login screen.
 
+### `registerKeyListeners(keys)`
+
+Register the set of keyboard combos the native app should forward to the frontend
+as `keyPressed` events. Replaces any previous registration (not additive).
+
+Historically the native shell hardcoded shortcuts like `Ctrl+Enter` to answer,
+`Ctrl+M` to mute, `Ctrl+H` to hold, etc. Those bindings are gone — the dispatcher
+web UI now owns all operator shortcuts and declares them via this command.
+
+```javascript
+await YallaSIP.registerKeyListeners(['ctrl+enter', 'ctrl+m', 'ctrl+h', 'space', 'f1']);
+// { success: true, data: { registered: 5 } }
+
+YallaSIP.on('keyPressed', (e) => {
+  switch (e.key) {
+    case 'ctrl+enter': answerCurrentCall(); break;
+    case 'ctrl+m':     toggleMute(); break;
+    case 'space':      pushToTalk(); break;
+  }
+});
+```
+
+**Combo syntax**: `+`-separated, case-insensitive, modifier order does not matter.
+
+- Modifiers: `ctrl` (alias `control`), `shift`, `alt` (alias `option`), `meta` (aliases `cmd`, `command`, `super`).
+- Keys: letters `a`..`z`, digits `0`..`9`, function keys `f1`..`f12`, and named keys `enter`, `space`, `escape`, `tab`, `backspace`, `delete`, `left`/`right`/`up`/`down`, `home`, `end`, `pageup`/`pagedown`. Symbols: `-`, `=`, `,`, `.`, `/`, `;`, `'`, `[`, `]`, `\`.
+- Unknown/malformed combos are silently skipped — check `data.registered` to see how many actually landed.
+- The payload echoes the **exact original combo string** you registered (e.g. `"Ctrl+Enter"` round-trips as `"Ctrl+Enter"`, not normalized).
+- Registration resets on page reload and on logout — re-register on `ready()`.
+
+**Reserved native shortcuts** — cannot be overridden by the frontend:
+
+| Combo | What it does |
+|-------|--------------|
+| `Ctrl+Shift+Alt+B` | Toggle auto-update channel (stable / beta) |
+| `Ctrl+Shift+Alt+D` | Open native diagnostics panel |
+
+Possible errors: `INVALID_ARGS` (missing or malformed `keys`).
+
+### `unregisterKeyListeners()`
+
+Clear all registered shortcuts. No-op if none are registered.
+
+```javascript
+await YallaSIP.unregisterKeyListeners();
+// { success: true, data: null }
+```
+
 ---
 
 ## Queries Reference
@@ -296,11 +344,13 @@ All events include `seq` (monotonic sequence number) and `timestamp` (epoch ms).
 |-------|------|------------|
 | `incomingCall` | Inbound call received | `callId`, `number`, `direction: "inbound"` |
 | `outgoingCall` | Outbound call initiated | `callId`, `number`, `direction: "outbound"` |
-| `callConnected` | Call answered (either direction) | `callId`, `number`, `direction` |
-| `callEnded` | Call terminated | `callId`, `number`, `duration` (seconds), `reason` |
+| `callConnected` | Call answered (either direction) | `callId`, `number`, `sipFrom`, `direction` |
+| `callEnded` | Call terminated | `callId`, `number`, `direction`, `duration` (seconds), `reason` |
 | `callMuteChanged` | Mute toggled | `callId`, `isMuted: boolean` |
 | `callHoldChanged` | Hold toggled | `callId`, `isOnHold: boolean` |
 | `callRejectedBusy` | Auto-rejected (operator busy) | `number` |
+
+`callConnected.sipFrom` is the full SIP URI of the remote party (e.g. `sip:102@192.168.30.103`). Use `number` for display and `sipFrom` for anything that needs the raw URI (routing, dial-plan matching, audit).
 
 ### System
 
@@ -312,6 +362,7 @@ All events include `seq` (monotonic sequence number) and `timestamp` (epoch ms).
 | `callQualityUpdate` | Every 5s during active call | `callId`, `quality: "excellent"\|"good"\|"fair"\|"poor"` |
 | `themeChanged` | Dark/light mode toggled | `theme: "light"\|"dark"` |
 | `localeChanged` | Locale/language changed | `locale` |
+| `keyPressed` | A combo registered via `registerKeyListeners` was pressed | `key` (original combo string) |
 | `error` | Global error | `code`, `message`, `severity` |
 
 ### Event Examples
@@ -342,17 +393,23 @@ YallaSIP.on('connectionChanged', (data) => {
   // accountId may be empty for global connection events
   handleConnectionChange(data.state, data.accountId);
 });
+
+YallaSIP.on('keyPressed', (data) => {
+  // data = { key: "ctrl+enter", seq: 6, timestamp: ... }
+  // Only fires for combos you registered via registerKeyListeners()
+  dispatchShortcut(data.key);
+});
 ```
 
 ### `callEnded` reasons
 
 | Reason | Meaning |
 |--------|---------|
-| `hangup` | Normal hangup (either party) |
-| `rejected` | Operator rejected incoming call |
-| `missed` | Incoming call not answered |
-| `busy` | Remote party busy |
-| `error` | SIP/network error |
+| `hangup` | Normal hangup (either party) after the call was connected, or outbound call aborted before connect |
+| `rejected` | Operator rejected the incoming call while it was ringing |
+| `missed` | Incoming call stopped ringing without being answered (caller gave up / timed out) |
+
+`callRejectedBusy` is a separate event (not a `callEnded` reason) — it fires when PJSIP auto-rejects an inbound INVITE with 486 Busy Here because the operator is already on a call.
 
 ---
 
@@ -364,9 +421,11 @@ YallaSIP.on('connectionChanged', (data) => {
 | `NO_ACTIVE_CALL` | No call to operate on | No |
 | `NO_INCOMING_CALL` | No ringing call | No |
 | `INVALID_NUMBER` | Bad phone number format | Yes — fix input |
+| `INVALID_ARGS` | Command received bad or missing params (e.g. `registerKeyListeners` without `keys`) | Yes — fix the call site |
 | `NOT_REGISTERED` | SIP disconnected | No — wait for reconnect |
 | `RATE_LIMITED` | Too many commands | Yes — wait 1-2s |
-| `INTERNAL_ERROR` | Unexpected native error | No |
+| `DISPOSED` | Bridge was torn down mid-request (logout, app shutdown, or page navigation during dispatch). The app is no longer listening. | No |
+| `INTERNAL_ERROR` | Unexpected native error, or command timed out (30s budget per command, or 2s budget for `makeCall` to transition to `Ringing`) | No |
 
 ---
 
@@ -464,8 +523,28 @@ export function useYallaSIP() {
     setHold: useCallback((id: string, onHold: boolean) => bridge.current?.setHold(id, onHold), []),
     setAgentStatus: useCallback((status: string) => bridge.current?.setAgentStatus(status), []),
     requestLogout: useCallback(() => bridge.current?.requestLogout(), []),
+    registerKeyListeners: useCallback((keys: string[]) => bridge.current?.registerKeyListeners(keys), []),
+    unregisterKeyListeners: useCallback(() => bridge.current?.unregisterKeyListeners(), []),
   };
 }
+```
+
+**Wiring shortcuts in a React app** (register once, dispatch via a ref-backed handler map so you don't re-register on every render):
+
+```tsx
+useEffect(() => {
+  if (!ready) return;
+  bridge.current.registerKeyListeners(['ctrl+enter', 'ctrl+m', 'ctrl+h', 'escape']);
+  const unsub = bridge.current.on('keyPressed', (e: { key: string }) => {
+    switch (e.key) {
+      case 'ctrl+enter': answerHandlerRef.current?.(); break;
+      case 'ctrl+m':     muteHandlerRef.current?.(); break;
+      case 'ctrl+h':     holdHandlerRef.current?.(); break;
+      case 'escape':     hangupHandlerRef.current?.(); break;
+    }
+  });
+  return () => { unsub(); bridge.current?.unregisterKeyListeners(); };
+}, [ready]);
 ```
 
 ---
@@ -500,6 +579,13 @@ YallaSIP.setMute('call-id', true).then(r => console.log(r))
 YallaSIP.setHold('call-id', true).then(r => console.log(r))
 YallaSIP.sendDtmf('call-id', '123#').then(r => console.log(r))
 YallaSIP.hangup('call-id').then(r => console.log(r))
+
+// Keyboard shortcuts — register combos and watch them fire
+YallaSIP.registerKeyListeners(['ctrl+enter', 'ctrl+m', 'space'])
+  .then(r => console.log('registered:', r.data.registered))
+YallaSIP.on('keyPressed', d => console.log('KEY:', d.key))
+// Clear when you're done testing:
+YallaSIP.unregisterKeyListeners()
 ```
 
 ---
@@ -623,6 +709,8 @@ export function createMockBridge() {
     transferCall: async (_: string, d: string) => ({ success: true, data: { destination: d } }),
     setAgentStatus: async (s: string) => ({ success: true, data: { status: s } }),
     requestLogout: async () => ({ success: true, data: null }),
+    registerKeyListeners: async (keys: string[]) => ({ success: true, data: { registered: keys?.length ?? 0 } }),
+    unregisterKeyListeners: async () => ({ success: true, data: null }),
     getState: async () => ({
       connection: { state: 'connected', attempt: 0 }, agentStatus: 'ready', call: null,
       accounts: [{ id: '1001@sip.mock', name: 'Test-1', extension: '1001', status: 'connected' }],

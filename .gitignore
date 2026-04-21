@@ -21,3 +21,4 @@ bootstrapper/obj/
 # runtime logs (yalla-sip-phone debug output, Windows dev)
 debug.log
 run-log*.txt
+.code-graph/
