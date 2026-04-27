@@ -10,17 +10,12 @@ import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import uz.yalla.sipphone.feature.auth.presentation.view.AuthRoute
 import uz.yalla.sipphone.feature.auth.presentation.view.FromAuth
-import uz.yalla.sipphone.feature.main.MainScreen
+import uz.yalla.sipphone.feature.workstation.presentation.view.FromWorkstation
+import uz.yalla.sipphone.feature.workstation.presentation.view.WorkstationRoute
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 
 @Composable
-fun RootContent(
-    root: RootComponent,
-    isDarkTheme: Boolean,
-    locale: String,
-    onThemeToggle: () -> Unit,
-    onLocaleChange: (String) -> Unit,
-) {
+fun RootContent(root: RootComponent) {
     val tokens = LocalAppTokens.current
     val childStack by root.childStack.subscribeAsState()
 
@@ -41,12 +36,13 @@ fun RootContent(
                     },
                 )
             is RootComponent.Child.Workstation ->
-                MainScreen(
+                WorkstationRoute(
                     component = instance.component,
-                    isDarkTheme = isDarkTheme,
-                    locale = locale,
-                    onThemeToggle = onThemeToggle,
-                    onLocaleChange = onLocaleChange,
+                    navigateTo = { from ->
+                        when (from) {
+                            FromWorkstation.ToAuth -> root.onWorkstationLogout()
+                        }
+                    },
                 )
         }
     }

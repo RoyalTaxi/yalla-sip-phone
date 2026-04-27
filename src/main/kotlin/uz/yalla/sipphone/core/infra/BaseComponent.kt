@@ -15,7 +15,7 @@ abstract class BaseComponent<S : Any, E : Any>(
     initialState: S,
 ) : ComponentContext by componentContext, ContainerHost<S, E> {
 
-    protected val scope: CoroutineScope = coroutineScope()
+    val scope: CoroutineScope = coroutineScope()
 
     final override val container: Container<S, E> = scope.container(initialState)
 

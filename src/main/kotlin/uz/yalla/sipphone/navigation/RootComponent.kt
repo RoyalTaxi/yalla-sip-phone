@@ -13,7 +13,7 @@ import uz.yalla.sipphone.core.auth.SessionStore
 import uz.yalla.sipphone.domain.auth.model.Session
 import uz.yalla.sipphone.domain.auth.usecase.LogoutUseCase
 import uz.yalla.sipphone.feature.auth.presentation.model.AuthComponent
-import uz.yalla.sipphone.feature.main.MainComponent
+import uz.yalla.sipphone.feature.workstation.presentation.model.WorkstationComponent
 
 class RootComponent(
     componentContext: ComponentContext,
@@ -47,18 +47,12 @@ class RootComponent(
         Screen.Auth -> Child.Auth(factory.createAuth(context))
         Screen.Workstation -> {
             val session = sessionStore.session.value
-                ?: return run {
-                    navigation.replaceAll(Screen.Auth)
-                    Child.Auth(factory.createAuth(context))
-                }
-            Child.Workstation(
-                factory.createMain(context, session) {
-                    scope.launch {
-                        logoutUseCase()
-                        navigation.replaceAll(Screen.Auth)
-                    }
-                },
-            )
+            if (session == null) {
+                navigation.replaceAll(Screen.Auth)
+                Child.Auth(factory.createAuth(context))
+            } else {
+                Child.Workstation(factory.createWorkstation(context, session))
+            }
         }
     }
 
@@ -67,8 +61,12 @@ class RootComponent(
         navigation.replaceAll(Screen.Workstation)
     }
 
+    fun onWorkstationLogout() {
+        navigation.replaceAll(Screen.Auth)
+    }
+
     sealed interface Child {
         data class Auth(val component: AuthComponent) : Child
-        data class Workstation(val component: MainComponent) : Child
+        data class Workstation(val component: WorkstationComponent) : Child
     }
 }

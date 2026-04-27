@@ -5,7 +5,6 @@ import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import uz.yalla.sipphone.core.auth.SessionExpiredSignal
@@ -35,6 +34,9 @@ import uz.yalla.sipphone.data.update.install.MsiBootstrapperInstaller
 import uz.yalla.sipphone.data.update.install.asContract as asInstallerContract
 import uz.yalla.sipphone.data.update.manager.UpdateManager
 import uz.yalla.sipphone.data.update.storage.UpdatePaths
+import uz.yalla.sipphone.data.workstation.bridge.AgentStatusBridgeEmitter
+import uz.yalla.sipphone.data.workstation.bridge.CallEventBridgeEmitter
+import uz.yalla.sipphone.data.workstation.bridge.SipConnectionBridgeEmitter
 import uz.yalla.sipphone.domain.BuildVersion
 import uz.yalla.sipphone.domain.agent.AgentStatusRepository
 import uz.yalla.sipphone.domain.auth.usecase.LoginUseCase
@@ -47,10 +49,9 @@ import uz.yalla.sipphone.domain.sip.SipStackLifecycle
 import uz.yalla.sipphone.domain.system.DispatchersProvider
 import uz.yalla.sipphone.domain.update.UpdateChannel
 import uz.yalla.sipphone.feature.auth.di.AuthModule
-import uz.yalla.sipphone.feature.main.toolbar.ToolbarComponent
-import uz.yalla.sipphone.feature.main.toolbar.sideeffect.CallSideEffects
-import uz.yalla.sipphone.feature.main.toolbar.sideeffect.NotificationService
-import uz.yalla.sipphone.feature.main.toolbar.sideeffect.RingtonePlayer
+import uz.yalla.sipphone.feature.workstation.sideeffect.CallSideEffects
+import uz.yalla.sipphone.feature.workstation.sideeffect.NotificationService
+import uz.yalla.sipphone.feature.workstation.sideeffect.RingtonePlayer
 import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.ComponentFactoryImpl
 
@@ -126,31 +127,6 @@ private val authUseCaseModule = module {
     }
 }
 
-private val workstationModule = module {
-    factory { RingtonePlayer() }
-    factory { NotificationService() }
-    factory { CallSideEffects(ringtone = get(), notifications = get()) }
-
-    single<(CoroutineScope) -> ToolbarComponent> {
-        val callEngine: CallEngine = get()
-        val sipAccountManager: SipAccountManager = get()
-        val agentStatusRepository: AgentStatusRepository = get()
-        val callSideEffects: CallSideEffects = get()
-        ;
-        { scope: CoroutineScope ->
-            ToolbarComponent(
-                callState = callEngine.callState,
-                accounts = sipAccountManager.accounts,
-                agentStatusRepository = agentStatusRepository,
-                callEngine = callEngine,
-                sipAccountManager = sipAccountManager,
-                callSideEffects = callSideEffects,
-                scope = scope,
-            )
-        }
-    }
-}
-
 private val updateModule = module {
     single { UpdatePaths() }
     single { UpdateApi(client = get(), baseUrlProvider = { get<ConfigPreferences>().current().backendUrl }) }
@@ -175,20 +151,33 @@ private val updateModule = module {
     }
 }
 
+private val workstationModule = module {
+    factory { RingtonePlayer() }
+    factory { NotificationService() }
+    factory { CallSideEffects(ringtone = get(), notifications = get()) }
+    factory { CallEventBridgeEmitter(callEngine = get(), eventEmitter = get()) }
+    factory { SipConnectionBridgeEmitter(sipAccountManager = get(), eventEmitter = get()) }
+    factory { AgentStatusBridgeEmitter(agentStatusRepository = get(), eventEmitter = get()) }
+}
+
 private val navigationModule = module {
     single<ComponentFactory> {
         ComponentFactoryImpl(
-            sipAccountManager = get(),
-            callEngine = get(),
-            agentStatusRepository = get(),
-            jcefManager = get(),
-            eventEmitter = get(),
-            webPanelBridge = get(),
-            updateManager = get(),
             loginUseCase = get(),
             manualConnectUseCase = get(),
+            logoutUseCase = get(),
+            callEngine = get(),
+            sipAccountManager = get(),
+            agentStatusRepository = get(),
+            webPanelBridge = get(),
+            jcefManager = get(),
+            updateManager = get(),
+            userPreferences = get(),
             configPreferences = get(),
-            toolbarFactory = get(),
+            callSideEffectsFactory = { get() },
+            callEventEmitterFactory = { get() },
+            sipConnectionEmitterFactory = { get() },
+            agentStatusEmitterFactory = { get() },
         )
     }
 }
@@ -200,8 +189,8 @@ val appModule = module {
         agentModule,
         jcefModule,
         authUseCaseModule,
-        workstationModule,
         updateModule,
+        workstationModule,
         navigationModule,
     )
     AuthDataModule.modules.forEach { includes(it) }

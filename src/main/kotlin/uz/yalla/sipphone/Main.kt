@@ -124,7 +124,7 @@ fun main() {
         )
 
         val agentName = (childStack.active.instance as? RootComponent.Child.Workstation)
-            ?.component?.agentInfo?.name.orEmpty()
+            ?.component?.container?.stateFlow?.value?.agentInfo?.name.orEmpty()
         val windowTitle = if (isWorkstation) "${Strings.APP_TITLE} — $agentName" else Strings.APP_TITLE
 
         Window(
@@ -172,13 +172,7 @@ fun main() {
                 if (!jcefReady) {
                     SplashScreen()
                 } else {
-                    RootContent(
-                        root = rootComponent,
-                        isDarkTheme = userPrefs.isDarkTheme,
-                        locale = userPrefs.locale,
-                        onThemeToggle = { userPreferences.setDarkTheme(!userPrefs.isDarkTheme) },
-                        onLocaleChange = { newLocale -> userPreferences.setLocale(newLocale) },
-                    )
+                    RootContent(root = rootComponent)
                 }
             }
         }

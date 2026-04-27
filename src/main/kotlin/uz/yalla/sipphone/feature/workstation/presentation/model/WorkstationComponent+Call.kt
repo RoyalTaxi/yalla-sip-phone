@@ -1,0 +1,40 @@
+package uz.yalla.sipphone.feature.workstation.presentation.model
+
+import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.launch
+import uz.yalla.sipphone.domain.call.CallState
+import uz.yalla.sipphone.domain.sip.SipAccountState
+
+private val logger = KotlinLogging.logger("WorkstationComponent+Call")
+
+internal fun WorkstationComponent.dispatchCall(number: String): kotlinx.coroutines.Job = scope.launch {
+    if (number.isBlank()) return@launch
+    callEngine.makeCall(number).onFailure { logger.warn(it) { "makeCall failed" } }
+}
+
+internal fun WorkstationComponent.answer(): kotlinx.coroutines.Job = scope.launch {
+    callEngine.answerCall()
+}
+
+internal fun WorkstationComponent.hangup(): kotlinx.coroutines.Job = scope.launch {
+    callEngine.hangupCall()
+}
+
+internal fun WorkstationComponent.mute(): kotlinx.coroutines.Job = scope.launch {
+    callEngine.toggleMute()
+}
+
+internal fun WorkstationComponent.hold(): kotlinx.coroutines.Job = scope.launch {
+    callEngine.toggleHold()
+}
+
+internal fun WorkstationComponent.sipChipClick(accountId: String): kotlinx.coroutines.Job = scope.launch {
+    val account = sipAccountManager.accounts.value.firstOrNull { it.id == accountId } ?: return@launch
+    if (callEngine.callState.value !is CallState.Idle) return@launch
+    if (account.state is SipAccountState.Connected) {
+        sipAccountManager.disconnect(accountId)
+    } else {
+        sipAccountManager.connect(accountId)
+    }
+}
+
