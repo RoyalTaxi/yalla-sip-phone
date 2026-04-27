@@ -1,59 +1,58 @@
 package uz.yalla.sipphone.navigation
 
 import com.arkivanov.decompose.ComponentContext
-import uz.yalla.sipphone.data.settings.AppSettings
-import uz.yalla.sipphone.domain.AuthRepository
-import uz.yalla.sipphone.data.jcef.BridgeAuditLog
-import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
-import uz.yalla.sipphone.data.jcef.BridgeSecurity
-import uz.yalla.sipphone.data.jcef.JcefManager
-import uz.yalla.sipphone.data.jcef.KeyShortcutRegistry
-import uz.yalla.sipphone.data.update.UpdateManager
-import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.domain.CallEngine
-import uz.yalla.sipphone.domain.SipAccountManager
-import uz.yalla.sipphone.feature.login.LoginComponent
+import kotlinx.coroutines.CoroutineScope
+import uz.yalla.sipphone.core.prefs.ConfigPreferences
+import uz.yalla.sipphone.data.jcef.browser.JcefManager
+import uz.yalla.sipphone.data.jcef.events.BridgeEventEmitter
+import uz.yalla.sipphone.data.update.manager.UpdateManager
+import uz.yalla.sipphone.domain.agent.AgentStatusRepository
+import uz.yalla.sipphone.domain.auth.model.Session
+import uz.yalla.sipphone.domain.auth.usecase.LoginUseCase
+import uz.yalla.sipphone.domain.auth.usecase.ManualConnectUseCase
+import uz.yalla.sipphone.domain.call.CallEngine
+import uz.yalla.sipphone.domain.panel.WebPanelBridge
+import uz.yalla.sipphone.domain.sip.SipAccountManager
+import uz.yalla.sipphone.feature.auth.presentation.model.AuthComponent
 import uz.yalla.sipphone.feature.main.MainComponent
+import uz.yalla.sipphone.feature.main.toolbar.ToolbarComponent
 
 class ComponentFactoryImpl(
-    private val authRepository: AuthRepository,
     private val sipAccountManager: SipAccountManager,
-    private val appSettings: AppSettings,
     private val callEngine: CallEngine,
+    private val agentStatusRepository: AgentStatusRepository,
     private val jcefManager: JcefManager,
     private val eventEmitter: BridgeEventEmitter,
-    private val security: BridgeSecurity,
-    private val auditLog: BridgeAuditLog,
-    private val keyRegistry: KeyShortcutRegistry,
+    private val webPanelBridge: WebPanelBridge,
     private val updateManager: UpdateManager,
+    private val loginUseCase: LoginUseCase,
+    private val manualConnectUseCase: ManualConnectUseCase,
+    private val configPreferences: ConfigPreferences,
+    private val toolbarFactory: (CoroutineScope) -> ToolbarComponent,
 ) : ComponentFactory {
 
-    override fun createLogin(
-        context: ComponentContext,
-        onLoginSuccess: (AuthResult) -> Unit,
-    ): LoginComponent = LoginComponent(
+    override fun createAuth(context: ComponentContext): AuthComponent = AuthComponent(
         componentContext = context,
-        authRepository = authRepository,
-        sipAccountManager = sipAccountManager,
-        appSettings = appSettings,
-        onLoginSuccess = onLoginSuccess,
+        loginUseCase = loginUseCase,
+        manualConnectUseCase = manualConnectUseCase,
     )
 
     override fun createMain(
         context: ComponentContext,
-        authResult: AuthResult,
+        session: Session,
         onLogout: () -> Unit,
     ): MainComponent = MainComponent(
         componentContext = context,
-        authResult = authResult,
+        session = session,
         callEngine = callEngine,
         sipAccountManager = sipAccountManager,
+        agentStatusRepository = agentStatusRepository,
         jcefManager = jcefManager,
         eventEmitter = eventEmitter,
-        security = security,
-        auditLog = auditLog,
-        keyRegistry = keyRegistry,
+        webPanelBridge = webPanelBridge,
         updateManager = updateManager,
+        configPreferences = configPreferences,
+        toolbarFactory = toolbarFactory,
         onLogout = onLogout,
     )
 }

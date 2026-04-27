@@ -6,9 +6,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import uz.yalla.sipphone.data.pjsip.PjsipRegistrationState
-import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.SipError
+import uz.yalla.sipphone.data.pjsip.account.PjsipRegistrationState
+import uz.yalla.sipphone.domain.call.CallState
+import uz.yalla.sipphone.domain.sip.SipError
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
 import uz.yalla.sipphone.testing.engine.ScriptableRegistrationEngine
 import uz.yalla.sipphone.testing.scenario.ScenarioRunner
@@ -20,19 +20,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Integration tests verifying call state machine transitions using
- * [ScriptableCallEngine] and Turbine's [test] for deterministic
- * Flow assertion under virtual time.
- */
 @OptIn(ExperimentalCoroutinesApi::class)
 class CallFlowIntegrationTest {
 
     private val callEngine = ScriptableCallEngine()
     private val registrationEngine = ScriptableRegistrationEngine()
     private val runner = ScenarioRunner(callEngine, registrationEngine)
-
-    // region Inbound call lifecycle
 
     @Test
     fun `inbound call emits Idle - Ringing - Active - Idle`() = runTest {
@@ -44,30 +37,25 @@ class CallFlowIntegrationTest {
         }
 
         callEngine.callState.test {
-            // Initial state
+
             assertIs<CallState.Idle>(awaitItem())
 
-            // Play the scenario in the background
             launch { callEngine.playScenario(steps) }
 
-            // Ringing
             val ringing = awaitItem()
             assertIs<CallState.Ringing>(ringing)
             assertEquals("1001", ringing.callerNumber)
             assertEquals("Alisher", ringing.callerName)
             assertFalse(ringing.isOutbound)
 
-            // Active
             val active = awaitItem()
             assertIs<CallState.Active>(active)
             assertEquals("1001", active.remoteNumber)
             assertFalse(active.isMuted)
             assertFalse(active.isOnHold)
 
-            // Ending
             assertIs<CallState.Ending>(awaitItem())
 
-            // Back to Idle
             assertIs<CallState.Idle>(awaitItem())
 
             cancelAndIgnoreRemainingEvents()
@@ -78,7 +66,7 @@ class CallFlowIntegrationTest {
     fun `caller abandon emits Idle - Ringing - Idle (no Active)`() = runTest {
         val steps = callScenario {
             ring("1002", name = "Sardor", holdFor = 5.seconds)
-            idle() // caller hung up before answer
+            idle()
         }
 
         callEngine.callState.test {
@@ -86,21 +74,15 @@ class CallFlowIntegrationTest {
 
             launch { callEngine.playScenario(steps) }
 
-            // Ringing
             val ringing = awaitItem()
             assertIs<CallState.Ringing>(ringing)
             assertEquals("1002", ringing.callerNumber)
 
-            // Straight to Idle (no Active, no Ending)
             assertIs<CallState.Idle>(awaitItem())
 
             cancelAndIgnoreRemainingEvents()
         }
     }
-
-    // endregion
-
-    // region Hold / Mute cycles
 
     @Test
     fun `hold cycle emits Active - Active(onHold=true) - Active(onHold=false)`() = runTest {
@@ -118,25 +100,20 @@ class CallFlowIntegrationTest {
 
             launch { callEngine.playScenario(steps) }
 
-            // Ringing
             assertIs<CallState.Ringing>(awaitItem())
 
-            // Active (no hold)
             val active1 = awaitItem()
             assertIs<CallState.Active>(active1)
             assertFalse(active1.isOnHold)
 
-            // Active (on hold)
             val held = awaitItem()
             assertIs<CallState.Active>(held)
             assertTrue(held.isOnHold)
 
-            // Active (off hold)
             val unheld = awaitItem()
             assertIs<CallState.Active>(unheld)
             assertFalse(unheld.isOnHold)
 
-            // Ending -> Idle
             assertIs<CallState.Ending>(awaitItem())
             assertIs<CallState.Idle>(awaitItem())
 
@@ -160,25 +137,20 @@ class CallFlowIntegrationTest {
 
             launch { callEngine.playScenario(steps) }
 
-            // Ringing
             assertIs<CallState.Ringing>(awaitItem())
 
-            // Active (not muted)
             val active1 = awaitItem()
             assertIs<CallState.Active>(active1)
             assertFalse(active1.isMuted)
 
-            // Active (muted)
             val muted = awaitItem()
             assertIs<CallState.Active>(muted)
             assertTrue(muted.isMuted)
 
-            // Active (unmuted)
             val unmuted = awaitItem()
             assertIs<CallState.Active>(unmuted)
             assertFalse(unmuted.isMuted)
 
-            // Ending -> Idle
             assertIs<CallState.Ending>(awaitItem())
             assertIs<CallState.Idle>(awaitItem())
 
@@ -186,17 +158,13 @@ class CallFlowIntegrationTest {
         }
     }
 
-    // endregion
-
-    // region Ring timeout
-
     @Test
     fun `ring timeout emits Ringing - Idle after delay`() = runTest {
         val ringTimeout = 30.seconds
 
         val steps = callScenario {
             ring("1005", holdFor = ringTimeout)
-            idle() // timeout: no answer
+            idle()
         }
 
         callEngine.callState.test {
@@ -208,28 +176,22 @@ class CallFlowIntegrationTest {
             assertIs<CallState.Ringing>(ringing)
             assertEquals("1005", ringing.callerNumber)
 
-            // After the ring timeout, transitions to Idle
             assertIs<CallState.Idle>(awaitItem())
 
             cancelAndIgnoreRemainingEvents()
         }
     }
 
-    // endregion
-
-    // region Registration / Network
-
     @Test
     fun `network disconnect emits Registered - Failed`() = runTest {
         registrationEngine.emitRegistered("sip:102@192.168.0.22")
 
         registrationEngine.registrationState.test {
-            // Already registered
+
             val registered = awaitItem()
             assertIs<PjsipRegistrationState.Registered>(registered)
             assertEquals("sip:102@192.168.0.22", registered.uri)
 
-            // Network disconnect
             registrationEngine.emitFailed(503, "Service Unavailable")
 
             val failed = awaitItem()
@@ -242,21 +204,18 @@ class CallFlowIntegrationTest {
 
     @Test
     fun `reconnect after disconnect emits Failed - Registering - Registered`() = runTest {
-        // Start in a registered state, then fail
+
         registrationEngine.emitRegistered("sip:102@192.168.0.22")
 
         registrationEngine.registrationState.test {
             assertIs<PjsipRegistrationState.Registered>(awaitItem())
 
-            // Simulate network failure
             registrationEngine.emitFailed(503, "Service Unavailable")
             assertIs<PjsipRegistrationState.Failed>(awaitItem())
 
-            // Simulate reconnection attempt
             registrationEngine.emit(PjsipRegistrationState.Registering)
             assertIs<PjsipRegistrationState.Registering>(awaitItem())
 
-            // Successful re-registration
             registrationEngine.emitRegistered("sip:102@192.168.0.22")
             val recovered = awaitItem()
             assertIs<PjsipRegistrationState.Registered>(recovered)
@@ -265,10 +224,6 @@ class CallFlowIntegrationTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
-
-    // endregion
-
-    // region Concurrent call + registration
 
     @Test
     fun `call completes normally while registered`() = runTest {
@@ -297,7 +252,6 @@ class CallFlowIntegrationTest {
             cancelAndIgnoreRemainingEvents()
         }
 
-        // Verify registration stayed healthy throughout
         assertIs<PjsipRegistrationState.Registered>(registrationEngine.registrationState.value)
     }
 
@@ -331,5 +285,4 @@ class CallFlowIntegrationTest {
         }
     }
 
-    // endregion
 }

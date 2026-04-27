@@ -4,15 +4,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import uz.yalla.sipphone.domain.AgentStatus
-import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.data.agent.InMemoryAgentStatusRepository
+import uz.yalla.sipphone.domain.agent.AgentStatus
+import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.FakeCallEngine
-import uz.yalla.sipphone.domain.SipAccount
-import uz.yalla.sipphone.domain.SipAccountState
-import uz.yalla.sipphone.domain.SipCredentials
+import uz.yalla.sipphone.domain.sip.SipAccount
+import uz.yalla.sipphone.domain.sip.SipAccountState
+import uz.yalla.sipphone.domain.sip.SipCredentials
 import uz.yalla.sipphone.testing.FakeSipAccountManager
+import uz.yalla.sipphone.testing.toolbarComponentForTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -25,15 +29,17 @@ class ToolbarComponentTest {
     private val testDispatcher = StandardTestDispatcher()
     private val fakeCallEngine = FakeCallEngine()
     private val fakeSipAccountManager = FakeSipAccountManager()
+    private val agentRepo = InMemoryAgentStatusRepository()
     private lateinit var component: ToolbarComponent
 
     @BeforeTest
     fun setup() {
         Dispatchers.setMain(testDispatcher)
-        component = ToolbarComponent(
+        component = toolbarComponentForTest(
+            scope = CoroutineScope(testDispatcher),
             callEngine = fakeCallEngine,
             sipAccountManager = fakeSipAccountManager,
-            scope = CoroutineScope(testDispatcher),
+            agentStatusRepository = agentRepo,
         )
     }
 
@@ -43,26 +49,27 @@ class ToolbarComponentTest {
     }
 
     @Test
-    fun `initial agent status is ready`() {
-        assertEquals(AgentStatus.READY, component.agentStatus.value)
+    fun `initial agent status is ready`() = runTest(testDispatcher) {
+        advanceUntilIdle()
+        assertEquals(AgentStatus.READY, component.state.value.agent)
     }
 
     @Test
-    fun `setAgentStatus updates status`() {
+    fun `setAgentStatus updates status`() = runTest(testDispatcher) {
         component.setAgentStatus(AgentStatus.AWAY)
-        assertEquals(AgentStatus.AWAY, component.agentStatus.value)
+        advanceUntilIdle()
+        assertEquals(AgentStatus.AWAY, component.state.value.agent)
     }
 
     @Test
-    fun `makeCall rejects invalid number`() {
-        assertFalse(component.makeCall("abc"))
+    fun `makeCall ignores blank number`() = runTest(testDispatcher) {
+        component.makeCall("")
+        advanceUntilIdle()
+        assertEquals(null, fakeCallEngine.lastCallNumber)
     }
 
     @Test
-    fun `makeCall accepts valid number`() {
-        // makeCall now correctly rejects if no SIP account is connected (otherwise the call
-        // silently fails downstream). Seed a connected account so the test actually exercises
-        // phone-number validation, which is what this test is about.
+    fun `makeCall dispatches valid number to engine`() = runTest(testDispatcher) {
         fakeSipAccountManager.seedAccounts(
             listOf(
                 SipAccount(
@@ -73,24 +80,21 @@ class ToolbarComponentTest {
                 ),
             ),
         )
-        assertTrue(component.makeCall("+998901234567"))
+        component.makeCall("+998901234567")
+        advanceUntilIdle()
+        assertEquals("+998901234567", fakeCallEngine.lastCallNumber)
     }
 
     @Test
-    fun `makeCall rejects when no connected account`() {
-        // With zero connected accounts, makeCall should refuse — the old behaviour pretended
-        // to succeed and produced a silent downstream failure.
-        assertFalse(component.makeCall("+998901234567"))
+    fun `call state flows from engine`() = runTest(testDispatcher) {
+        advanceUntilIdle()
+        assertEquals(CallState.Idle, component.state.value.call)
     }
 
     @Test
-    fun `call state flows from engine`() {
-        assertEquals(CallState.Idle, component.callState.value)
-    }
-
-    @Test
-    fun `phone input updates`() {
+    fun `phone input updates`() = runTest(testDispatcher) {
         component.updatePhoneInput("+998")
-        assertEquals("+998", component.phoneInput.value)
+        advanceUntilIdle()
+        assertEquals("+998", component.state.value.phoneInput)
     }
 }

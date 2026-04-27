@@ -1,5 +1,8 @@
 package uz.yalla.sipphone.data.jcef
 
+import uz.yalla.sipphone.data.jcef.keys.KeyShortcutRegistry
+import uz.yalla.sipphone.data.jcef.keys.NormalizedKey
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -7,12 +10,6 @@ import kotlin.test.assertNull
 import java.awt.Component
 import java.awt.event.KeyEvent
 
-/**
- * Unit tests for [KeyShortcutRegistry] / [NormalizedKey]. The regex of interest is the
- * key-name table in `keyName(code, location)` — previously missing numpad keys, which meant
- * the frontend registering `"numpadmultiply"` would never see a `keyPressed` event when the
- * operator hit the numpad `*`.
- */
 class KeyShortcutRegistryTest {
 
     private fun event(
@@ -22,7 +19,7 @@ class KeyShortcutRegistryTest {
     ): KeyEvent = KeyEvent(
         DummyComponent,
         KeyEvent.KEY_PRESSED,
-        /* when */ 0L,
+         0L,
         modifiers,
         code,
         KeyEvent.CHAR_UNDEFINED,
@@ -90,8 +87,7 @@ class KeyShortcutRegistryTest {
     fun `registration round-trips the exact frontend-provided string`() {
         val registry = KeyShortcutRegistry()
         registry.register(listOf("Ctrl+NumpadMultiply"))
-        // When ctrl+numpad* is pressed, we return the exact string the frontend sent,
-        // not a canonicalized form. That way the frontend switch(e.key) matches regardless.
+
         val matched = registry.match(
             event(
                 KeyEvent.VK_MULTIPLY,
@@ -104,7 +100,7 @@ class KeyShortcutRegistryTest {
 
     @Test
     fun `unmapped key codes return null — no phantom matches`() {
-        // VK_CAPS_LOCK etc. aren't in the key-name table; registry returns null.
+
         val result = NormalizedKey.fromEvent(event(KeyEvent.VK_CAPS_LOCK))
         assertNull(result)
     }

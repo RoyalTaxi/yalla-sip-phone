@@ -3,13 +3,6 @@ package uz.yalla.sipphone.domain.update
 import kotlinx.serialization.Serializable
 import java.net.URI
 
-/**
- * JSON envelope returned by `GET /api/v1/app-updates/latest`.
- *
- * Always 200 OK; `updateAvailable = false` means the client is current.
- * A 200 envelope (rather than 204) is forward-compat — new fields can be
- * added to the response over the years without changing the shape.
- */
 @Serializable
 data class UpdateEnvelope(
     val updateAvailable: Boolean,
@@ -31,15 +24,6 @@ data class UpdateInstaller(
     val size: Long,
 )
 
-/**
- * Allow-list of hosts the client will download MSIs from. Hard-coded
- * in source — the single strongest cert-free defense against the `url`
- * field pointing off-domain.
- *
- * `192.168.0.98` is the current dispatcher backend that hosts both the
- * manifest endpoint AND the MSI files (RoyalTaxi convention). Other
- * entries are reserved for future production hosts.
- */
 internal val UPDATE_URL_ALLOWLIST: List<String> = listOf(
     "192.168.0.98",
     "downloads.yalla.uz",
@@ -47,18 +31,13 @@ internal val UPDATE_URL_ALLOWLIST: List<String> = listOf(
 )
 
 private val SHA256_HEX = Regex("""^[0-9a-f]{64}$""")
-private const val MAX_SIZE_BYTES: Long = 2L * 1024 * 1024 * 1024  // 2 GiB
+private const val MAX_SIZE_BYTES: Long = 2L * 1024 * 1024 * 1024
 
 sealed interface ManifestValidation {
     data object Valid : ManifestValidation
     data class Invalid(val reason: String) : ManifestValidation
 }
 
-/**
- * Validates a release manifest before any field is trusted (invariant I17).
- * Bad manifests must never brick clients — callers treat `Invalid` as
- * `NoUpdate` and log the reason.
- */
 object ManifestValidator {
 
     fun validate(release: UpdateRelease): ManifestValidation {
@@ -84,9 +63,7 @@ object ManifestValidator {
 
         val uri = runCatching { URI(release.installer.url) }.getOrNull()
             ?: return ManifestValidation.Invalid("url not parseable: ${release.installer.url}")
-        // Both http and https are accepted: deployment is LAN-only, the backend
-        // serves over plaintext http on an internal IP, and SHA256 remains the
-        // integrity check. TLS adds friction without adding security here.
+
         if (uri.scheme != "https" && uri.scheme != "http") {
             return ManifestValidation.Invalid("url must be http or https, got ${uri.scheme}")
         }

@@ -5,8 +5,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import uz.yalla.sipphone.data.pjsip.PjsipRegistrationState
-import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.data.pjsip.account.PjsipRegistrationState
+import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
 import uz.yalla.sipphone.testing.engine.ScriptableRegistrationEngine
 import uz.yalla.sipphone.testing.scenario.ScenarioRunner
@@ -23,13 +23,6 @@ import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * Full operator simulation integration tests.
- *
- * These exercise realistic multi-call sequences through the
- * [ScriptableCallEngine] and verify that the state machine never
- * enters an invalid state across many transitions.
- */
 @OptIn(ExperimentalCoroutinesApi::class)
 class BusyOperatorIntegrationTest {
 
@@ -37,10 +30,6 @@ class BusyOperatorIntegrationTest {
     private val registrationEngine = ScriptableRegistrationEngine()
     private val runner = ScenarioRunner(callEngine, registrationEngine)
 
-    /**
-     * Allowed state transitions for call state.
-     * Any transition not in this map is a state machine error.
-     */
     private val allowedCallTransitions: Map<String, Set<String>> = mapOf(
         "Idle" to setOf("Ringing"),
         "Ringing" to setOf("Active", "Ending", "Idle"),
@@ -48,9 +37,6 @@ class BusyOperatorIntegrationTest {
         "Ending" to setOf("Idle"),
     )
 
-    /**
-     * Returns a simplified state name for transition validation.
-     */
     private fun CallState.simpleName(): String = when (this) {
         is CallState.Idle -> "Idle"
         is CallState.Ringing -> "Ringing"
@@ -58,18 +44,13 @@ class BusyOperatorIntegrationTest {
         is CallState.Ending -> "Ending"
     }
 
-    /**
-     * Validate that a state transition is legal.
-     */
     private fun validateTransition(from: CallState, to: CallState): Boolean {
         val fromName = from.simpleName()
         val toName = to.simpleName()
-        // Idle -> Idle is valid (wrap-up gap between calls)
+
         if (fromName == toName && fromName == "Idle") return true
         return allowedCallTransitions[fromName]?.contains(toName) == true
     }
-
-    // region Busy operator day
 
     @Test
     fun `busy operator day completes all calls without state machine errors`() = runTest {
@@ -78,19 +59,17 @@ class BusyOperatorIntegrationTest {
         val stats = CallStats()
 
         callEngine.callState.test {
-            // Initial idle
+
             val initial = awaitItem()
             assertIs<CallState.Idle>(initial)
 
-            // Launch the scenario
             launch {
                 runner.run { busyOperatorDay(random) }
             }
 
-            // Consume all state transitions, validating each one
             var previous: CallState = initial
             var transitionCount = 0
-            val maxTransitions = 500 // safety bound
+            val maxTransitions = 500
 
             while (transitionCount < maxTransitions) {
                 val next = try {
@@ -114,12 +93,10 @@ class BusyOperatorIntegrationTest {
                 transitionCount++
             }
 
-            // After scenario, we should be back at Idle
             assertIs<CallState.Idle>(previous)
 
             stats.print("Busy Operator Day (seed=$seed)")
 
-            // Verify meaningful work was done
             assertTrue(stats.totalCalls > 0, "Expected at least 1 call, got ${stats.totalCalls}")
             assertTrue(
                 stats.totalTransitions > 10,
@@ -129,10 +106,6 @@ class BusyOperatorIntegrationTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
-
-    // endregion
-
-    // region Stress test
 
     @Test
     fun `stress test 50 random calls maintains consistent state`() = runTest {
@@ -150,7 +123,7 @@ class BusyOperatorIntegrationTest {
 
             var previous: CallState = initial
             var transitionCount = 0
-            val maxTransitions = 1500 // 50 calls can have many transitions
+            val maxTransitions = 1500
 
             while (transitionCount < maxTransitions) {
                 val next = try {
@@ -183,15 +156,10 @@ class BusyOperatorIntegrationTest {
         }
     }
 
-    // endregion
-
-    // region Burst pattern
-
     @Test
     fun `burst pattern handles rapid sequential calls`() = runTest {
         val stats = CallStats()
 
-        // 5 rapid-fire calls with minimal gaps
         val burstScenarios = (1..5).map { i ->
             callScenario {
                 ring("${5000 + i}", holdFor = 500.milliseconds)
@@ -208,7 +176,7 @@ class BusyOperatorIntegrationTest {
             launch {
                 for (steps in burstScenarios) {
                     callEngine.playScenario(steps)
-                    // Tiny gap between calls — no idle padding
+
                 }
             }
 
@@ -246,10 +214,6 @@ class BusyOperatorIntegrationTest {
         }
     }
 
-    // endregion
-
-    // region Network disruption
-
     @Test
     fun `network disruption mid-shift recovers gracefully`() = runTest {
         val seed = 777L
@@ -257,7 +221,6 @@ class BusyOperatorIntegrationTest {
         val callStats = CallStats()
         val regStats = RegistrationStats()
 
-        // Observe registration transitions in parallel
         val regJob = launch {
             var prevReg: PjsipRegistrationState = PjsipRegistrationState.Idle
             registrationEngine.registrationState.collect { newState ->
@@ -306,23 +269,16 @@ class BusyOperatorIntegrationTest {
             callStats.print("Network Disruption (seed=$seed)")
             regStats.print()
 
-            // Verify calls happened both before and after disruption
             assertTrue(callStats.totalCalls >= 6, "Expected at least 6 calls (3 pre + 1 during + 3 post)")
 
-            // Verify registration went through a disconnect/reconnect cycle
             assertTrue(regStats.disconnects > 0, "Expected at least 1 disconnect")
             assertTrue(regStats.reconnects > 0, "Expected at least 1 reconnect")
 
-            // Final registration state should be Registered (recovered)
             assertIs<PjsipRegistrationState.Registered>(registrationEngine.registrationState.value)
 
             cancelAndIgnoreRemainingEvents()
         }
     }
-
-    // endregion
-
-    // region Combined mute + hold
 
     @Test
     fun `complex call with mute and hold cycles maintains state integrity`() = runTest {
@@ -342,35 +298,28 @@ class BusyOperatorIntegrationTest {
 
             launch { callEngine.playScenario(steps) }
 
-            // Ringing
             assertIs<CallState.Ringing>(awaitItem())
 
-            // Active (clean)
             val a1 = awaitItem()
             assertIs<CallState.Active>(a1)
             assertTrue(!a1.isMuted && !a1.isOnHold)
 
-            // Active (muted)
             val a2 = awaitItem()
             assertIs<CallState.Active>(a2)
             assertTrue(a2.isMuted && !a2.isOnHold)
 
-            // Active (muted + on hold)
             val a3 = awaitItem()
             assertIs<CallState.Active>(a3)
             assertTrue(a3.isMuted && a3.isOnHold)
 
-            // Active (muted + off hold)
             val a4 = awaitItem()
             assertIs<CallState.Active>(a4)
             assertTrue(a4.isMuted && !a4.isOnHold)
 
-            // Active (unmuted + off hold)
             val a5 = awaitItem()
             assertIs<CallState.Active>(a5)
             assertTrue(!a5.isMuted && !a5.isOnHold)
 
-            // Ending -> Idle
             assertIs<CallState.Ending>(awaitItem())
             assertIs<CallState.Idle>(awaitItem())
 
@@ -378,14 +327,8 @@ class BusyOperatorIntegrationTest {
         }
     }
 
-    // endregion
 }
 
-// region Statistics helpers
-
-/**
- * Tracks call statistics during scenario playback for test reporting.
- */
 private class CallStats {
     var totalCalls = 0
         private set
@@ -408,17 +351,14 @@ private class CallStats {
         val key = "${from.simpleName()} -> ${to.simpleName()}"
         transitionCounts[key] = (transitionCounts[key] ?: 0) + 1
 
-        // Count completed calls (any state -> Idle, except Idle -> Idle)
         if (to is CallState.Idle && from !is CallState.Idle) {
             totalCalls++
         }
 
-        // Count missed calls (Ringing -> Idle, no Active in between)
         if (from is CallState.Ringing && to is CallState.Idle) {
             missedCalls++
         }
 
-        // Count hold cycles
         if (from is CallState.Active && to is CallState.Active) {
             if (!from.isOnHold && to.isOnHold) holdCycles++
             if (!from.isMuted && to.isMuted) muteCycles++
@@ -456,9 +396,6 @@ private class CallStats {
     }
 }
 
-/**
- * Tracks registration state transitions for network disruption tests.
- */
 private class RegistrationStats {
     var disconnects = 0
         private set
@@ -475,14 +412,12 @@ private class RegistrationStats {
         val toName = to.simpleName()
         transitions += fromName to toName
 
-        // Count disconnects (Registered -> Failed, or Registered -> Idle)
         if (from is PjsipRegistrationState.Registered &&
             (to is PjsipRegistrationState.Failed || to is PjsipRegistrationState.Idle)
         ) {
             disconnects++
         }
 
-        // Count reconnects (any non-Registered -> Registered)
         if (from !is PjsipRegistrationState.Registered && to is PjsipRegistrationState.Registered) {
             reconnects++
         }
@@ -504,5 +439,3 @@ private class RegistrationStats {
         println()
     }
 }
-
-// endregion

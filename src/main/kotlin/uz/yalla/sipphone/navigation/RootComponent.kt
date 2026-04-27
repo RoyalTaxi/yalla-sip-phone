@@ -4,86 +4,71 @@ import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.ChildStack
 import com.arkivanov.decompose.router.stack.StackNavigation
 import com.arkivanov.decompose.router.stack.childStack
-import com.arkivanov.decompose.router.stack.navigate
-import com.arkivanov.decompose.router.stack.pushNew
+import com.arkivanov.decompose.router.stack.replaceAll
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import uz.yalla.sipphone.data.auth.AuthEvent
-import uz.yalla.sipphone.data.auth.AuthEventBus
-import uz.yalla.sipphone.data.auth.LogoutOrchestrator
-import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.feature.login.LoginComponent
+import uz.yalla.sipphone.core.auth.SessionExpiredSignal
+import uz.yalla.sipphone.core.auth.SessionStore
+import uz.yalla.sipphone.domain.auth.model.Session
+import uz.yalla.sipphone.domain.auth.usecase.LogoutUseCase
+import uz.yalla.sipphone.feature.auth.presentation.model.AuthComponent
 import uz.yalla.sipphone.feature.main.MainComponent
 
 class RootComponent(
     componentContext: ComponentContext,
     private val factory: ComponentFactory,
-    private val authEventBus: AuthEventBus,
-    private val logoutOrchestrator: LogoutOrchestrator,
+    private val sessionStore: SessionStore,
+    private val sessionExpired: SessionExpiredSignal,
+    private val logoutUseCase: LogoutUseCase,
 ) : ComponentContext by componentContext {
 
     private val navigation = StackNavigation<Screen>()
-    private var currentAuthResult: AuthResult? = null
-    private var loginSessionCounter = 0
     private val scope = coroutineScope()
 
     val childStack: Value<ChildStack<Screen, Child>> = childStack(
         source = navigation,
         serializer = Screen.serializer(),
-        initialConfiguration = Screen.Login(),
+        initialConfiguration = Screen.Auth,
         handleBackButton = false,
         childFactory = ::createChild,
     )
 
     init {
         scope.launch {
-            authEventBus.events.collect { event ->
-                when (event) {
-                    AuthEvent.SessionExpired -> {
-                        logoutOrchestrator.logout()
-                        currentAuthResult = null
-                        navigateToLogin()
-                    }
-                }
+            sessionExpired.events.collect {
+                logoutUseCase()
+                navigation.replaceAll(Screen.Auth)
             }
         }
     }
 
-    private fun createChild(screen: Screen, context: ComponentContext): Child =
-        when (screen) {
-            is Screen.Login -> createLoginChild(context)
-            is Screen.Main -> {
-                val auth = currentAuthResult ?: run {
-                    navigateToLogin()
-                    return@createChild createLoginChild(context)
+    private fun createChild(screen: Screen, context: ComponentContext): Child = when (screen) {
+        Screen.Auth -> Child.Auth(factory.createAuth(context))
+        Screen.Workstation -> {
+            val session = sessionStore.session.value
+                ?: return run {
+                    navigation.replaceAll(Screen.Auth)
+                    Child.Auth(factory.createAuth(context))
                 }
-                Child.Main(
-                    factory.createMain(context, auth) {
-                        currentAuthResult = null
-                        navigateToLogin()
-                        scope.launch {
-                            logoutOrchestrator.logout()
-                        }
-                    },
-                )
-            }
+            Child.Workstation(
+                factory.createMain(context, session) {
+                    scope.launch {
+                        logoutUseCase()
+                        navigation.replaceAll(Screen.Auth)
+                    }
+                },
+            )
         }
+    }
 
-    private fun createLoginChild(context: ComponentContext): Child.Login =
-        Child.Login(
-            factory.createLogin(context) { authResult ->
-                currentAuthResult = authResult
-                navigation.pushNew(Screen.Main)
-            },
-        )
-
-    private fun navigateToLogin() {
-        navigation.navigate { listOf(Screen.Login(sessionId = ++loginSessionCounter)) }
+    fun onAuthSuccess(session: Session) {
+        sessionStore.set(session)
+        navigation.replaceAll(Screen.Workstation)
     }
 
     sealed interface Child {
-        data class Login(val component: LoginComponent) : Child
-        data class Main(val component: MainComponent) : Child
+        data class Auth(val component: AuthComponent) : Child
+        data class Workstation(val component: MainComponent) : Child
     }
 }

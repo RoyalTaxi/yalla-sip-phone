@@ -8,7 +8,8 @@ import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
-import uz.yalla.sipphone.feature.login.LoginScreen
+import uz.yalla.sipphone.feature.auth.presentation.view.AuthRoute
+import uz.yalla.sipphone.feature.auth.presentation.view.FromAuth
 import uz.yalla.sipphone.feature.main.MainScreen
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 
@@ -23,10 +24,6 @@ fun RootContent(
     val tokens = LocalAppTokens.current
     val childStack by root.childStack.subscribeAsState()
 
-    // Desktop navigation = cross-fade only. Screen transitions on desktop aren't a "page
-    // stack" — they're a state swap (unauthenticated → authenticated). Sliding would feel
-    // like iOS push/pop, which is wrong for a native softphone app. A short fade reads as
-    // "the UI updated" rather than "I navigated."
     Children(
         stack = childStack,
         animation = stackAnimation(
@@ -34,9 +31,16 @@ fun RootContent(
         ),
     ) { child ->
         when (val instance = child.instance) {
-            is RootComponent.Child.Login ->
-                LoginScreen(instance.component)
-            is RootComponent.Child.Main ->
+            is RootComponent.Child.Auth ->
+                AuthRoute(
+                    component = instance.component,
+                    navigateTo = { from ->
+                        when (from) {
+                            is FromAuth.ToWorkstation -> root.onAuthSuccess(from.session)
+                        }
+                    },
+                )
+            is RootComponent.Child.Workstation ->
                 MainScreen(
                     component = instance.component,
                     isDarkTheme = isDarkTheme,

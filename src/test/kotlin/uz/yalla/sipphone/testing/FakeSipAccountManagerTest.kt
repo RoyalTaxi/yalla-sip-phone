@@ -2,9 +2,9 @@ package uz.yalla.sipphone.testing
 
 import app.cash.turbine.test
 import kotlinx.coroutines.test.runTest
-import uz.yalla.sipphone.domain.SipAccountInfo
-import uz.yalla.sipphone.domain.SipAccountState
-import uz.yalla.sipphone.domain.SipCredentials
+import uz.yalla.sipphone.domain.sip.SipAccountInfo
+import uz.yalla.sipphone.domain.sip.SipAccountState
+import uz.yalla.sipphone.domain.sip.SipCredentials
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

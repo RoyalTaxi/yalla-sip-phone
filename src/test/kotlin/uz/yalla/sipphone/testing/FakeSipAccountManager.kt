@@ -4,10 +4,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import uz.yalla.sipphone.domain.SipAccount
-import uz.yalla.sipphone.domain.SipAccountInfo
-import uz.yalla.sipphone.domain.SipAccountManager
-import uz.yalla.sipphone.domain.SipAccountState
+import uz.yalla.sipphone.domain.sip.SipAccount
+import uz.yalla.sipphone.domain.sip.SipAccountInfo
+import uz.yalla.sipphone.domain.sip.SipAccountManager
+import uz.yalla.sipphone.domain.sip.SipAccountState
 
 class FakeSipAccountManager : SipAccountManager {
 
@@ -47,7 +47,6 @@ class FakeSipAccountManager : SipAccountManager {
         updateAccountState(accountId, state)
     }
 
-    /** Directly seed the accounts list — useful for tests that don't want to exercise registerAll. */
     fun seedAccounts(accounts: List<SipAccount>) {
         _accounts.value = accounts
     }

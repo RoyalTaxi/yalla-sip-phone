@@ -1,183 +1,103 @@
 package uz.yalla.sipphone.feature.main.toolbar
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import uz.yalla.sipphone.domain.AgentStatus
-import uz.yalla.sipphone.domain.CallEngine
-import uz.yalla.sipphone.domain.CallState
-import uz.yalla.sipphone.domain.PhoneNumberValidator
-import uz.yalla.sipphone.domain.SipAccount
-import uz.yalla.sipphone.domain.SipAccountManager
-import uz.yalla.sipphone.domain.SipAccountState
-import uz.yalla.sipphone.util.formatDuration
+import uz.yalla.sipphone.domain.agent.AgentStatus
+import uz.yalla.sipphone.domain.agent.AgentStatusRepository
+import uz.yalla.sipphone.domain.call.CallEngine
+import uz.yalla.sipphone.domain.call.CallState
+import uz.yalla.sipphone.domain.call.callDurationFlow
+import uz.yalla.sipphone.domain.sip.SipAccount
+import uz.yalla.sipphone.domain.sip.SipAccountManager
+import uz.yalla.sipphone.domain.sip.SipAccountState
+import uz.yalla.sipphone.feature.main.toolbar.sideeffect.CallSideEffects
 
 private val logger = KotlinLogging.logger {}
 
 class ToolbarComponent(
+    callState: StateFlow<CallState>,
+    accounts: StateFlow<List<SipAccount>>,
+    private val agentStatusRepository: AgentStatusRepository,
     private val callEngine: CallEngine,
     private val sipAccountManager: SipAccountManager,
+    private val callSideEffects: CallSideEffects,
     private val scope: CoroutineScope,
 ) {
-    val callState: StateFlow<CallState> = callEngine.callState
-    val accounts: StateFlow<List<SipAccount>> = sipAccountManager.accounts
-
-    private val _agentStatus = MutableStateFlow(AgentStatus.READY)
-    val agentStatus: StateFlow<AgentStatus> = _agentStatus.asStateFlow()
-
     private val _phoneInput = MutableStateFlow("")
-    val phoneInput: StateFlow<String> = _phoneInput.asStateFlow()
-
-    private val _callDuration = MutableStateFlow<String?>(null)
-    val callDuration: StateFlow<String?> = _callDuration.asStateFlow()
-
     private val _settingsVisible = MutableStateFlow(false)
-    val settingsVisible: StateFlow<Boolean> = _settingsVisible.asStateFlow()
 
-    private var timerJob: Job? = null
-    private val ringtonePlayer = RingtonePlayer()
-    private val notificationService = NotificationService()
-
-    // Serialize bulk SIP operations so rapid button-mashing can't pile up parallel
-    // unregister/connect calls on the same account.
-    private val disconnectInFlight = AtomicBoolean(false)
+    val state: StateFlow<ToolbarUiState> = combine(
+        listOf(
+            callState,
+            accounts,
+            agentStatusRepository.status,
+            _phoneInput,
+            callDurationFlow(callState),
+            _settingsVisible,
+        )
+    ) { values ->
+        @Suppress("UNCHECKED_CAST")
+        ToolbarUiState(
+            call = values[0] as CallState,
+            accounts = values[1] as List<SipAccount>,
+            agent = values[2] as AgentStatus,
+            phoneInput = values[3] as String,
+            callDuration = values[4] as String?,
+            settingsVisible = values[5] as Boolean,
+        )
+    }.stateIn(scope, SharingStarted.Eagerly, ToolbarUiState())
 
     init {
+        callSideEffects.start(scope, callState)
         scope.launch {
-            callEngine.callState.collect { state ->
+            callState.collect { s ->
                 when {
-                    state is CallState.Ringing && !state.isOutbound -> {
-                        _phoneInput.value = state.callerNumber
-                        ringtonePlayer.play()
-                        notificationService.showIncomingCall(scope)
-                    }
-                    state is CallState.Idle -> {
-                        _phoneInput.value = ""
-                        ringtonePlayer.stop()
-                    }
-                    else -> ringtonePlayer.stop()
-                }
-
-                when (state) {
-                    is CallState.Active -> startTimer()
-                    else -> stopTimer()
+                    s is CallState.Ringing && !s.isOutbound -> _phoneInput.value = s.callerNumber
+                    s is CallState.Idle -> _phoneInput.value = ""
+                    else -> Unit
                 }
             }
         }
     }
 
-    fun setAgentStatus(status: AgentStatus) {
-        _agentStatus.value = status
-    }
+    fun updatePhoneInput(value: String) { _phoneInput.value = value }
+    fun openSettings() { _settingsVisible.value = true }
+    fun closeSettings() { _settingsVisible.value = false }
 
-    fun updatePhoneInput(value: String) {
-        _phoneInput.value = value
-    }
+    fun setAgentStatus(status: AgentStatus) = agentStatusRepository.set(status)
 
-    fun makeCall(number: String): Boolean {
-        val validation = PhoneNumberValidator.validate(number)
-        if (validation.isFailure) {
-            logger.debug { "Invalid phone number input" }
-            return false
-        }
-        val firstConnected = accounts.value.firstOrNull { it.state is SipAccountState.Connected }
-        if (firstConnected == null) {
-            // Reject early so the UI can show "no account connected" instead of pretending the
-            // call was dialed. Previous behaviour passed "" and the call silently failed downstream.
-            logger.info { "makeCall rejected: no connected SIP account" }
-            return false
-        }
-        scope.launch { callEngine.makeCall(validation.getOrThrow(), firstConnected.id) }
-        return true
-    }
-
-    fun answerCall() {
-        ringtonePlayer.stop()
-        scope.launch { callEngine.answerCall() }
-    }
-
-    fun rejectCall() {
-        ringtonePlayer.stop()
-        scope.launch { callEngine.hangupCall() }
-    }
-
-    fun hangupCall() {
-        scope.launch { callEngine.hangupCall() }
-    }
-
-    fun toggleMute() {
-        scope.launch { callEngine.toggleMute() }
-    }
-
-    fun toggleHold() {
-        scope.launch { callEngine.toggleHold() }
-    }
-
-    fun onSipChipClick(accountId: String) {
-        // Only gate the action here — the scope.launch below re-reads state inside the coroutine
-        // so it doesn't act on a stale snapshot from this frame (account could change state
-        // between click and dispatch).
+    fun makeCall(number: String) {
+        if (number.isBlank()) return
         scope.launch {
-            val current = sipAccountManager.accounts.value.find { it.id == accountId } ?: return@launch
-            if (callState.value.activeAccountId == accountId && current.state is SipAccountState.Connected) {
-                logger.debug { "Cannot disconnect SIP account with active call: $accountId" }
-                return@launch
-            }
-            when (current.state) {
-                is SipAccountState.Connected -> sipAccountManager.disconnect(accountId)
-                is SipAccountState.Disconnected -> sipAccountManager.connect(accountId)
-                is SipAccountState.Reconnecting -> { /* ignore — transition state */ }
-            }
+            callEngine.makeCall(number).onFailure { logger.warn(it) { "makeCall failed" } }
         }
     }
 
-    fun openSettings() {
-        _settingsVisible.value = true
-    }
+    fun answerCall() = scope.launch { callEngine.answerCall() }
+    fun rejectCall() = scope.launch { callEngine.hangupCall() }
+    fun hangupCall() = scope.launch { callEngine.hangupCall() }
+    fun toggleMute() = scope.launch { callEngine.toggleMute() }
+    fun toggleHold() = scope.launch { callEngine.toggleHold() }
 
-    fun closeSettings() {
-        _settingsVisible.value = false
-    }
-
-    fun disconnect() {
-        // Guard against parallel unregisterAll invocations from button-mashing.
-        if (!disconnectInFlight.compareAndSet(false, true)) return
-        scope.launch {
-            try {
-                sipAccountManager.unregisterAll()
-            } finally {
-                disconnectInFlight.set(false)
-            }
+    fun onSipChipClick(accountId: String) = scope.launch {
+        val account = sipAccountManager.accounts.value.firstOrNull { it.id == accountId } ?: return@launch
+        if (callEngine.callState.value !is CallState.Idle) return@launch
+        if (account.state is SipAccountState.Connected) {
+            sipAccountManager.disconnect(accountId)
+        } else {
+            sipAccountManager.connect(accountId)
         }
     }
 
-    fun releaseAudioResources() {
-        ringtonePlayer.release()
-        stopTimer()
-    }
+    fun disconnect() = scope.launch { sipAccountManager.unregisterAll() }
 
-    private fun startTimer() {
-        if (timerJob?.isActive == true) return
-        timerJob = scope.launch {
-            var seconds = 0L
-            while (isActive) {
-                _callDuration.value = formatDuration(seconds)
-                delay(1000)
-                seconds++
-            }
-        }
-    }
-
-    private fun stopTimer() {
-        timerJob?.cancel()
-        timerJob = null
-        _callDuration.value = null
+    fun release() {
+        callSideEffects.release()
     }
 }

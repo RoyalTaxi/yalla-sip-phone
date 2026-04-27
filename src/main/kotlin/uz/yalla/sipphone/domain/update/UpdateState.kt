@@ -1,17 +1,5 @@
 package uz.yalla.sipphone.domain.update
 
-/**
- * Collapsed state machine per spec §7.
- *
- * Transitions:
- *   Idle → Checking → Idle (no update)
- *                   → Downloading → Verifying → ReadyToInstall → Installing → [process exit]
- *                                              → Failed(VERIFY) → Idle (with blacklist inc)
- *                   → Failed(CHECK) → Idle
- *
- * `WaitingForIdleCall` is NOT a state — it's a UI predicate:
- *   `canInstallNow = state is ReadyToInstall && callEngine.callState is Idle`
- */
 sealed interface UpdateState {
     data object Idle : UpdateState
     data object Checking : UpdateState

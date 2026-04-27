@@ -68,9 +68,7 @@ fun YallaSipPhoneTheme(
             LocalYallaColors provides yallaColors,
             LocalStrings provides strings,
         ) {
-            // TooltipHost installed at theme root — renders at-most-one tooltip as an in-window
-            // Compose overlay, so no native Popup can cause focus-capture flicker. See
-            // YallaTooltip.kt for the full rationale.
+
             TooltipHost(content = content)
         }
     }

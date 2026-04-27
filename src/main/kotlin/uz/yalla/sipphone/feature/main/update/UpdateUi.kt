@@ -20,7 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.StateFlow
-import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.update.UpdateState
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.strings.StringResources

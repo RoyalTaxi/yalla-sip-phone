@@ -1,5 +1,7 @@
 package uz.yalla.sipphone.data.jcef
 
+import uz.yalla.sipphone.data.jcef.bridge.BridgeSecurity
+
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.test.assertFalse
@@ -21,12 +23,12 @@ class BridgeSecurityTest {
     @Test
     fun `different commands have separate limits`() {
         repeat(5) { security.checkRateLimit("makeCall") }
-        assertTrue(security.checkRateLimit("getState")) // separate limit
+        assertTrue(security.checkRateLimit("getState"))
     }
 
     @Test
     fun `getState has higher limit`() {
         repeat(59) { assertTrue(security.checkRateLimit("getState")) }
-        assertTrue(security.checkRateLimit("getState")) // 60th still OK
+        assertTrue(security.checkRateLimit("getState"))
     }
 }

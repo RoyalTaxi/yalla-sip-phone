@@ -1,5 +1,7 @@
 package uz.yalla.sipphone.domain
 
+import uz.yalla.sipphone.domain.sip.SipStackLifecycle
+
 class FakeSipStackLifecycle : SipStackLifecycle {
     var initializeCalled = false
     var shutdownCalled = false

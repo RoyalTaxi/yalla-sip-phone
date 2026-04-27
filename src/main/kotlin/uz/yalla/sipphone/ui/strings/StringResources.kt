@@ -3,7 +3,7 @@ package uz.yalla.sipphone.ui.strings
 import androidx.compose.runtime.staticCompositionLocalOf
 
 interface StringResources {
-    // Login
+
     val loginTitle: String
     val loginSubtitle: String
     val loginPasswordPlaceholder: String
@@ -14,12 +14,10 @@ interface StringResources {
     val errorWrongPassword: String
     val errorNetworkFailed: String
 
-    // Agent Status
     val agentStatusOnline: String
     val agentStatusBusy: String
     val agentStatusOffline: String
 
-    // SIP
     val sipConnected: String
     val sipReconnecting: String
     val sipDisconnected: String
@@ -27,7 +25,6 @@ interface StringResources {
     val sipReconnectHint: String
     val sipRinging: String
 
-    // Settings
     val settingsTitle: String
     val settingsTheme: String
     val settingsLocale: String
@@ -35,7 +32,6 @@ interface StringResources {
     val settingsLogoutConfirm: String
     val settingsLogoutConfirmTitle: String
 
-    // Call Actions
     val buttonCall: String
     val buttonAnswer: String
     val buttonReject: String
@@ -46,7 +42,6 @@ interface StringResources {
     val buttonResume: String
     val placeholderPhone: String
 
-    // General
     val appTitle: String
     val buttonConnect: String
     val buttonCancel: String
@@ -61,7 +56,6 @@ interface StringResources {
     val placeholderDispatcherUrl: String
     val placeholderBackendUrl: String
 
-    // Manual Connection
     val manualAddAccount: String
     val manualConnectAll: String
     val manualNoAccounts: String
@@ -70,7 +64,6 @@ interface StringResources {
     val placeholderPin: String
     val manualAdvancedSettings: String
 
-    // Update
     val updateAvailableBadge: String
     val updateAvailableDialogTitle: String
     val updateInstallButton: String

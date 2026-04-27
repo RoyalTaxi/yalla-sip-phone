@@ -1,7 +1,9 @@
 package uz.yalla.sipphone
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -27,16 +29,18 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.context.startKoin
-import uz.yalla.sipphone.data.settings.AppSettings
-import uz.yalla.sipphone.data.auth.AuthEventBus
-import uz.yalla.sipphone.data.auth.LogoutOrchestrator
-import uz.yalla.sipphone.data.jcef.BridgeEventEmitter
-import uz.yalla.sipphone.data.jcef.JcefManager
-import uz.yalla.sipphone.data.jcef.KeyShortcutRegistry
-import uz.yalla.sipphone.data.update.UpdateManager
-import uz.yalla.sipphone.di.appModules
-import uz.yalla.sipphone.domain.SipConstants
-import uz.yalla.sipphone.domain.SipStackLifecycle
+import uz.yalla.sipphone.core.auth.SessionExpiredSignal
+import uz.yalla.sipphone.core.auth.SessionStore
+import uz.yalla.sipphone.core.prefs.ConfigPreferences
+import uz.yalla.sipphone.core.prefs.UserPreferences
+import uz.yalla.sipphone.data.jcef.browser.JcefManager
+import uz.yalla.sipphone.data.jcef.events.BridgeEventEmitter
+import uz.yalla.sipphone.data.jcef.keys.KeyShortcutRegistry
+import uz.yalla.sipphone.data.update.manager.UpdateManager
+import uz.yalla.sipphone.di.appModule
+import uz.yalla.sipphone.domain.auth.usecase.LogoutUseCase
+import uz.yalla.sipphone.domain.sip.SipConstants
+import uz.yalla.sipphone.domain.sip.SipStackLifecycle
 import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.RootComponent
 import uz.yalla.sipphone.navigation.RootContent
@@ -48,6 +52,9 @@ private val logger = KotlinLogging.logger {}
 
 private const val WINDOW_WIDTH = 1280
 private const val WINDOW_HEIGHT = 720
+private const val JCEF_DEBUG_PORT = 9222
+private const val CHANNEL_BETA = "beta"
+private const val CHANNEL_STABLE = "stable"
 
 fun main() {
     System.setProperty("compose.interop.blending", "true")
@@ -57,36 +64,19 @@ fun main() {
         logger.error(throwable) { "Uncaught exception on ${thread.name}" }
     }
 
-    val koin = startKoin { modules(appModules) }.koin
+    val koin = startKoin { modules(appModule) }.koin
 
     val updateManager: UpdateManager = koin.get()
     updateManager.start()
 
     val lifecycle: SipStackLifecycle = koin.get()
     val initResult = runBlocking { lifecycle.initialize() }
-
     if (initResult.isFailure) {
-        javax.swing.JOptionPane.showMessageDialog(
-            null,
-            Strings.errorInitMessage(initResult.exceptionOrNull()?.message),
-            Strings.ERROR_INIT_TITLE,
-            javax.swing.JOptionPane.ERROR_MESSAGE,
-        )
+        showFatalDialog(initResult.exceptionOrNull()?.message)
         return
     }
 
     val jcefManager: JcefManager = koin.get()
-    // NOTE: JCEF is intentionally NOT initialized here.
-    // Per JetBrains/compose-multiplatform#2939, initializing JCEF before the Compose Window
-    // exists causes (on macOS) the Chromium NSView to attach with broken geometry — the
-    // webview then renders blank until the user triggers a resize. Init is moved into a
-    // LaunchedEffect inside the Window composable below, so JCEF attaches to a live window.
-
-    // gracefulShutdown can fire from three sources concurrently:
-    //   (a) AWT window close (onCloseRequest)
-    //   (b) Runtime shutdown hook (Ctrl+C / SIGTERM)
-    //   (c) UpdateManager.onBeforeExit (before MSI installer launches)
-    // A single gate ensures each step runs exactly once.
     val shutdownDone = AtomicBoolean(false)
 
     fun gracefulShutdown() {
@@ -107,38 +97,35 @@ fun main() {
 
     val decomposeLifecycle = LifecycleRegistry()
     val factory: ComponentFactory = koin.get()
-    val authEventBus: AuthEventBus = koin.get()
-    val logoutOrchestrator: LogoutOrchestrator = koin.get()
+    val sessionStore: SessionStore = koin.get()
+    val sessionExpired: SessionExpiredSignal = koin.get()
+    val logoutUseCase: LogoutUseCase = koin.get()
+    val userPreferences: UserPreferences = koin.get()
+    val configPreferences: ConfigPreferences = koin.get()
+
     val rootComponent = runOnUiThread {
         RootComponent(
             componentContext = DefaultComponentContext(lifecycle = decomposeLifecycle),
             factory = factory,
-            authEventBus = authEventBus,
-            logoutOrchestrator = logoutOrchestrator,
+            sessionStore = sessionStore,
+            sessionExpired = sessionExpired,
+            logoutUseCase = logoutUseCase,
         )
     }
 
-    val appSettings = koin.get<AppSettings>()
-
     application {
-        var isDarkTheme by remember { mutableStateOf(appSettings.isDarkTheme) }
-        var locale by remember { mutableStateOf(appSettings.locale) }
-
+        val userPrefs by userPreferences.values.collectAsState(initial = userPreferences.current())
         val childStack by rootComponent.childStack.subscribeAsState()
-        val isMainScreen = childStack.active.instance is RootComponent.Child.Main
+        val isWorkstation = childStack.active.instance is RootComponent.Child.Workstation
 
         val windowState = rememberWindowState(
             size = DpSize(WINDOW_WIDTH.dp, WINDOW_HEIGHT.dp),
             position = WindowPosition(Alignment.Center),
         )
 
-        val agentName = (childStack.active.instance as? RootComponent.Child.Main)
+        val agentName = (childStack.active.instance as? RootComponent.Child.Workstation)
             ?.component?.agentInfo?.name.orEmpty()
-        val windowTitle = if (isMainScreen) {
-            "${Strings.APP_TITLE} \u2014 $agentName"
-        } else {
-            Strings.APP_TITLE
-        }
+        val windowTitle = if (isWorkstation) "${Strings.APP_TITLE} — $agentName" else Strings.APP_TITLE
 
         Window(
             onCloseRequest = {
@@ -148,40 +135,29 @@ fun main() {
             title = windowTitle,
             state = windowState,
             alwaysOnTop = false,
-            resizable = isMainScreen,
+            resizable = isWorkstation,
         ) {
-            LaunchedEffect(isMainScreen) {
-                javax.swing.SwingUtilities.invokeLater {
+            LaunchedEffect(isWorkstation) {
+                SwingUtilities.invokeLater {
                     window.minimumSize = java.awt.Dimension(WINDOW_WIDTH, WINDOW_HEIGHT)
                 }
             }
 
-            // Fixes compose-multiplatform#2939 on macOS: if JCEF is initialized before the
-            // Compose Window exists, the Chromium NSView attaches with broken geometry and
-            // the webview stays blank until a manual resize. Init here, after the Window is
-            // live, then block navigation behind a splash until it finishes so downstream
-            // components (MainComponent's bridge router, WebviewPanel's createBrowser) are
-            // guaranteed a ready JcefManager.
-            //
-            // Offloaded to Dispatchers.IO because JcefManager.initialize uses
-            // SwingUtilities.invokeAndWait internally — calling it from the AWT EDT
-            // (Compose Desktop's Dispatchers.Main) would deadlock.
-            var jcefReady by remember { mutableStateOf(jcefManager.isInitialized) }
-            LaunchedEffect(Unit) {
-                if (!jcefManager.isInitialized) {
-                    withContext(Dispatchers.IO) {
-                        runCatching { jcefManager.initialize(debugPort = 9222) }
-                            .onFailure { logger.error(it) { "JCEF initialization failed" } }
-                    }
-                }
-                jcefReady = true
-            }
+            val jcefReady = rememberJcefReady(jcefManager)
 
-            // AWT-level shortcuts — bypasses Compose/JCEF focus issues
+            val keyRegistry: KeyShortcutRegistry = remember { koin.get() }
+            val bridgeEmitter: BridgeEventEmitter = remember { koin.get() }
             DisposableEffect(Unit) {
                 val listener = java.awt.event.AWTEventListener { event ->
                     if (event is KeyEvent && event.id == KeyEvent.KEY_PRESSED) {
-                        handleKeyboardShortcut(event, rootComponent)
+                        handleKeyboardShortcut(
+                            event = event,
+                            rootComponent = rootComponent,
+                            configPreferences = configPreferences,
+                            updateManager = updateManager,
+                            keyRegistry = keyRegistry,
+                            emitter = bridgeEmitter,
+                        )
                     }
                 }
                 java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.KEY_EVENT_MASK)
@@ -192,22 +168,16 @@ fun main() {
 
             LifecycleController(decomposeLifecycle, windowState)
 
-            YallaSipPhoneTheme(isDark = isDarkTheme, locale = locale) {
+            YallaSipPhoneTheme(isDark = userPrefs.isDarkTheme, locale = userPrefs.locale) {
                 if (!jcefReady) {
                     SplashScreen()
                 } else {
                     RootContent(
                         root = rootComponent,
-                        isDarkTheme = isDarkTheme,
-                        locale = locale,
-                        onThemeToggle = {
-                            isDarkTheme = !isDarkTheme
-                            appSettings.isDarkTheme = isDarkTheme
-                        },
-                        onLocaleChange = { newLocale ->
-                            locale = newLocale
-                            appSettings.locale = newLocale
-                        },
+                        isDarkTheme = userPrefs.isDarkTheme,
+                        locale = userPrefs.locale,
+                        onThemeToggle = { userPreferences.setDarkTheme(!userPrefs.isDarkTheme) },
+                        onLocaleChange = { newLocale -> userPreferences.setLocale(newLocale) },
                     )
                 }
             }
@@ -215,46 +185,57 @@ fun main() {
     }
 }
 
-private fun handleKeyboardShortcut(event: KeyEvent, rootComponent: RootComponent) {
-    val ctrl = event.isControlDown
-    val shift = event.isShiftDown
+@Composable
+private fun rememberJcefReady(jcefManager: JcefManager): Boolean {
+    var ready by remember { mutableStateOf(jcefManager.isInitialized) }
+    LaunchedEffect(Unit) {
+        if (!jcefManager.isInitialized) {
+            withContext(Dispatchers.IO) {
+                runCatching { jcefManager.initialize(debugPort = JCEF_DEBUG_PORT) }
+                    .onFailure { logger.error(it) { "JCEF initialization failed" } }
+            }
+        }
+        ready = true
+    }
+    return ready
+}
 
-    // Two native-only debug shortcuts stay hardcoded — they're app-level debug surfaces that
-    // the web team shouldn't own or be able to override through the bridge. Everything else
-    // is frontend-driven: the web panel calls `registerKeyListeners` on handshake and native
-    // only listens for the combos it's explicitly asked to.
+private fun handleKeyboardShortcut(
+    event: KeyEvent,
+    rootComponent: RootComponent,
+    configPreferences: ConfigPreferences,
+    updateManager: UpdateManager,
+    keyRegistry: KeyShortcutRegistry,
+    emitter: BridgeEventEmitter,
+) {
+    val modifiers = event.isControlDown && event.isShiftDown && event.isAltDown
     when {
-        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_B -> {
-            val settings: AppSettings =
-                org.koin.java.KoinJavaComponent.get(AppSettings::class.java)
-            settings.updateChannel = if (settings.updateChannel == "beta") "stable" else "beta"
-            logger.info { "Update channel toggled: ${settings.updateChannel}" }
+        modifiers && event.keyCode == KeyEvent.VK_B -> {
+            val current = configPreferences.current().updateChannel
+            configPreferences.setUpdateChannel(if (current == CHANNEL_BETA) CHANNEL_STABLE else CHANNEL_BETA)
             event.consume()
             return
         }
-        ctrl && shift && event.isAltDown && event.keyCode == KeyEvent.VK_D -> {
-            val um: UpdateManager =
-                org.koin.java.KoinJavaComponent.get(UpdateManager::class.java)
-            um.toggleDiagnostics()
+        modifiers && event.keyCode == KeyEvent.VK_D -> {
+            updateManager.toggleDiagnostics()
             event.consume()
             return
         }
     }
 
-    // Only dispatch registered shortcuts once the main screen is showing — on the login
-    // screen there's no bridge to emit events to.
-    val currentChild = rootComponent.childStack.value.active.instance
-    if (currentChild !is RootComponent.Child.Main) return
-
-    val registry: KeyShortcutRegistry =
-        org.koin.java.KoinJavaComponent.get(KeyShortcutRegistry::class.java)
-    val matched = registry.match(event) ?: return
-    val emitter: BridgeEventEmitter =
-        org.koin.java.KoinJavaComponent.get(BridgeEventEmitter::class.java)
+    if (rootComponent.childStack.value.active.instance !is RootComponent.Child.Workstation) return
+    val matched = keyRegistry.match(event) ?: return
     emitter.emitKeyPressed(matched)
-    // Consume the event so JCEF / Compose don't process it a second time — the frontend
-    // is solely responsible for acting on registered shortcuts from here.
     event.consume()
+}
+
+private fun showFatalDialog(reason: String?) {
+    javax.swing.JOptionPane.showMessageDialog(
+        null,
+        Strings.errorInitMessage(reason),
+        Strings.ERROR_INIT_TITLE,
+        javax.swing.JOptionPane.ERROR_MESSAGE,
+    )
 }
 
 private fun <T> runOnUiThread(block: () -> T): T {
@@ -262,7 +243,6 @@ private fun <T> runOnUiThread(block: () -> T): T {
 
     var error: Throwable? = null
     var result: T? = null
-
     SwingUtilities.invokeAndWait {
         try {
             result = block()
@@ -270,7 +250,6 @@ private fun <T> runOnUiThread(block: () -> T): T {
             error = e
         }
     }
-
     error?.let { throw it }
 
     @Suppress("UNCHECKED_CAST")

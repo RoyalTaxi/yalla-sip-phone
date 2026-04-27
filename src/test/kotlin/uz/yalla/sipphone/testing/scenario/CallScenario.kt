@@ -1,35 +1,15 @@
 package uz.yalla.sipphone.testing.scenario
 
-import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.domain.call.CallState
 import java.util.UUID
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-/**
- * A single step in a call scenario: emit [state] and hold for [holdFor]
- * before advancing to the next step.
- */
 data class ScenarioStep(
     val state: CallState,
     val holdFor: Duration = Duration.ZERO,
 )
 
-/**
- * DSL builder for constructing a sequence of [ScenarioStep]s that model
- * a realistic call lifecycle.
- *
- * Example:
- * ```
- * val steps = callScenario {
- *     ring("102", holdFor = 3.seconds)
- *     active("102", holdFor = 30.seconds)
- *     mute(holdFor = 5.seconds)
- *     unmute(holdFor = 10.seconds)
- *     ending(holdFor = 1.seconds)
- *     idle()
- * }
- * ```
- */
 class CallScenarioBuilder {
 
     private val steps = mutableListOf<ScenarioStep>()
@@ -68,7 +48,6 @@ class CallScenarioBuilder {
         val id = callId ?: currentCallId ?: generateCallId()
         currentCallId = id
 
-        // Resolve defaults from the last ringing state if available
         val lastRinging = steps.lastOrNull()?.state as? CallState.Ringing
         val resolvedNumber = number ?: lastRinging?.callerNumber ?: "unknown"
         val resolvedName = name ?: lastRinging?.callerName
@@ -136,8 +115,5 @@ class CallScenarioBuilder {
     private fun generateCallId(): String = UUID.randomUUID().toString().take(8)
 }
 
-/**
- * Build a call scenario using the [CallScenarioBuilder] DSL.
- */
 fun callScenario(block: CallScenarioBuilder.() -> Unit): List<ScenarioStep> =
     CallScenarioBuilder().apply(block).build()

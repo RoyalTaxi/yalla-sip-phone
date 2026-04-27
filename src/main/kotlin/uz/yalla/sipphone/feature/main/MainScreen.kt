@@ -6,9 +6,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import java.time.Instant
-import uz.yalla.sipphone.feature.main.toolbar.SettingsPanel
+import uz.yalla.sipphone.feature.main.toolbar.widget.SettingsPanel
 import uz.yalla.sipphone.feature.main.toolbar.ToolbarContent
 import uz.yalla.sipphone.feature.main.update.UpdateDialog
 import uz.yalla.sipphone.feature.main.update.UpdateDiagnosticsDialog
@@ -23,7 +24,8 @@ fun MainScreen(
     onThemeToggle: () -> Unit,
     onLocaleChange: (String) -> Unit,
 ) {
-    val settingsVisible by component.toolbar.settingsVisible.collectAsState()
+    val toolbarUi by component.toolbar.state.collectAsState()
+    val settingsVisible = toolbarUi.settingsVisible
     val diagnosticsVisible by component.updateManager.diagnosticsVisible.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().background(LocalYallaColors.current.backgroundBase)) {
@@ -71,25 +73,30 @@ fun MainScreen(
 
     UpdateDialog(
         stateFlow = component.updateManager.state,
-        callStateFlow = component.toolbar.callState,
+        callStateFlow = component.callState,
         dismissedFlow = component.updateManager.dialogDismissed,
         onInstall = { component.updateManager.confirmInstall() },
         onDismiss = { component.updateManager.dismiss() },
     )
 
-    val lastCheck = component.updateManager.lastCheckMillis().let { ms ->
-        if (ms == 0L) "—" else Instant.ofEpochMilli(ms).toString()
+    if (diagnosticsVisible) {
+        val updateManager = component.updateManager
+        val lastCheckText = remember(updateManager.lastCheckMillis()) {
+            updateManager.lastCheckMillis().let { ms ->
+                if (ms == 0L) "—" else Instant.ofEpochMilli(ms).toString()
+            }
+        }
+        UpdateDiagnosticsDialog(
+            visible = true,
+            installId = "—",
+            channel = "—",
+            currentVersion = uz.yalla.sipphone.domain.BuildVersion.CURRENT,
+            stateText = updateManager.state.value.toString(),
+            lastCheckText = lastCheckText,
+            lastErrorText = updateManager.lastErrorMessage() ?: "—",
+            logTail = "",
+            onCopy = updateManager::hideDiagnostics,
+            onDismiss = updateManager::hideDiagnostics,
+        )
     }
-    UpdateDiagnosticsDialog(
-        visible = diagnosticsVisible,
-        installId = "—",
-        channel = "—",
-        currentVersion = uz.yalla.sipphone.domain.BuildVersion.CURRENT,
-        stateText = component.updateManager.state.value.toString(),
-        lastCheckText = lastCheck,
-        lastErrorText = component.updateManager.lastErrorMessage() ?: "—",
-        logTail = "",
-        onCopy = { component.updateManager.hideDiagnostics() },
-        onDismiss = { component.updateManager.hideDiagnostics() },
-    )
 }

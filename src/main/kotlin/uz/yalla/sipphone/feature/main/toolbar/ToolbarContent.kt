@@ -22,9 +22,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import uz.yalla.sipphone.data.update.UpdateManager
-import uz.yalla.sipphone.domain.AgentInfo
-import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.feature.main.toolbar.widget.AgentStatusButton
+import uz.yalla.sipphone.feature.main.toolbar.widget.CallActions
+import uz.yalla.sipphone.feature.main.toolbar.widget.CallTimer
+import uz.yalla.sipphone.feature.main.toolbar.widget.PhoneField
+import uz.yalla.sipphone.feature.main.toolbar.widget.SipChipRow
+import uz.yalla.sipphone.data.update.manager.UpdateManager
+import uz.yalla.sipphone.domain.agent.AgentInfo
 import uz.yalla.sipphone.feature.main.update.UpdateBadge
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
@@ -45,18 +49,13 @@ fun ToolbarContent(
     val tokens = LocalAppTokens.current
     val colors = LocalYallaColors.current
 
-    val callState by component.callState.collectAsState()
-    val agentStatus by component.agentStatus.collectAsState()
-    val phoneInput by component.phoneInput.collectAsState()
-    val accounts by component.accounts.collectAsState()
-    val callDuration by component.callDuration.collectAsState()
-
-    val activeCallAccountId = when (val state = callState) {
-        is CallState.Ringing -> state.accountId
-        is CallState.Active -> state.accountId
-        is CallState.Ending -> state.accountId
-        else -> null
-    }
+    val ui by component.state.collectAsState()
+    val callState = ui.call
+    val agentStatus = ui.agent
+    val phoneInput = ui.phoneInput
+    val accounts = ui.accounts
+    val callDuration = ui.callDuration
+    val activeCallAccountId = ui.activeCallAccountId
 
     Box(
         modifier = modifier
@@ -124,7 +123,7 @@ fun ToolbarContent(
 
             IconButton(
                 onClick = {
-                    if (component.settingsVisible.value) component.closeSettings()
+                    if (ui.settingsVisible) component.closeSettings()
                     else component.openSettings()
                 },
                 modifier = Modifier

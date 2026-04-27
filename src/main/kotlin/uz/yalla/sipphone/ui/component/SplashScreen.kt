@@ -17,13 +17,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/**
- * Shown briefly on app launch while JCEF initializes. Once Chromium is ready
- * (~2–3 s first-time), the root navigation takes over.
- *
- * Uses the brand gradient directly — no theme lookups — so it renders identically whether the
- * user's stored theme setting has loaded yet.
- */
 @Composable
 fun SplashScreen() {
     Box(

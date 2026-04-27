@@ -6,36 +6,42 @@ import androidx.compose.ui.graphics.Color
 
 @Immutable
 data class YallaColors(
-    // Brand
+
     val brandPrimary: Color,
     val brandPrimaryMuted: Color,
     val brandPrimaryText: Color,
     val brandLight: Color,
-    // Backgrounds
+
     val backgroundBase: Color,
     val backgroundSecondary: Color,
     val backgroundTertiary: Color,
-    // Text
+
     val textBase: Color,
     val textSubtle: Color,
-    // Borders
+
     val borderDefault: Color,
     val borderStrong: Color,
-    // Status
+
     val errorText: Color,
     val destructive: Color,
     val statusWarning: Color,
     val statusOnline: Color,
-    // Surfaces
+
     val surfaceMuted: Color,
-    // Icons
+
     val iconSubtle: Color,
-    // Call states
+
     val callReady: Color,
     val callIncoming: Color,
     val callMuted: Color,
     val callOffline: Color,
     val callWrapUp: Color,
+
+    val loginCardBackground: Color,
+    val loginCardSurface: Color,
+    val loginCardBorder: Color,
+    val loginCardTextPrimary: Color,
+    val loginCardTextSecondary: Color,
 ) {
     companion object {
         val Light = YallaColors(
@@ -47,13 +53,13 @@ data class YallaColors(
             backgroundSecondary = Color(0xFFF7F7F7),
             backgroundTertiary = Color(0xFFE9EAEA),
             textBase = Color(0xFF101828),
-            // Was #98A2B3 — only ~3.1:1 on white, fails WCAG AA. Darkened to ~5:1.
+
             textSubtle = Color(0xFF5F6B7C),
             borderDefault = Color(0xFFE4E7EC),
             borderStrong = Color(0xFF101828),
-            // For TEXT on light backgrounds we need ≥4.5:1. #F42500 on white is only ~3.6:1 → darken.
+
             errorText = Color(0xFFC4102C),
-            // Kept as brand red for buttons/icons where WCAG 3:1 graphical threshold applies.
+
             destructive = Color(0xFFF42500),
             statusWarning = Color(0xFFFF234B),
             statusOnline = Color(0xFF16A34A),
@@ -64,6 +70,12 @@ data class YallaColors(
             callMuted = Color(0xFFF42500),
             callOffline = Color(0xFF6B7280),
             callWrapUp = Color(0xFF7C3AED),
+
+            loginCardBackground = Color(0xFF1A1A20).copy(alpha = 0.88f),
+            loginCardSurface = Color(0xFF21222B),
+            loginCardBorder = Color(0xFF383843),
+            loginCardTextPrimary = Color.White,
+            loginCardTextSecondary = Color(0xFF98A2B3),
         )
 
         val Dark = YallaColors(
@@ -75,7 +87,7 @@ data class YallaColors(
             backgroundSecondary = Color(0xFF21222B),
             backgroundTertiary = Color(0xFF2A2B35),
             textBase = Color(0xFFFFFFFF),
-            // Was #747C8B — ~3.6:1 on backgroundSecondary, fails WCAG AA. Lightened to ~5.2:1.
+
             textSubtle = Color(0xFF8B93A3),
             borderDefault = Color(0xFF383843),
             borderStrong = Color(0xFFFFFFFF),
@@ -90,6 +102,11 @@ data class YallaColors(
             callMuted = Color(0xFFF42500),
             callOffline = Color(0xFF98A2B3),
             callWrapUp = Color(0xFF8B5CF6),
+            loginCardBackground = Color(0xFF1A1A20).copy(alpha = 0.88f),
+            loginCardSurface = Color(0xFF21222B),
+            loginCardBorder = Color(0xFF383843),
+            loginCardTextPrimary = Color.White,
+            loginCardTextSecondary = Color(0xFF98A2B3),
         )
     }
 }

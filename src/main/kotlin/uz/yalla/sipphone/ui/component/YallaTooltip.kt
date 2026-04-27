@@ -35,31 +35,6 @@ import kotlinx.coroutines.delay
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
-/**
- * In-window hover tooltip. Placed to the LEFT, RIGHT or TOP of the anchor — never below,
- * never under the cursor.
- *
- * **Why this design.** Every Popup-based approach (native OS window) flickered on macOS:
- * the popup took mouse ownership away from the main window, the anchor saw mouse-exit,
- * popup dismissed, feedback loop. Placing the popup below-anchor with a gap didn't fix it
- * — the focus-transition blip is non-deterministic (20–500 ms depending on GPU / macOS
- * version), and no fixed debounce covers all of them.
- *
- * **What this does.** Renders the tooltip as a regular Compose overlay inside the main
- * window via [TooltipHost]. No native window = no mouse-ownership transfer = no flicker.
- * Placement prefers RIGHT of anchor (fits best in typical toolbar layouts), falls back to
- * LEFT if right-edge would clip, then TOP, then BELOW as last resort.
- *
- * **Caveat.** In-window Compose content cannot draw above heavyweight AWT children (JCEF's
- * Chromium canvas). If the chosen placement overlaps a heavyweight child, the tooltip will
- * be hidden behind it. For the toolbar chips this works because the placement algorithm
- * keeps the tooltip in the toolbar's Compose-only strip. If a tooltip anchor is placed
- * elsewhere, the chosen direction should keep it in pure-Compose space.
- *
- * **Size measurement.** The tooltip's size isn't known before its first render, so we
- * draw it offscreen with alpha=0 on the first frame to let it self-measure, then on the
- * next frame snap it to the computed position with alpha=1. Visually imperceptible.
- */
 @Composable
 fun YallaTooltip(
     tooltip: @Composable () -> Unit,
@@ -78,8 +53,6 @@ fun YallaTooltip(
     var visible by remember { mutableStateOf(false) }
     var tooltipSize by remember { mutableStateOf(IntSize.Zero) }
 
-    // SHOW/HIDE based on Compose hover. Reliable for in-window rendering (no native popup
-    // steals focus, so hover state doesn't glitch).
     LaunchedEffect(isHovered) {
         if (isHovered) {
             delay(delayMillis.toLong())
@@ -89,13 +62,10 @@ fun YallaTooltip(
         }
     }
 
-    // Reset the cached tooltip size each time we hide → fresh measurement next show, in case
-    // content changed.
     LaunchedEffect(visible) {
         if (!visible) tooltipSize = IntSize.Zero
     }
 
-    // Compute position and push the tooltip into the host.
     LaunchedEffect(visible, anchorLayout, tooltipSize, windowInfo.containerSize) {
         if (!visible || host == null) {
             host?.hide(owner)
@@ -107,7 +77,7 @@ fun YallaTooltip(
         val gapPx = with(density) { 8.dp.roundToPx() }
 
         val chosen = if (tooltipSize == IntSize.Zero) {
-            // Pre-measurement render — offscreen so user doesn't see it flash.
+
             IntOffset(-10_000, -10_000)
         } else {
             computePosition(bounds, tooltipSize, windowSize.width, windowSize.height, gapPx)
@@ -118,9 +88,7 @@ fun YallaTooltip(
             content = {
                 val colors = LocalYallaColors.current
                 val tokens = LocalAppTokens.current
-                // Tight text style for the tooltip body. Material default line-height is
-                // ~1.5x font size which bloats multi-line tooltips; 1.15x is compact but
-                // still readable.
+
                 val compactTextStyle = LocalTextStyle.current.copy(
                     lineHeight = 15.sp,
                     color = colors.textBase,
@@ -156,10 +124,6 @@ fun YallaTooltip(
     }
 }
 
-/**
- * Placement preference: RIGHT → LEFT → TOP → BELOW (fallback). Centers the tooltip on the
- * anchor along the perpendicular axis, then clamps to window bounds so we never draw off-screen.
- */
 private fun computePosition(
     anchor: Rect,
     tooltipSize: IntSize,

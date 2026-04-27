@@ -1,11 +1,11 @@
 package uz.yalla.sipphone.navigation
 
 import com.arkivanov.decompose.ComponentContext
-import uz.yalla.sipphone.domain.AuthResult
-import uz.yalla.sipphone.feature.login.LoginComponent
+import uz.yalla.sipphone.domain.auth.model.Session
+import uz.yalla.sipphone.feature.auth.presentation.model.AuthComponent
 import uz.yalla.sipphone.feature.main.MainComponent
 
 interface ComponentFactory {
-    fun createLogin(context: ComponentContext, onLoginSuccess: (AuthResult) -> Unit): LoginComponent
-    fun createMain(context: ComponentContext, authResult: AuthResult, onLogout: () -> Unit): MainComponent
+    fun createAuth(context: ComponentContext): AuthComponent
+    fun createMain(context: ComponentContext, session: Session, onLogout: () -> Unit): MainComponent
 }

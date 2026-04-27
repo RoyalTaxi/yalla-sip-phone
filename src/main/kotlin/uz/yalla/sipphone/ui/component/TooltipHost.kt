@@ -13,25 +13,14 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 
-/**
- * In-window tooltip rendering.
- *
- * Tooltips render as a regular Compose overlay inside the main window — no `Popup`, no
- * native OS window, no mouse-ownership transfer, no focus flicker. Trade-off: the tooltip
- * can't draw above heavyweight AWT children (e.g., JCEF), which is why [YallaTooltip] picks
- * a placement (RIGHT / LEFT / TOP) that stays in pure-Compose areas.
- */
 internal class TooltipHostState {
-    /** Currently-shown tooltip content, or `null` if nothing is visible. */
+
     var content: (@Composable () -> Unit)? by mutableStateOf(null)
         private set
 
-    /** Offset (in host coordinates) of the tooltip's top-left corner. */
     var offset: IntOffset by mutableStateOf(IntOffset.Zero)
         private set
 
-    // Identity token of the anchor currently "owning" the host so a late hide from anchor A
-    // can't clobber a show from anchor B that raced it.
     private var owner: Any? = null
 
     fun show(owner: Any, content: @Composable () -> Unit, offset: IntOffset) {
@@ -50,10 +39,6 @@ internal class TooltipHostState {
 
 internal val LocalTooltipHost = staticCompositionLocalOf<TooltipHostState?> { null }
 
-/**
- * Wraps app content and renders at-most-one tooltip as a regular Compose overlay.
- * Installed once at the root (by `YallaSipPhoneTheme`).
- */
 @Composable
 fun TooltipHost(content: @Composable () -> Unit) {
     val state = remember { TooltipHostState() }

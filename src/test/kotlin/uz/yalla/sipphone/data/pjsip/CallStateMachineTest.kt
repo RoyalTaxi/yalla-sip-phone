@@ -1,9 +1,12 @@
 package uz.yalla.sipphone.data.pjsip
 
+import uz.yalla.sipphone.data.pjsip.call.CallStateMachine
+import uz.yalla.sipphone.data.pjsip.call.CallEvent
+
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.domain.call.CallState
 
 class CallStateMachineTest {
 

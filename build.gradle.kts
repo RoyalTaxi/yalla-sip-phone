@@ -102,6 +102,11 @@ dependencies {
     // DI
     implementation("io.insert-koin:koin-core:4.1.1")
 
+    // MVI
+    val orbitVersion = "10.0.0"
+    implementation("org.orbit-mvi:orbit-core:$orbitVersion")
+    implementation("org.orbit-mvi:orbit-compose:$orbitVersion")
+
     // Design system
     implementation("com.materialkolor:material-kolor:2.0.0")
 
@@ -142,6 +147,7 @@ dependencies {
     testImplementation(compose.desktop.uiTestJUnit4)
     testImplementation("app.cash.turbine:turbine:1.2.1")
     testImplementation("io.ktor:ktor-client-mock:3.1.2")
+    testImplementation("org.orbit-mvi:orbit-test:10.0.0")
 }
 
 // Dev mode pjsip path (compose.desktop.application.jvmArgs handles --add-opens)

@@ -1,9 +1,5 @@
 package uz.yalla.sipphone.domain.update
 
-/**
- * Strict MAJOR.MINOR.PATCH semver parser and comparator for the auto-updater.
- * The contract with the backend forbids pre-release suffixes or `v` prefix.
- */
 data class Semver(val major: Int, val minor: Int, val patch: Int) : Comparable<Semver> {
 
     override fun compareTo(other: Semver): Int {

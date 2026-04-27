@@ -17,7 +17,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
-import uz.yalla.sipphone.domain.CallState
+import uz.yalla.sipphone.data.update.api.UpdateApi
+import uz.yalla.sipphone.data.update.api.asContract
+import uz.yalla.sipphone.data.update.downloader.UpdateDownloader
+import uz.yalla.sipphone.data.update.downloader.asContract
+import uz.yalla.sipphone.data.update.install.InstallerContract
+import uz.yalla.sipphone.data.update.manager.UpdateManager
+import uz.yalla.sipphone.data.update.storage.UpdatePaths
+import uz.yalla.sipphone.data.update.verify.Sha256Verifier
+import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.update.UpdateChannel
 import uz.yalla.sipphone.domain.update.UpdateState
 import java.nio.file.Files
@@ -33,26 +41,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.fail
 
-/**
- * End-to-end orchestration test for the auto-update flow.
- *
- * Wires the REAL [UpdateApi], [UpdateDownloader], [Sha256Verifier], and
- * [UpdateManager] together against a faked HTTP backend (Ktor MockEngine)
- * that mimics the RoyalTaxi backend's exact response shape: wrapped
- * `ApiResponse<T>` envelope + http installer URL + 192.168.0.98 host.
- *
- * The only mocked piece is [InstallerContract] (msiexec cannot run in a unit
- * test); we record the call and assert the correct arguments.
- *
- * Uses `runBlocking` + polling rather than `runTest + advanceUntilIdle`
- * because Ktor's MockEngine completes on real IO dispatchers outside the
- * TestScheduler — we need real wall-clock time to let the pipeline run.
- *
- * If this test passes, the entire client-side update pipeline works
- * end-to-end against the production backend response format. The only
- * remaining unknown is bootstrapper + msiexec interaction with Windows
- * file locks, which requires a real Windows machine.
- */
 class UpdateE2ETest {
 
     private lateinit var tempRoot: Path
@@ -150,11 +138,10 @@ class UpdateE2ETest {
             channelProvider = { UpdateChannel.STABLE },
             installIdProvider = { "e2e-test-install-id" },
             pollIntervalMillis = 1_000_000L,
-            exitProcess = { /* no-op for tests */ },
+            exitProcess = {  },
         )
     }
 
-    /** Poll the state flow until [predicate] is true or a generous timeout is hit. */
     private suspend fun UpdateManager.awaitState(
         timeoutMs: Long = 10_000,
         label: String = "state",
@@ -197,7 +184,7 @@ class UpdateE2ETest {
         assertEquals(expectedSha, Sha256Verifier.compute(msiOnDisk), "SHA256 must match")
 
         mgr.confirmInstall()
-        // Wait for installer to be invoked (up to 5s).
+
         withTimeout(5_000) {
             while (installer.installCount == 0) delay(20)
         }
@@ -235,7 +222,7 @@ class UpdateE2ETest {
         )
 
         mgr.confirmInstall()
-        delay(300) // give the manager a chance to run if it was going to install
+        delay(300)
 
         assertEquals(0, installer.installCount, "installer must NOT be called while a call is active (invariant I1)")
 
@@ -262,7 +249,7 @@ class UpdateE2ETest {
         val mgr = manager(this, client, installer, callState, currentVersion = "1.0.1")
 
         mgr.checkNow()
-        // Give the manager time to poll, validate, and settle back to Idle.
+
         delay(500)
 
         assertEquals(UpdateState.Idle, mgr.state.value)

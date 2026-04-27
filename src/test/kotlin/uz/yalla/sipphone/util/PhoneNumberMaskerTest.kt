@@ -29,4 +29,17 @@ class PhoneNumberMaskerTest {
         val masked = PhoneNumberMasker.mask("42")
         assertEquals("*2", masked)
     }
+
+    @Test
+    fun `maskParams masks recognised phone keys`() {
+        val masked = PhoneNumberMasker.maskParams(mapOf("number" to "+998901234567"))
+        assertTrue(masked["number"]!!.endsWith("67"))
+        assertTrue(masked["number"]!!.contains("*"))
+    }
+
+    @Test
+    fun `maskParams leaves non-phone keys untouched`() {
+        val masked = PhoneNumberMasker.maskParams(mapOf("status" to "away"))
+        assertEquals("away", masked["status"])
+    }
 }

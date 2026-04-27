@@ -57,7 +57,7 @@ class UpdateManifestTest {
 
     @Test
     fun `validate rejects manifest with size too large`() {
-        val r = fakeRelease(size = 3L * 1024 * 1024 * 1024)  // 3 GiB
+        val r = fakeRelease(size = 3L * 1024 * 1024 * 1024)
         assertTrue(ManifestValidator.validate(r) is ManifestValidation.Invalid)
     }
 
