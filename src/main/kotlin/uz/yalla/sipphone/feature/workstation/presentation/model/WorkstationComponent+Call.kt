@@ -5,7 +5,7 @@ import kotlinx.coroutines.launch
 import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.sip.SipAccountState
 
-private val logger = KotlinLogging.logger("WorkstationComponent+Call")
+private val logger = KotlinLogging.logger {}
 
 internal fun WorkstationComponent.dispatchCall(number: String): kotlinx.coroutines.Job = scope.launch {
     if (number.isBlank()) return@launch

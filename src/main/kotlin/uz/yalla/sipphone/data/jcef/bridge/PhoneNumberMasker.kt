@@ -1,4 +1,4 @@
-package uz.yalla.sipphone.util
+package uz.yalla.sipphone.data.jcef.bridge
 
 object PhoneNumberMasker {
     private val phoneParamKeys = setOf("number", "phone", "callerNumber")

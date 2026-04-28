@@ -1,0 +1,122 @@
+package uz.yalla.sipphone.feature.auth.presentation.model
+
+import app.cash.turbine.test
+import com.arkivanov.decompose.DefaultComponentContext
+import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.destroy
+import com.arkivanov.essenty.lifecycle.resume
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import uz.yalla.sipphone.core.auth.SessionStore
+import uz.yalla.sipphone.core.error.DataError
+import uz.yalla.sipphone.core.result.Either
+import uz.yalla.sipphone.domain.auth.model.AuthError
+import uz.yalla.sipphone.domain.auth.model.Profile
+import uz.yalla.sipphone.domain.auth.model.Session
+import uz.yalla.sipphone.domain.auth.repository.AuthRepository
+import uz.yalla.sipphone.domain.auth.usecase.LoginUseCase
+import uz.yalla.sipphone.domain.auth.usecase.ManualConnectUseCase
+import uz.yalla.sipphone.domain.sip.SipAccountInfo
+import uz.yalla.sipphone.domain.sip.SipAccountState
+import uz.yalla.sipphone.domain.sip.SipCredentials
+import uz.yalla.sipphone.feature.auth.presentation.intent.AuthEffect
+import uz.yalla.sipphone.feature.auth.presentation.intent.AuthIntent
+import uz.yalla.sipphone.testing.FakeSipAccountManager
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+
+class AuthComponentTest {
+
+    private lateinit var lifecycle: LifecycleRegistry
+    private lateinit var sessionStore: SessionStore
+    private lateinit var sipManager: FakeSipAccountManager
+
+    private val sampleAccount = SipAccountInfo(
+        extensionNumber = 103,
+        serverUrl = "sip.example",
+        sipName = "S",
+        credentials = SipCredentials(server = "sip.example", port = 5060, username = "103", password = "x"),
+    )
+    private val sampleProfile = Profile(
+        id = "1",
+        fullName = "Tester",
+        sipAccounts = listOf(sampleAccount),
+        panelUrl = null,
+    )
+    private val sampleSession = Session(token = "jwt", profile = sampleProfile)
+
+    @BeforeTest
+    fun setUp() {
+        lifecycle = LifecycleRegistry()
+        sessionStore = SessionStore()
+        sipManager = FakeSipAccountManager()
+    }
+
+    @AfterTest
+    fun tearDown() {
+        lifecycle.destroy()
+    }
+
+    private fun component(
+        loginRepo: AuthRepository = StaticAuthRepository(Either.Success(sampleSession)),
+    ): AuthComponent = AuthComponent(
+        componentContext = DefaultComponentContext(lifecycle = lifecycle),
+        loginUseCase = LoginUseCase(loginRepo, sipManager, sessionStore),
+        manualConnectUseCase = ManualConnectUseCase(sipManager, sessionStore),
+    ).also { lifecycle.resume() }
+
+    @Test
+    fun `initial state is INITIAL`() = runTest {
+        val s = component().container.stateFlow.first()
+        assertEquals("", s.pin)
+        assertNull(s.error)
+    }
+
+    @Test
+    fun `SetPin under length updates state without firing login`() = runTest {
+        val c = component()
+        c.onIntent(AuthIntent.SetPin("12")).join()
+        assertEquals("12", c.container.stateFlow.first().pin)
+        assertNull(c.container.stateFlow.first().error)
+    }
+
+    @Test
+    fun `submit posts LoggedIn side effect on success`() = runTest {
+        val c = component()
+        c.container.sideEffectFlow.test {
+            c.onIntent(AuthIntent.SetPin("1234"))
+            val effect = awaitItem()
+            assertIs<AuthEffect.LoggedIn>(effect)
+            assertEquals(sampleSession, effect.session)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `submit reduces error into state on network failure`() = runTest {
+        val failing = StaticAuthRepository(Either.Failure(DataError.Network.Server(401, "wrong")))
+        val c = component(loginRepo = failing)
+        c.container.stateFlow.test {
+            assertEquals("", awaitItem().pin)
+            c.onIntent(AuthIntent.SetPin("1234"))
+            val withPin = awaitItem()
+            assertEquals("1234", withPin.pin)
+            val errored = awaitItem()
+            assertIs<AuthError>(errored.error)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+}
+
+private class StaticAuthRepository(
+    private val loginResult: Either<DataError.Network, Session>,
+) : AuthRepository {
+    override suspend fun login(pin: String): Either<DataError.Network, Session> = loginResult
+    override suspend fun me(): Either<DataError.Network, Profile> = Either.Failure(DataError.Network.Unknown)
+    override suspend fun logout(): Either<DataError.Network, Unit> = Either.Success(Unit)
+}

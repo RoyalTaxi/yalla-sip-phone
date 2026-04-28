@@ -278,7 +278,7 @@ class PjsipCallManager(
         }
     }
 
-    suspend fun sendDtmf(callId: String, digits: String): Result<Unit> {
+    fun sendDtmf(callId: String, digits: String): Result<Unit> {
         if (!digits.matches(Regex("[0-9*#A-Da-d]+"))) {
             return Result.failure(IllegalArgumentException("Invalid DTMF digits: $digits"))
         }
@@ -293,7 +293,7 @@ class PjsipCallManager(
         }.onFailure { logger.error(it) { "DTMF failed" } }
     }
 
-    suspend fun transferCall(callId: String, destination: String): Result<Unit> {
+    fun transferCall(callId: String, destination: String): Result<Unit> {
         val a = active ?: return Result.failure(IllegalStateException("No active call"))
         if (a.id != callId) {
             logger.warn { "transferCall: callId mismatch (expected=${a.id}, got=$callId)" }

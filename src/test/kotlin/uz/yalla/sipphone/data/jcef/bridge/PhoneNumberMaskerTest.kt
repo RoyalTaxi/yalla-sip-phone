@@ -1,4 +1,4 @@
-package uz.yalla.sipphone.util
+package uz.yalla.sipphone.data.jcef.bridge
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

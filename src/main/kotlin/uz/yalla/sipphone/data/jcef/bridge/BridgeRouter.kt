@@ -26,14 +26,13 @@ import org.cef.browser.CefMessageRouter.CefMessageRouterConfig
 import org.cef.callback.CefQueryCallback
 import org.cef.handler.CefMessageRouterHandlerAdapter
 import uz.yalla.sipphone.domain.agent.AgentStatus
-import uz.yalla.sipphone.domain.agent.AgentStatusRepository
+import uz.yalla.sipphone.data.workstation.agent.AgentStatusHolder
 import uz.yalla.sipphone.domain.call.CallEngine
 import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.sip.PhoneNumberValidator
 import uz.yalla.sipphone.domain.sip.SipAccountManager
 import uz.yalla.sipphone.domain.sip.SipAccountState
 import uz.yalla.sipphone.domain.sip.SipConstants
-import uz.yalla.sipphone.util.PhoneNumberMasker
 
 private val logger = KotlinLogging.logger {}
 
@@ -42,7 +41,7 @@ class BridgeRouter(
     private val sipAccountManager: SipAccountManager,
     private val security: BridgeSecurity,
     private val keyRegistry: KeyShortcutRegistry,
-    private val agentStatusRepository: AgentStatusRepository,
+    private val agentStatusHolder: AgentStatusHolder,
     private val onReady: () -> String,
     private val onRequestLogout: () -> Unit = {},
     private val tokenProvider: suspend () -> String? = { null },
@@ -372,7 +371,7 @@ class BridgeRouter(
             ?: return CommandResult.error("INTERNAL_ERROR", "Missing status", false)
         val status = AgentStatus.entries.find { it.name.equals(statusStr, ignoreCase = true) }
             ?: return CommandResult.error("INTERNAL_ERROR", "Invalid status: $statusStr", false)
-        agentStatusRepository.set(status)
+        agentStatusHolder.set(status)
         return CommandResult.success(buildJsonObject { put("status", status.name.lowercase()) })
     }
 
@@ -423,7 +422,7 @@ class BridgeRouter(
 
         val state = BridgeState(
             connection = BridgeConnectionState(state = connectionState, attempt = 0),
-            agentStatus = agentStatusRepository.current.name.lowercase(),
+            agentStatus = agentStatusHolder.current.name.lowercase(),
             call = call,
             token = token,
             accounts = accounts,

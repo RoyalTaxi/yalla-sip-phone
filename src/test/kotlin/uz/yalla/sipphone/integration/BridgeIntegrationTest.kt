@@ -8,7 +8,7 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import uz.yalla.sipphone.data.agent.InMemoryAgentStatusRepository
+import uz.yalla.sipphone.data.workstation.agent.AgentStatusHolder
 import uz.yalla.sipphone.data.jcef.events.BridgeEventEmitter
 import uz.yalla.sipphone.data.jcef.bridge.BridgeInitPayload
 import uz.yalla.sipphone.data.jcef.bridge.BridgeRouter
@@ -33,7 +33,7 @@ class BridgeIntegrationTest {
     private val sipAccountManager = FakeSipAccountManager()
     private val security = BridgeSecurity()
     private val eventEmitter = BridgeEventEmitter()
-    private val agentStatusRepository = InMemoryAgentStatusRepository()
+    private val agentStatusHolder = AgentStatusHolder()
 
     private var readyPayload: String = ""
 
@@ -44,7 +44,7 @@ class BridgeIntegrationTest {
         sipAccountManager = sipAccountManager,
         security = security,
         keyRegistry = keyRegistry,
-        agentStatusRepository = agentStatusRepository,
+        agentStatusHolder = agentStatusHolder,
         onReady = {
             eventEmitter.agentInfo = AgentInfo("test-agent", "Test Operator")
             eventEmitter.completeHandshake()

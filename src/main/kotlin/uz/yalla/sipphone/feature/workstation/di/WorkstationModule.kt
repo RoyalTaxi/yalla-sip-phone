@@ -19,7 +19,7 @@ object WorkstationModule {
     private val bridgeModule = module {
         factory { CallEventBridgeEmitter(callEngine = get(), eventEmitter = get()) }
         factory { SipConnectionBridgeEmitter(sipAccountManager = get(), eventEmitter = get()) }
-        factory { AgentStatusBridgeEmitter(agentStatusRepository = get(), eventEmitter = get()) }
+        factory { AgentStatusBridgeEmitter(agentStatusHolder = get(), eventEmitter = get()) }
     }
 
     val modules = listOf(sideEffectModule, bridgeModule)

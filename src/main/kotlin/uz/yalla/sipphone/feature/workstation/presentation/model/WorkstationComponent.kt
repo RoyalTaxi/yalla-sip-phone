@@ -15,13 +15,13 @@ import uz.yalla.sipphone.data.workstation.bridge.AgentStatusBridgeEmitter
 import uz.yalla.sipphone.data.workstation.bridge.CallEventBridgeEmitter
 import uz.yalla.sipphone.data.workstation.bridge.SipConnectionBridgeEmitter
 import uz.yalla.sipphone.domain.agent.AgentInfo
-import uz.yalla.sipphone.domain.agent.AgentStatusRepository
+import uz.yalla.sipphone.data.workstation.agent.AgentStatusHolder
 import uz.yalla.sipphone.domain.auth.usecase.LogoutUseCase
 import uz.yalla.sipphone.domain.call.CallEngine
 import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.call.callDurationFlow
-import uz.yalla.sipphone.domain.panel.WebPanelBridge
-import uz.yalla.sipphone.domain.panel.WebPanelSession
+import uz.yalla.sipphone.data.jcef.bridge.JcefWebPanelBridge
+import uz.yalla.sipphone.data.jcef.bridge.WebPanelSession
 import uz.yalla.sipphone.domain.sip.SipAccountManager
 import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationEffect
 import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationState
@@ -38,10 +38,10 @@ class WorkstationComponent(
     locale: String,
     internal val callEngine: CallEngine,
     internal val sipAccountManager: SipAccountManager,
-    internal val agentStatusRepository: AgentStatusRepository,
+    internal val agentStatusHolder: AgentStatusHolder,
     internal val userPreferences: UserPreferences,
     internal val logoutUseCase: LogoutUseCase,
-    internal val webPanelBridge: WebPanelBridge,
+    internal val webPanelBridge: JcefWebPanelBridge,
     private val callSideEffects: CallSideEffects,
     private val callEventEmitter: CallEventBridgeEmitter,
     private val sipConnectionEmitter: SipConnectionBridgeEmitter,
@@ -76,45 +76,43 @@ class WorkstationComponent(
     }
 
     private fun wireMergedState() {
+        val sipSlice = combine(
+            callEngine.callState,
+            sipAccountManager.accounts,
+            agentStatusHolder.status,
+            callDurationFlow(callEngine.callState),
+        ) { call, accounts, agent, duration ->
+            SipSlice(call, accounts, agent, duration)
+        }
+
+        val updateSlice = combine(
+            updateManager.state,
+            updateManager.dialogDismissed,
+            updateManager.diagnosticsVisible,
+        ) { update, dismissed, diagnostics ->
+            UpdateSlice(update, dismissed, diagnostics)
+        }
+
         val merged: StateFlow<MergedSlices> = combine(
-            listOf(
-                callEngine.callState,
-                sipAccountManager.accounts,
-                agentStatusRepository.status,
-                callDurationFlow(callEngine.callState),
-                userPreferences.values,
-                updateManager.state,
-                updateManager.dialogDismissed,
-                updateManager.diagnosticsVisible,
-            )
-        ) { values ->
-            @Suppress("UNCHECKED_CAST")
-            MergedSlices(
-                call = values[0] as CallState,
-                accounts = values[1] as List<uz.yalla.sipphone.domain.sip.SipAccount>,
-                agent = values[2] as uz.yalla.sipphone.domain.agent.AgentStatus,
-                callDuration = values[3] as String?,
-                userPrefs = values[4] as uz.yalla.sipphone.core.prefs.UserPreferencesValues,
-                updateState = values[5] as uz.yalla.sipphone.domain.update.UpdateState,
-                updateDismissed = values[6] as Boolean,
-                diagnostics = values[7] as Boolean,
-            )
+            sipSlice, updateSlice, userPreferences.values,
+        ) { sip, update, prefs ->
+            MergedSlices(sip, update, prefs)
         }.stateIn(scope, SharingStarted.Eagerly, MergedSlices.empty())
 
         scope.launch {
-            merged.collect { slice ->
+            merged.collect { m ->
                 intent {
                     reduce {
                         state.copy(
-                            call = slice.call,
-                            accounts = slice.accounts,
-                            agent = slice.agent,
-                            callDuration = slice.callDuration,
-                            isDarkTheme = slice.userPrefs.isDarkTheme,
-                            locale = slice.userPrefs.locale,
-                            updateState = slice.updateState,
-                            updateDialogDismissed = slice.updateDismissed,
-                            diagnosticsVisible = slice.diagnostics,
+                            call = m.sip.call,
+                            accounts = m.sip.accounts,
+                            agent = m.sip.agent,
+                            callDuration = m.sip.duration,
+                            isDarkTheme = m.userPrefs.isDarkTheme,
+                            locale = m.userPrefs.locale,
+                            updateState = m.update.state,
+                            updateDialogDismissed = m.update.dismissed,
+                            diagnosticsVisible = m.update.diagnostics,
                         )
                     }
                 }
@@ -144,26 +142,41 @@ class WorkstationComponent(
         }
     }
 
-    private data class MergedSlices(
+    private data class SipSlice(
         val call: CallState,
         val accounts: List<uz.yalla.sipphone.domain.sip.SipAccount>,
         val agent: uz.yalla.sipphone.domain.agent.AgentStatus,
-        val callDuration: String?,
-        val userPrefs: uz.yalla.sipphone.core.prefs.UserPreferencesValues,
-        val updateState: uz.yalla.sipphone.domain.update.UpdateState,
-        val updateDismissed: Boolean,
+        val duration: String?,
+    )
+
+    private data class UpdateSlice(
+        val state: uz.yalla.sipphone.domain.update.UpdateState,
+        val dismissed: Boolean,
         val diagnostics: Boolean,
+    )
+
+    private data class MergedSlices(
+        val sip: SipSlice,
+        val update: UpdateSlice,
+        val userPrefs: uz.yalla.sipphone.core.prefs.UserPreferencesValues,
     ) {
         companion object {
             fun empty(): MergedSlices = MergedSlices(
-                call = CallState.Idle,
-                accounts = emptyList(),
-                agent = uz.yalla.sipphone.domain.agent.AgentStatus.READY,
-                callDuration = null,
-                userPrefs = uz.yalla.sipphone.core.prefs.UserPreferencesValues(locale = "uz", isDarkTheme = true),
-                updateState = uz.yalla.sipphone.domain.update.UpdateState.Idle,
-                updateDismissed = false,
-                diagnostics = false,
+                sip = SipSlice(
+                    call = CallState.Idle,
+                    accounts = emptyList(),
+                    agent = uz.yalla.sipphone.domain.agent.AgentStatus.READY,
+                    duration = null,
+                ),
+                update = UpdateSlice(
+                    state = uz.yalla.sipphone.domain.update.UpdateState.Idle,
+                    dismissed = false,
+                    diagnostics = false,
+                ),
+                userPrefs = uz.yalla.sipphone.core.prefs.UserPreferencesValues(
+                    locale = "uz",
+                    isDarkTheme = true,
+                ),
             )
         }
     }
