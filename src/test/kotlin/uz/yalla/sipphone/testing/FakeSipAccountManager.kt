@@ -18,6 +18,14 @@ class FakeSipAccountManager : SipAccountManager {
     var connectResult: Result<Unit> = Result.success(Unit)
     var disconnectResult: Result<Unit> = Result.success(Unit)
 
+    /**
+     * When true (default), [registerAll] immediately publishes all accounts as
+     * [SipAccountState.Connected]. Set to false to simulate registration timeout — the
+     * accounts publish as [SipAccountState.Disconnected] and never advance, so any
+     * `accounts.first { it is Connected }` consumer hits its own timeout.
+     */
+    var autoConnectOnRegister: Boolean = true
+
     var registerAllCallCount = 0; private set
     var unregisterAllCallCount = 0; private set
     var lastRegisteredAccounts: List<SipAccountInfo> = emptyList(); private set
@@ -26,8 +34,13 @@ class FakeSipAccountManager : SipAccountManager {
         registerAllCallCount++
         lastRegisteredAccounts = accounts
         return registerAllResult.onSuccess {
+            val state = if (autoConnectOnRegister) {
+                SipAccountState.Connected
+            } else {
+                SipAccountState.Disconnected
+            }
             _accounts.value = accounts.map { info ->
-                SipAccount(info.id, info.name, info.credentials, SipAccountState.Connected)
+                SipAccount(info.id, info.name, info.credentials, state)
             }
         }
     }

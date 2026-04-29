@@ -23,6 +23,7 @@ class FakeCallEngine(
     }
 
     var lastCallNumber: String? = null
+    var makeCallCount = 0
     var answerCallCount = 0
     var hangupCallCount = 0
     var toggleMuteCount = 0
@@ -42,9 +43,17 @@ class FakeCallEngine(
 
     var lastCallAccountId: String? = null
 
+    /**
+     * Optional: when set, [makeCall] awaits this signal before returning. Lets tests
+     * race against an in-flight call (e.g. to verify a double-tap guard).
+     */
+    var makeCallGate: kotlinx.coroutines.CompletableDeferred<Unit>? = null
+
     override suspend fun makeCall(number: String, accountId: String): Result<Unit> {
+        makeCallCount++
         lastCallNumber = number
         lastCallAccountId = accountId
+        makeCallGate?.await()
         return makeCallResult
     }
 

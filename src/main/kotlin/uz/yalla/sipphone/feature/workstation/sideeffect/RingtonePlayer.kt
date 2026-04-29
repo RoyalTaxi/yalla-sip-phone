@@ -7,13 +7,13 @@ import javax.sound.sampled.Clip
 
 private val logger = KotlinLogging.logger {}
 
-class RingtonePlayer {
+open class RingtonePlayer {
 
     private var clip: Clip? = null
 
     private var audioStream: AudioInputStream? = null
 
-    fun play() {
+    open fun play() {
         try {
             stop()
             val resourceStream = javaClass.getResourceAsStream("/ringtone.wav") ?: return
@@ -31,7 +31,7 @@ class RingtonePlayer {
         }
     }
 
-    fun stop() {
+    open fun stop() {
         clip?.let { c ->
             runCatching {
                 if (c.isRunning) c.stop()
@@ -42,7 +42,7 @@ class RingtonePlayer {
         closeStream()
     }
 
-    fun release() {
+    open fun release() {
         stop()
     }
 
