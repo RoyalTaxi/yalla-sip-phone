@@ -14,6 +14,7 @@ import uz.yalla.sipphone.core.auth.SessionStore
 import uz.yalla.sipphone.core.error.DataError
 import uz.yalla.sipphone.core.prefs.ConfigPreferences
 import uz.yalla.sipphone.core.prefs.ConfigPreferencesValues
+import uz.yalla.sipphone.core.prefs.SessionPreferences
 import uz.yalla.sipphone.core.result.Either
 import uz.yalla.sipphone.domain.auth.model.AuthError
 import uz.yalla.sipphone.domain.auth.model.Profile
@@ -58,7 +59,10 @@ class AuthComponentTest {
         lifecycle = LifecycleRegistry()
         sessionStore = SessionStore()
         sipManager = FakeSipAccountManager()
+        sessionPrefs = InMemorySessionPreferences()
     }
+
+    private lateinit var sessionPrefs: InMemorySessionPreferences
 
     @AfterTest
     fun tearDown() {
@@ -69,12 +73,13 @@ class AuthComponentTest {
         loginRepo: AuthRepository = StaticAuthRepository(Either.Success(sampleSession)),
     ): AuthComponent = AuthComponent(
         componentContext = DefaultComponentContext(lifecycle = lifecycle),
-        loginUseCase = LoginUseCase(loginRepo, sipManager, sessionStore),
+        loginUseCase = LoginUseCase(loginRepo, sipManager, sessionStore, sessionPrefs),
         manualConnectUseCase = ManualConnectUseCase(
             sipAccountManager = sipManager,
             sessionStore = sessionStore,
             authRepository = loginRepo,
             configPreferences = NoopConfigPreferences,
+            sessionPreferences = sessionPrefs,
         ),
     ).also { lifecycle.resume() }
 
@@ -164,4 +169,11 @@ private class StaticAuthRepository(
     override suspend fun login(pin: String): Either<DataError.Network, Session> = loginResult
     override suspend fun me(): Either<DataError.Network, Profile> = Either.Failure(DataError.Network.Unknown)
     override suspend fun logout(): Either<DataError.Network, Unit> = Either.Success(Unit)
+}
+
+private class InMemorySessionPreferences : SessionPreferences {
+    private val state = MutableStateFlow<String?>(null)
+    override val accessToken: StateFlow<String?> = state.asStateFlow()
+    override fun setAccessToken(token: String?) { state.value = token }
+    override fun clear() { state.value = null }
 }

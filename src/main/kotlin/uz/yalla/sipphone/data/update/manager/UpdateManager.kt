@@ -106,12 +106,16 @@ class UpdateManager(
             callState.first { it is CallState.Idle }
             _state.value = UpdateState.Installing(ready.release)
             runCatching {
+                // Order matters: tear down PJSIP and JCEF FIRST so the audio device, JCEF
+                // process, and any open file handles are released before the bootstrapper
+                // starts replacing files on disk. The bootstrapper's `--parent-pid` wait
+                // is only a courtesy — file locks on Windows don't respect it.
+                onBeforeExit?.invoke()
                 installer.install(
                     msiPath = Path.of(ready.msiPath),
                     expectedSha256 = ready.release.installer.sha256,
                     logPath = paths.installLogPath(),
                 )
-                onBeforeExit?.invoke()
                 exitProcess(0)
             }.onFailure { t ->
                 logger.error(t) { "Installer failed to launch" }

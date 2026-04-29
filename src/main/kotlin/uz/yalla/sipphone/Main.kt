@@ -86,8 +86,19 @@ fun main() {
     val jcefManager: JcefManager = koin.get()
     val shutdownDone = AtomicBoolean(false)
 
+    /**
+     * Runs the actual teardown. MUST NOT be called from the AWT EDT — `runBlocking` here
+     * blocks the calling thread until PJSIP and JCEF finish, and JCEF disposal pumps EDT
+     * messages internally, so calling on EDT is a deadlock setup.
+     *
+     * Window-close, JVM shutdown hook, and the auto-update path all funnel through here,
+     * but each indirection makes sure the actual call lands off-EDT.
+     */
     fun gracefulShutdown() {
         if (!shutdownDone.compareAndSet(false, true)) return
+        check(!SwingUtilities.isEventDispatchThread()) {
+            "gracefulShutdown() must not run on EDT — JCEF dispose pumps EDT and would deadlock"
+        }
         runCatching { updateManager.stop() }
             .onFailure { logger.warn(it) { "updateManager.stop() failed" } }
         runCatching {
@@ -137,7 +148,8 @@ fun main() {
 
         Window(
             onCloseRequest = {
-                gracefulShutdown()
+                // Don't run shutdown on the EDT — exit the Compose application here, then let
+                // the JVM shutdown hook fire `gracefulShutdown` on its own non-EDT thread.
                 exitApplication()
             },
             title = windowTitle,

@@ -5,6 +5,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import uz.yalla.sipphone.core.auth.SessionStore
 import uz.yalla.sipphone.core.error.DataError
 import uz.yalla.sipphone.core.prefs.ConfigPreferences
+import uz.yalla.sipphone.core.prefs.SessionPreferences
 import uz.yalla.sipphone.core.result.Either
 import uz.yalla.sipphone.core.result.flatMapSuccess
 import uz.yalla.sipphone.core.result.mapFailure
@@ -21,6 +22,7 @@ class ManualConnectUseCase(
     private val sessionStore: SessionStore,
     private val authRepository: AuthRepository,
     private val configPreferences: ConfigPreferences,
+    private val sessionPreferences: SessionPreferences,
 ) {
     suspend operator fun invoke(
         accounts: List<SipAccountInfo>,
@@ -76,6 +78,9 @@ class ManualConnectUseCase(
             Either.Success(session)
         } else {
             sipAccountManager.unregisterAll()
+            // Mirror LoginUseCase: clear any token AuthRepositoryImpl persisted during the
+            // /login HTTP roundtrip, so a stale token doesn't survive a SIP-connect timeout.
+            sessionPreferences.clear()
             Either.Failure(AuthError.SipRegistrationTimeout(SIP_CONNECT_TIMEOUT_MS))
         }
     }

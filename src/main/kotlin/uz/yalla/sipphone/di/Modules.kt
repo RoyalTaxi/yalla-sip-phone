@@ -109,13 +109,21 @@ private val jcefModule = module {
 }
 
 private val authUseCaseModule = module {
-    factory { LoginUseCase(authRepository = get(), sipAccountManager = get(), sessionStore = get()) }
+    factory {
+        LoginUseCase(
+            authRepository = get(),
+            sipAccountManager = get(),
+            sessionStore = get(),
+            sessionPreferences = get(),
+        )
+    }
     factory {
         ManualConnectUseCase(
             sipAccountManager = get(),
             sessionStore = get(),
             authRepository = get(),
             configPreferences = get(),
+            sessionPreferences = get(),
         )
     }
     factory {

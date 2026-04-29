@@ -37,6 +37,9 @@ class RootComponent(
     init {
         scope.launch {
             sessionExpired.events.collect {
+                // Idempotency guard — multiple 401s can land before logout completes; only
+                // run the logout flow when there's actually a session to tear down.
+                if (sessionStore.session.value == null) return@collect
                 logoutUseCase()
                 navigation.replaceAll(Screen.Auth)
             }
