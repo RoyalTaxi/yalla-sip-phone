@@ -56,8 +56,9 @@ class RootComponent(
         }
     }
 
-    fun onAuthSuccess(session: Session) {
-        sessionStore.set(session)
+    fun onAuthSuccess(@Suppress("UNUSED_PARAMETER") session: Session) {
+        // SessionStore is already populated by LoginUseCase / ManualConnectUseCase before the
+        // LoggedIn side-effect fires — RootComponent only navigates.
         navigation.replaceAll(Screen.Workstation)
     }
 

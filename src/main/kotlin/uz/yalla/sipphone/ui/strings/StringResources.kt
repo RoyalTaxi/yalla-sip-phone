@@ -96,6 +96,9 @@ interface StringResources {
     val updateDiagnosticsInstallId: String
     val updateDiagnosticsChannel: String
     val updateDiagnosticsState: String
+
+    val accShowPassword: String
+    val accHidePassword: String
 }
 
 val LocalStrings = staticCompositionLocalOf<StringResources> {

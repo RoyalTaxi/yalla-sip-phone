@@ -18,7 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import uz.yalla.sipphone.domain.call.CallState
@@ -74,9 +74,12 @@ private fun RowScope.LeftZone(
     onIntent: (WorkstationIntent) -> Unit,
 ) {
     val tokens = LocalAppTokens.current
-    var phoneInput by rememberSaveable { mutableStateOf("") }
+    var phoneInput by remember { mutableStateOf("") }
 
-    LaunchedEffect(state.call) {
+    // Sync from upstream call state — only fire on phase transition, not on every Active mute/hold
+    // toggle (which produces a new CallState.Active instance and would re-run the effect).
+    val incomingCallerNumber = (state.call as? CallState.Ringing)?.takeIf { !it.isOutbound }?.callerNumber
+    LaunchedEffect(state.call::class, incomingCallerNumber) {
         when (val c = state.call) {
             is CallState.Ringing -> if (!c.isOutbound) phoneInput = c.callerNumber
             is CallState.Idle -> phoneInput = ""

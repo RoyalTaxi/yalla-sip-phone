@@ -89,4 +89,7 @@ object UzStrings : StringResources {
     override val updateDiagnosticsInstallId = "Qurilma ID"
     override val updateDiagnosticsChannel = "Kanal"
     override val updateDiagnosticsState = "Holat"
+
+    override val accShowPassword = "Parolni ko'rsatish"
+    override val accHidePassword = "Parolni yashirish"
 }

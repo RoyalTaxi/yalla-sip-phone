@@ -4,7 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,7 +23,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -56,7 +56,7 @@ fun AuthScreen(
     val strings = LocalStrings.current
     val colors = LocalYallaColors.current
 
-    var pin by rememberSaveable { mutableStateOf("") }
+    var pin by remember { mutableStateOf("") }
 
     Box(
         modifier = Modifier.fillMaxSize().background(colors.loginGradientBrush()),
@@ -147,7 +147,7 @@ private fun BrandBadge() {
         Icon(
             Icons.Default.Phone,
             contentDescription = null,
-            tint = Color.White,
+            tint = colors.onBrandPrimary,
             modifier = Modifier.size(tokens.loginBadgeIconSize),
         )
     }
@@ -200,15 +200,19 @@ private fun SubmitButton(
             disabledContainerColor = colors.loginCardSurface,
         ),
     ) {
-        if (loading) {
-            CircularProgressIndicator(
-                modifier = Modifier.size(tokens.iconDefault),
-                strokeWidth = tokens.progressStrokeSmall,
-                color = Color.White,
-            )
-            Spacer(Modifier.width(tokens.spacingSm))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm),
+        ) {
+            if (loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(tokens.iconDefault),
+                    strokeWidth = tokens.progressStrokeSmall,
+                    color = colors.onBrandPrimary,
+                )
+            }
+            Text(text, color = colors.onBrandPrimary, fontSize = tokens.textLg)
         }
-        Text(text, color = Color.White, fontSize = tokens.textLg)
     }
 }
 

@@ -3,9 +3,7 @@ package uz.yalla.sipphone.feature.auth.presentation.view.manual
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,7 +26,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import uz.yalla.sipphone.feature.auth.presentation.intent.ManualAccountEntry
 import uz.yalla.sipphone.ui.component.PasswordTextField
 import uz.yalla.sipphone.ui.strings.LocalStrings
@@ -119,20 +116,25 @@ fun ManualConnectionSheet(
             }
         },
         confirmButton = {
+            val colors = LocalYallaColors.current
             Button(
                 onClick = { onConnect(form.accounts, form.dispatcherUrl, form.backendUrl, form.pin) },
                 enabled = form.canConnect && !isLoading,
                 shape = tokens.shapeMedium,
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(tokens.iconDefault),
-                        strokeWidth = tokens.progressStrokeSmall,
-                        color = Color.White,
-                    )
-                    Spacer(Modifier.width(tokens.spacingSm))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(tokens.spacingSm),
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(tokens.iconDefault),
+                            strokeWidth = tokens.progressStrokeSmall,
+                            color = colors.onBrandPrimary,
+                        )
+                    }
+                    Text(strings.manualConnectAll)
                 }
-                Text(strings.manualConnectAll)
             }
         },
         dismissButton = {
@@ -324,8 +326,14 @@ private class ManualConnectionFormState {
     var accounts by mutableStateOf(emptyList<ManualAccountEntry>())
         private set
 
-    val canAdd: Boolean get() = server.isNotBlank() && username.isNotBlank()
-    val canConnect: Boolean get() = accounts.isNotEmpty()
+    /** Don't add an account with empty creds — backend will 401 silently otherwise. */
+    val canAdd: Boolean
+        get() = server.isNotBlank() &&
+            username.isNotBlank() &&
+            password.isNotBlank() &&
+            port.isNotBlank()
+    /** Connect requires at least one configured account AND a PIN. */
+    val canConnect: Boolean get() = accounts.isNotEmpty() && pin.isNotBlank()
 
     fun updateServer(value: String) {
         server = value

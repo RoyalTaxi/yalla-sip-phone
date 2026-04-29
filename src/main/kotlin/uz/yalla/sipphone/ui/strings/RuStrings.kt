@@ -89,4 +89,7 @@ object RuStrings : StringResources {
     override val updateDiagnosticsInstallId = "ID устройства"
     override val updateDiagnosticsChannel = "Канал"
     override val updateDiagnosticsState = "Состояние"
+
+    override val accShowPassword = "Показать пароль"
+    override val accHidePassword = "Скрыть пароль"
 }

@@ -12,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
@@ -40,13 +39,13 @@ fun SplashScreen() {
         ) {
             Text(
                 text = strings.appTitle,
-                color = Color.White,
+                color = colors.onBrandPrimary,
                 fontSize = tokens.splashLogoFontSize,
                 fontWeight = FontWeight.SemiBold,
             )
             CircularProgressIndicator(
                 modifier = Modifier.size(tokens.splashSpinnerSize),
-                color = Color.White,
+                color = colors.onBrandPrimary,
                 strokeWidth = tokens.splashSpinnerStroke,
             )
         }

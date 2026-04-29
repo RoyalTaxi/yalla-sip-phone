@@ -10,7 +10,13 @@ private val logger = KotlinLogging.logger {}
 
 internal fun WorkstationComponent.dispatchCall(number: String): Job = scope.launch {
     if (number.isBlank()) return@launch
-    callEngine.makeCall(number).onFailure { logger.warn(it) { "makeCall failed" } }
+    if (callEngine.callState.value !is CallState.Idle) return@launch
+    if (!callDispatching.compareAndSet(false, true)) return@launch
+    try {
+        callEngine.makeCall(number).onFailure { logger.warn(it) { "makeCall failed" } }
+    } finally {
+        callDispatching.set(false)
+    }
 }
 
 internal fun WorkstationComponent.answer(): Job = scope.launch {

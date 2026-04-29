@@ -24,8 +24,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
@@ -57,12 +55,11 @@ fun PhoneField(
     val targetText = if (isRinging) colors.brandPrimary else colors.textBase
     val textColor by animateColorAsState(targetText, tween(tokens.animFast), label = "phoneText")
 
-    val fieldTextStyle = remember(textColor, tokens.textMd, tokens.fieldHeight) {
+    val fieldTextStyle = remember(textColor, tokens.textMd) {
         TextStyle(
             color = textColor,
             fontFamily = FontFamily.Monospace,
             fontSize = tokens.textMd,
-            lineHeight = tokens.fieldHeight.value.sp,
         )
     }
 

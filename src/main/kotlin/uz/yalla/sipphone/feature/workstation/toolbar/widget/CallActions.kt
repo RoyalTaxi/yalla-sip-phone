@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.ui.component.YallaIconButton
 import uz.yalla.sipphone.ui.strings.LocalStrings
@@ -66,7 +65,7 @@ fun CallActions(
                     onClick = onCall,
                     enabled = !phoneInputEmpty,
                     containerColor = colors.brandPrimary,
-                    contentColor = Color.White,
+                    contentColor = colors.onBrandPrimary,
                     disabledContainerColor = colors.surfaceMuted,
                     disabledContentColor = colors.brandLight,
                 )
@@ -95,14 +94,14 @@ fun CallActions(
                         contentDescription = strings.buttonAnswer,
                         onClick = onAnswer,
                         containerColor = colors.brandPrimary,
-                        contentColor = Color.White,
+                        contentColor = colors.onBrandPrimary,
                     )
                     YallaIconButton(
                         icon = Icons.Filled.Close,
                         contentDescription = strings.buttonReject,
                         onClick = onReject,
                         containerColor = colors.destructive,
-                        contentColor = Color.White,
+                        contentColor = colors.onDestructive,
                     )
                 } else {
                     YallaIconButton(
@@ -110,7 +109,7 @@ fun CallActions(
                         contentDescription = strings.buttonHangup,
                         onClick = onHangup,
                         containerColor = colors.destructive,
-                        contentColor = Color.White,
+                        contentColor = colors.onDestructive,
                     )
                 }
                 RingingLabel()
@@ -122,7 +121,7 @@ fun CallActions(
                     contentDescription = strings.buttonHangup,
                     onClick = onHangup,
                     containerColor = colors.destructive,
-                    contentColor = Color.White,
+                    contentColor = colors.onDestructive,
                 )
                 YallaIconButton(
                     icon = if (callState.isMuted) Icons.Filled.MicOff else Icons.Filled.Mic,

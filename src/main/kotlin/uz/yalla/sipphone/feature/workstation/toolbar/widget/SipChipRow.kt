@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import uz.yalla.sipphone.domain.sip.SipAccount
 import uz.yalla.sipphone.domain.sip.SipAccountState
 import uz.yalla.sipphone.ui.component.YallaTooltip
@@ -72,9 +71,10 @@ private fun SipChip(
     val strings = LocalStrings.current
 
     val isClickable = account.state !is SipAccountState.Reconnecting
-    val chipStyle = remember(account.state, isActiveCall, isMutedByCall, colors, tokens) {
-        resolveChipStyle(colors, tokens, account.state, isActiveCall, isMutedByCall)
-    }
+    // Drop `remember` here — keying on `colors`/`tokens` (large data classes) would run
+    // structural equals on every recomposition. The `when` block below is cheap; recomputing
+    // it every recomposition is faster than the equality check.
+    val chipStyle = resolveChipStyle(colors, tokens, account.state, isActiveCall, isMutedByCall)
 
     val transition = updateTransition(targetState = chipStyle, label = "chipStyle")
     val bgColor by transition.animateColor(
@@ -168,9 +168,9 @@ private fun resolveChipStyle(
     isMutedByCall: Boolean,
 ): ChipStyle = when {
     isActiveCall -> ChipStyle(
-        colors.brandPrimary,
-        colors.brandPrimary,
-        Color.White
+        bgColor = colors.brandPrimary,
+        borderColor = colors.brandPrimary,
+        textColor = colors.onBrandPrimary,
     )
 
     isMutedByCall && state is SipAccountState.Connected -> ChipStyle(

@@ -69,6 +69,7 @@ class ComponentFactoryImpl(
             sipAccountManager = sipAccountManager,
             agentStatusHolder = agentStatusHolder,
             userPreferences = userPreferences,
+            configPreferences = configPreferences,
             logoutUseCase = logoutUseCase,
             webPanelBridge = webPanelBridge,
             callSideEffects = callSideEffectsFactory(),

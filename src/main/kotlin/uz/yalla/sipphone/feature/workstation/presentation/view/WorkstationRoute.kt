@@ -43,9 +43,10 @@ fun WorkstationRoute(
 
 private fun WorkstationComponent.diagnosticsSnapshot(): UpdateDiagnosticsSnapshot {
     val um = updateManager
+    val cfg = configPreferences.current()
     return UpdateDiagnosticsSnapshot(
-        installId = "—",
-        channel = "—",
+        installId = cfg.installId.ifBlank { "—" },
+        channel = cfg.updateChannel.ifBlank { "—" },
         currentVersion = BuildVersion.CURRENT,
         stateText = um.state.value.toString(),
         lastCheckText = um.lastCheckMillis().let { ms ->

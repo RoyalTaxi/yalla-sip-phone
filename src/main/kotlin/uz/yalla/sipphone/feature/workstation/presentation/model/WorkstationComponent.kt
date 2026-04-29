@@ -2,12 +2,14 @@ package uz.yalla.sipphone.feature.workstation.presentation.model
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.doOnDestroy
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import uz.yalla.sipphone.core.infra.BaseComponent
+import uz.yalla.sipphone.core.prefs.ConfigPreferences
 import uz.yalla.sipphone.core.prefs.UserPreferences
 import uz.yalla.sipphone.core.prefs.UserPreferencesValues
 import uz.yalla.sipphone.data.jcef.bridge.JcefWebPanelBridge
@@ -44,6 +46,7 @@ class WorkstationComponent(
     internal val sipAccountManager: SipAccountManager,
     internal val agentStatusHolder: AgentStatusHolder,
     internal val userPreferences: UserPreferences,
+    internal val configPreferences: ConfigPreferences,
     internal val logoutUseCase: LogoutUseCase,
     internal val webPanelBridge: JcefWebPanelBridge,
     private val callSideEffects: CallSideEffects,
@@ -56,6 +59,14 @@ class WorkstationComponent(
 ) {
 
     val callState: StateFlow<CallState> get() = callEngine.callState
+
+    /**
+     * Guard against double-taps on the Call button. SubmitCall fires `dispatchCall(number)`
+     * which `scope.launch`-es onto pjDispatcher; the JCEF JS bridge guards on `callState !=
+     * Idle` but the toolbar button does not, so a fast second tap can race the first call's
+     * state transition. This atomic gate sits in front of `callEngine.makeCall`.
+     */
+    internal val callDispatching: AtomicBoolean = AtomicBoolean(false)
 
     init {
         wireMergedState()

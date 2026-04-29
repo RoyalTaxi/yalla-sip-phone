@@ -123,16 +123,19 @@ class PjsipSipAccountManager(
         }
     }
 
-    override suspend fun disconnect(accountId: String): Result<Unit> {
+    override suspend fun disconnect(accountId: String): Result<Unit> = withContext(pjDispatcher) {
+        // Re-check active-call inside pjDispatcher to close the race between the read
+        // and the unregister call — an incoming call could land between an outer check
+        // and the dispatcher switch.
         if (callEngine.callState.value.activeAccountId == accountId) {
-            return Result.failure(
+            return@withContext Result.failure(
                 IllegalStateException("Cannot disconnect account $accountId — active call in progress"),
             )
         }
         clearReconnect(accountId)
-        withContext(pjDispatcher) { accountManager.unregister(accountId) }
+        accountManager.unregister(accountId)
         updateAccountState(accountId, SipAccountState.Disconnected)
-        return Result.success(Unit)
+        Result.success(Unit)
     }
 
     override suspend fun unregisterAll() {
