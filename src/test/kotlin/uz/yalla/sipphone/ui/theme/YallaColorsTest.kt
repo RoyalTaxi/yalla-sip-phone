@@ -1,5 +1,6 @@
 package uz.yalla.sipphone.ui.theme
 
+import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -44,6 +45,6 @@ class YallaColorsTest {
         assertTrue(YallaColors.Light.brandPrimary == YallaColors.Dark.brandPrimary)
     }
 
-    private fun brightness(color: androidx.compose.ui.graphics.Color): Float =
+    private fun brightness(color: Color): Float =
         0.299f * color.red + 0.587f * color.green + 0.114f * color.blue
 }

@@ -21,8 +21,12 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import java.awt.AWTEvent
+import java.awt.Dimension
+import java.awt.Toolkit
+import java.awt.event.AWTEventListener
 import java.awt.event.KeyEvent
 import java.util.concurrent.atomic.AtomicBoolean
+import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -143,7 +147,7 @@ fun main() {
         ) {
             LaunchedEffect(isWorkstation) {
                 SwingUtilities.invokeLater {
-                    window.minimumSize = java.awt.Dimension(WINDOW_WIDTH, WINDOW_HEIGHT)
+                    window.minimumSize = Dimension(WINDOW_WIDTH, WINDOW_HEIGHT)
                 }
             }
 
@@ -152,7 +156,7 @@ fun main() {
             val keyRegistry: KeyShortcutRegistry = remember { koin.get() }
             val bridgeEmitter: BridgeEventEmitter = remember { koin.get() }
             DisposableEffect(Unit) {
-                val listener = java.awt.event.AWTEventListener { event ->
+                val listener = AWTEventListener { event ->
                     if (event is KeyEvent && event.id == KeyEvent.KEY_PRESSED) {
                         handleKeyboardShortcut(
                             event = event,
@@ -164,9 +168,9 @@ fun main() {
                         )
                     }
                 }
-                java.awt.Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.KEY_EVENT_MASK)
+                Toolkit.getDefaultToolkit().addAWTEventListener(listener, AWTEvent.KEY_EVENT_MASK)
                 onDispose {
-                    java.awt.Toolkit.getDefaultToolkit().removeAWTEventListener(listener)
+                    Toolkit.getDefaultToolkit().removeAWTEventListener(listener)
                 }
             }
 
@@ -228,11 +232,11 @@ private fun handleKeyboardShortcut(
 }
 
 private fun showFatalDialog(strings: StringResources, reason: String?) {
-    javax.swing.JOptionPane.showMessageDialog(
+    JOptionPane.showMessageDialog(
         null,
         strings.errorInitMessage(reason),
         strings.errorInitTitle,
-        javax.swing.JOptionPane.ERROR_MESSAGE,
+        JOptionPane.ERROR_MESSAGE,
     )
 }
 

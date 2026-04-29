@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -40,13 +41,13 @@ fun SipChipRow(
     modifier: Modifier = Modifier,
 ) {
     val tokens = LocalAppTokens.current
+
     Row(
         modifier = modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(tokens.sipChipGap, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         accounts.forEach { account ->
-
             key(account.id) {
                 SipChip(
                     account = account,
@@ -107,11 +108,24 @@ private fun SipChip(
     YallaTooltip(
         tooltip = {
             Text(account.credentials.username, fontSize = tokens.textSm, color = colors.textSubtle)
-            Text("${account.credentials.server}:${account.credentials.port}", fontSize = tokens.textSm, color = colors.textSubtle)
+            Text(
+                "${account.credentials.server}:${account.credentials.port}",
+                fontSize = tokens.textSm,
+                color = colors.textSubtle
+            )
             if (account.credentials.transport != "UDP") {
-                Text(account.credentials.transport, fontSize = tokens.textSm, color = colors.textSubtle)
+                Text(
+                    account.credentials.transport,
+                    fontSize = tokens.textSm,
+                    color = colors.textSubtle
+                )
             }
-            Text(statusText, fontSize = tokens.textSm, fontWeight = FontWeight.Medium, color = statusColor)
+            Text(
+                statusText,
+                fontSize = tokens.textSm,
+                fontWeight = FontWeight.Medium,
+                color = statusColor
+            )
             if (account.state is SipAccountState.Disconnected) {
                 Text(strings.sipReconnectHint, fontSize = tokens.textXs, color = colors.destructive)
             }
@@ -143,7 +157,7 @@ private fun SipChip(
     }
 }
 
-@androidx.compose.runtime.Immutable
+@Immutable
 private data class ChipStyle(val bgColor: Color, val borderColor: Color, val textColor: Color)
 
 private fun resolveChipStyle(
@@ -153,19 +167,30 @@ private fun resolveChipStyle(
     isActiveCall: Boolean,
     isMutedByCall: Boolean,
 ): ChipStyle = when {
-    isActiveCall -> ChipStyle(colors.brandPrimary, colors.brandPrimary, Color.White)
-    isMutedByCall && state is SipAccountState.Connected ->
-        ChipStyle(colors.surfaceMuted, colors.borderDefault, colors.textSubtle)
+    isActiveCall -> ChipStyle(
+        colors.brandPrimary,
+        colors.brandPrimary,
+        Color.White
+    )
+
+    isMutedByCall && state is SipAccountState.Connected -> ChipStyle(
+        colors.surfaceMuted,
+        colors.borderDefault,
+        colors.textSubtle
+    )
+
     state is SipAccountState.Connected -> ChipStyle(
         colors.statusOnline.copy(alpha = tokens.alphaMuted),
         colors.statusOnline.copy(alpha = tokens.alphaMedium),
         colors.statusOnline,
     )
+
     state is SipAccountState.Reconnecting -> ChipStyle(
         colors.statusWarning.copy(alpha = tokens.alphaSubtle),
         colors.statusWarning.copy(alpha = tokens.alphaBorder),
         colors.statusWarning,
     )
+
     else -> ChipStyle(
         colors.destructive.copy(alpha = tokens.alphaSubtle),
         colors.destructive.copy(alpha = tokens.alphaBorder),

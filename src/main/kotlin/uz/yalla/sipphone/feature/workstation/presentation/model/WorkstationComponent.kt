@@ -9,20 +9,24 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import uz.yalla.sipphone.core.infra.BaseComponent
 import uz.yalla.sipphone.core.prefs.UserPreferences
+import uz.yalla.sipphone.core.prefs.UserPreferencesValues
+import uz.yalla.sipphone.data.jcef.bridge.JcefWebPanelBridge
+import uz.yalla.sipphone.data.jcef.bridge.WebPanelSession
 import uz.yalla.sipphone.data.jcef.browser.JcefManager
 import uz.yalla.sipphone.data.update.manager.UpdateManager
+import uz.yalla.sipphone.data.workstation.agent.AgentStatusHolder
 import uz.yalla.sipphone.data.workstation.bridge.AgentStatusBridgeEmitter
 import uz.yalla.sipphone.data.workstation.bridge.CallEventBridgeEmitter
 import uz.yalla.sipphone.data.workstation.bridge.SipConnectionBridgeEmitter
 import uz.yalla.sipphone.domain.agent.AgentInfo
-import uz.yalla.sipphone.data.workstation.agent.AgentStatusHolder
+import uz.yalla.sipphone.domain.agent.AgentStatus
 import uz.yalla.sipphone.domain.auth.usecase.LogoutUseCase
 import uz.yalla.sipphone.domain.call.CallEngine
 import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.call.callDurationFlow
-import uz.yalla.sipphone.data.jcef.bridge.JcefWebPanelBridge
-import uz.yalla.sipphone.data.jcef.bridge.WebPanelSession
+import uz.yalla.sipphone.domain.sip.SipAccount
 import uz.yalla.sipphone.domain.sip.SipAccountManager
+import uz.yalla.sipphone.domain.update.UpdateState
 import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationEffect
 import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationState
 import uz.yalla.sipphone.feature.workstation.sideeffect.CallSideEffects
@@ -144,13 +148,13 @@ class WorkstationComponent(
 
     private data class SipSlice(
         val call: CallState,
-        val accounts: List<uz.yalla.sipphone.domain.sip.SipAccount>,
-        val agent: uz.yalla.sipphone.domain.agent.AgentStatus,
+        val accounts: List<SipAccount>,
+        val agent: AgentStatus,
         val duration: String?,
     )
 
     private data class UpdateSlice(
-        val state: uz.yalla.sipphone.domain.update.UpdateState,
+        val state: UpdateState,
         val dismissed: Boolean,
         val diagnostics: Boolean,
     )
@@ -158,26 +162,29 @@ class WorkstationComponent(
     private data class MergedSlices(
         val sip: SipSlice,
         val update: UpdateSlice,
-        val userPrefs: uz.yalla.sipphone.core.prefs.UserPreferencesValues,
+        val userPrefs: UserPreferencesValues,
     ) {
         companion object {
             fun empty(): MergedSlices = MergedSlices(
                 sip = SipSlice(
                     call = CallState.Idle,
                     accounts = emptyList(),
-                    agent = uz.yalla.sipphone.domain.agent.AgentStatus.READY,
+                    agent = AgentStatus.READY,
                     duration = null,
                 ),
                 update = UpdateSlice(
-                    state = uz.yalla.sipphone.domain.update.UpdateState.Idle,
+                    state = UpdateState.Idle,
                     dismissed = false,
                     diagnostics = false,
                 ),
-                userPrefs = uz.yalla.sipphone.core.prefs.UserPreferencesValues(
-                    locale = "uz",
-                    isDarkTheme = true,
+                userPrefs = UserPreferencesValues(
+                    locale = DEFAULT_LOCALE,
+                    isDarkTheme = DEFAULT_DARK_THEME,
                 ),
             )
+
+            private const val DEFAULT_LOCALE = "uz"
+            private const val DEFAULT_DARK_THEME = true
         }
     }
 }

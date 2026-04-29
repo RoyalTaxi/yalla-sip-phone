@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.data.update.install
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -55,7 +56,7 @@ class MsiBootstrapperInstaller(
     private fun stripMarkOfTheWeb(msiPath: Path) {
         if (!System.getProperty("os.name").lowercase().contains("win")) return
         runCatching {
-            val ads = java.io.File("${msiPath}:Zone.Identifier")
+            val ads = File("$msiPath:Zone.Identifier")
             if (ads.exists()) ads.delete()
         }.onFailure { logger.warn(it) { "Failed to strip Zone.Identifier (non-fatal)" } }
     }

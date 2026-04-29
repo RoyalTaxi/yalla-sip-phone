@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.ConcurrentHashMap
 import uz.yalla.sipphone.domain.call.CallEngine
 import uz.yalla.sipphone.domain.sip.SipAccount
 import uz.yalla.sipphone.domain.sip.SipAccountInfo
@@ -33,7 +34,7 @@ class PjsipSipAccountManager(
     )
 
     private val scope = CoroutineScope(SupervisorJob() + pjDispatcher)
-    private val sessions = java.util.concurrent.ConcurrentHashMap<String, AccountSession>()
+    private val sessions = ConcurrentHashMap<String, AccountSession>()
 
     private val _accounts = MutableStateFlow<List<SipAccount>>(emptyList())
     override val accounts: StateFlow<List<SipAccount>> = _accounts.asStateFlow()

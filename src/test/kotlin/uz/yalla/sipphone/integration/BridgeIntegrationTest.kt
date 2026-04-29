@@ -8,15 +8,22 @@ import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import uz.yalla.sipphone.data.workstation.agent.AgentStatusHolder
-import uz.yalla.sipphone.data.jcef.events.BridgeEventEmitter
+import uz.yalla.sipphone.data.jcef.bridge.BridgeCallState
+import uz.yalla.sipphone.data.jcef.bridge.BridgeCommand
+import uz.yalla.sipphone.data.jcef.bridge.BridgeConnectionState
 import uz.yalla.sipphone.data.jcef.bridge.BridgeInitPayload
 import uz.yalla.sipphone.data.jcef.bridge.BridgeRouter
 import uz.yalla.sipphone.data.jcef.bridge.BridgeSecurity
-import uz.yalla.sipphone.data.jcef.keys.KeyShortcutRegistry
+import uz.yalla.sipphone.data.jcef.bridge.BridgeState
+import uz.yalla.sipphone.data.jcef.bridge.CommandResult
 import uz.yalla.sipphone.data.jcef.bridge.bridgeJson
+import uz.yalla.sipphone.data.jcef.events.BridgeEventEmitter
+import uz.yalla.sipphone.data.jcef.keys.KeyShortcutRegistry
+import uz.yalla.sipphone.data.workstation.agent.AgentStatusHolder
 import uz.yalla.sipphone.domain.agent.AgentInfo
 import uz.yalla.sipphone.domain.call.CallState
+import uz.yalla.sipphone.domain.sip.SipAccountInfo
+import uz.yalla.sipphone.domain.sip.SipCredentials
 import uz.yalla.sipphone.testing.FakeSipAccountManager
 import uz.yalla.sipphone.testing.engine.ScriptableCallEngine
 import kotlin.test.Test
@@ -173,22 +180,22 @@ class BridgeIntegrationTest {
 
     @Test
     fun `BridgeCommand serialization round-trip`() {
-        val cmd = uz.yalla.sipphone.data.jcef.bridge.BridgeCommand(
+        val cmd = BridgeCommand(
             command = "makeCall",
             params = mapOf("number" to "998901234567"),
         )
-        val json = bridgeJson.encodeToString(uz.yalla.sipphone.data.jcef.bridge.BridgeCommand.serializer(), cmd)
-        val decoded = bridgeJson.decodeFromString<uz.yalla.sipphone.data.jcef.bridge.BridgeCommand>(json)
+        val json = bridgeJson.encodeToString(BridgeCommand.serializer(), cmd)
+        val decoded = bridgeJson.decodeFromString<BridgeCommand>(json)
         assertEquals("makeCall", decoded.command)
         assertEquals("998901234567", decoded.params["number"])
     }
 
     @Test
     fun `CommandResult success serialization`() {
-        val result = uz.yalla.sipphone.data.jcef.bridge.CommandResult.success(
+        val result = CommandResult.success(
             kotlinx.serialization.json.buildJsonObject { put("callId", "call-1") }
         )
-        val json = bridgeJson.encodeToString(uz.yalla.sipphone.data.jcef.bridge.CommandResult.serializer(), result)
+        val json = bridgeJson.encodeToString(CommandResult.serializer(), result)
         val parsed = Json.parseToJsonElement(json).jsonObject
         assertTrue(parsed["success"]?.jsonPrimitive?.boolean == true)
         assertEquals("call-1", parsed["data"]?.jsonObject?.get("callId")?.jsonPrimitive?.content)
@@ -197,8 +204,8 @@ class BridgeIntegrationTest {
 
     @Test
     fun `CommandResult error serialization`() {
-        val result = uz.yalla.sipphone.data.jcef.bridge.CommandResult.error("NO_ACTIVE_CALL", "No call", false)
-        val json = bridgeJson.encodeToString(uz.yalla.sipphone.data.jcef.bridge.CommandResult.serializer(), result)
+        val result = CommandResult.error("NO_ACTIVE_CALL", "No call", false)
+        val json = bridgeJson.encodeToString(CommandResult.serializer(), result)
         val parsed = Json.parseToJsonElement(json).jsonObject
         assertFalse(parsed["success"]?.jsonPrimitive?.boolean == true)
         val error = parsed["error"]?.jsonObject!!
@@ -209,10 +216,10 @@ class BridgeIntegrationTest {
 
     @Test
     fun `BridgeState serialization with active call`() {
-        val state = uz.yalla.sipphone.data.jcef.bridge.BridgeState(
-            connection = uz.yalla.sipphone.data.jcef.bridge.BridgeConnectionState("connected", 0),
+        val state = BridgeState(
+            connection = BridgeConnectionState("connected", 0),
             agentStatus = "ready",
-            call = uz.yalla.sipphone.data.jcef.bridge.BridgeCallState(
+            call = BridgeCallState(
                 callId = "call-1",
                 number = "998901234567",
                 direction = "inbound",
@@ -222,7 +229,7 @@ class BridgeIntegrationTest {
                 duration = 45,
             ),
         )
-        val json = bridgeJson.encodeToString(uz.yalla.sipphone.data.jcef.bridge.BridgeState.serializer(), state)
+        val json = bridgeJson.encodeToString(BridgeState.serializer(), state)
         val parsed = Json.parseToJsonElement(json).jsonObject
         val call = parsed["call"]?.jsonObject!!
         assertEquals("true", call["isMuted"]?.jsonPrimitive?.content)
@@ -231,12 +238,12 @@ class BridgeIntegrationTest {
 
     @Test
     fun `BridgeState serialization without call`() {
-        val state = uz.yalla.sipphone.data.jcef.bridge.BridgeState(
-            connection = uz.yalla.sipphone.data.jcef.bridge.BridgeConnectionState("disconnected", 3),
+        val state = BridgeState(
+            connection = BridgeConnectionState("disconnected", 3),
             agentStatus = "break",
             call = null,
         )
-        val json = bridgeJson.encodeToString(uz.yalla.sipphone.data.jcef.bridge.BridgeState.serializer(), state)
+        val json = bridgeJson.encodeToString(BridgeState.serializer(), state)
         val parsed = Json.parseToJsonElement(json).jsonObject
         assertEquals("disconnected", parsed["connection"]?.jsonObject?.get("state")?.jsonPrimitive?.content)
         assertEquals("3", parsed["connection"]?.jsonObject?.get("attempt")?.jsonPrimitive?.content)
@@ -379,11 +386,11 @@ class BridgeIntegrationTest {
 
     @Test
     fun `FakeSipAccountManager tracks registerAll calls`() = runTest {
-        val info = uz.yalla.sipphone.domain.sip.SipAccountInfo(
+        val info = SipAccountInfo(
             extensionNumber = 101,
             serverUrl = "192.168.0.22",
             sipName = "Test",
-            credentials = uz.yalla.sipphone.domain.sip.SipCredentials("192.168.0.22", 5060, "101", "pass"),
+            credentials = SipCredentials("192.168.0.22", 5060, "101", "pass"),
         )
         sipAccountManager.registerAll(listOf(info))
 

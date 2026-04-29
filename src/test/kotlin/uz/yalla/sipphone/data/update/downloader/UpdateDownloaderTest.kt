@@ -14,6 +14,7 @@ import uz.yalla.sipphone.domain.update.UpdateInstaller
 import uz.yalla.sipphone.domain.update.UpdateRelease
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.MessageDigest
 import kotlin.io.path.exists
 import kotlin.io.path.readBytes
 import kotlin.io.path.writeBytes
@@ -42,7 +43,7 @@ class UpdateDownloaderTest {
     private fun paths() = UpdatePaths(rootOverride = tempRoot)
 
     private fun computeSha(bytes: ByteArray): String {
-        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+        val digest = MessageDigest.getInstance("SHA-256").digest(bytes)
         return digest.joinToString("") { "%02x".format(it) }
     }
 

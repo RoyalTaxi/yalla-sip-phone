@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.awt.Dimension
 
 data class AppTokens(
 
@@ -117,8 +118,8 @@ data class AppTokens(
     val loginWindowSize: DpSize = DpSize(1280.dp, 720.dp),
     val mainWindowSize: DpSize = DpSize(1280.dp, 720.dp),
 ) {
-    fun minimumAwtDimension(): java.awt.Dimension =
-        java.awt.Dimension(windowMinWidth.value.toInt(), windowMinHeight.value.toInt())
+    fun minimumAwtDimension(): Dimension =
+        Dimension(windowMinWidth.value.toInt(), windowMinHeight.value.toInt())
 }
 
 val LocalAppTokens = staticCompositionLocalOf { AppTokens() }

@@ -1,8 +1,9 @@
 package uz.yalla.sipphone.feature.workstation.presentation.model
 
+import kotlinx.coroutines.Job
 import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationIntent
 
-fun WorkstationComponent.onIntent(intent: WorkstationIntent): kotlinx.coroutines.Job = intent {
+fun WorkstationComponent.onIntent(intent: WorkstationIntent): Job = intent {
     when (intent) {
         is WorkstationIntent.SetPhoneInput -> reduce { state.copy(phoneInput = intent.value) }
         is WorkstationIntent.SubmitCall -> dispatchCall(intent.number)
