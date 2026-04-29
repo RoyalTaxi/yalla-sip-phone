@@ -81,6 +81,15 @@ data class AppTokens(
     val settingsDialogHeight: Dp = 356.dp,
     val settingsCardWidth: Dp = 320.dp,
 
+    val loginCardWidth: Dp = 320.dp,
+    val loginCardPaddingH: Dp = 40.dp,
+    val loginBadgeSize: Dp = 56.dp,
+    val loginBadgeIconSize: Dp = 28.dp,
+    val loginErrorRowHeight: Dp = 20.dp,
+    val loginManualPortFieldWidth: Dp = 90.dp,
+    val loginManualAccountListMaxHeight: Dp = 120.dp,
+    val loginManualRemoveIconSize: Dp = 20.dp,
+
     val progressSmall: Dp = 18.dp,
     val progressStrokeSmall: Dp = 2.dp,
 

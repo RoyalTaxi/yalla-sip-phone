@@ -42,6 +42,10 @@ data class YallaColors(
     val loginCardBorder: Color,
     val loginCardTextPrimary: Color,
     val loginCardTextSecondary: Color,
+
+    val loginGradientStart: Color,
+    val loginGradientMid: Color,
+    val loginGradientEnd: Color,
 ) {
     companion object {
         val Light = YallaColors(
@@ -76,6 +80,10 @@ data class YallaColors(
             loginCardBorder = Color(0xFF383843),
             loginCardTextPrimary = Color.White,
             loginCardTextSecondary = Color(0xFF98A2B3),
+
+            loginGradientStart = Color(0xFF7957FF),
+            loginGradientMid = Color(0xFF562DF8),
+            loginGradientEnd = Color(0xFF3812CE),
         )
 
         val Dark = YallaColors(
@@ -107,6 +115,10 @@ data class YallaColors(
             loginCardBorder = Color(0xFF383843),
             loginCardTextPrimary = Color.White,
             loginCardTextSecondary = Color(0xFF98A2B3),
+
+            loginGradientStart = Color(0xFF7957FF),
+            loginGradientMid = Color(0xFF562DF8),
+            loginGradientEnd = Color(0xFF3812CE),
         )
     }
 }
