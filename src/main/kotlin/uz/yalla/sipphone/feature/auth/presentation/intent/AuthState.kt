@@ -9,10 +9,9 @@ data class AuthState(
     val showManualSheet: Boolean,
     val error: AuthError?,
 ) {
-    fun pinReady(): Boolean = pin.length == PIN_LENGTH
+    val canSubmit: Boolean get() = pin.isNotBlank()
 
     companion object {
-        const val PIN_LENGTH = 4
         val INITIAL = AuthState(pin = "", showManualSheet = false, error = null)
     }
 }

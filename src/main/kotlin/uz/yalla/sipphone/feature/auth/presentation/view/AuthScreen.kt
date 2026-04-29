@@ -95,7 +95,7 @@ fun AuthScreen(
             SubmitButton(
                 text = submitButtonText(loading, state.error, strings),
                 loading = loading,
-                enabled = !loading && state.pin.isNotEmpty(),
+                enabled = !loading && state.canSubmit,
                 onClick = { onIntent(AuthIntent.Submit) },
             )
 

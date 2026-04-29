@@ -88,18 +88,28 @@ class AuthComponentTest {
     }
 
     @Test
-    fun `SetPin under length updates state without firing login`() = runTest {
+    fun `SetPin updates state without auto-submitting`() = runTest {
         val c = component()
-        c.onIntent(AuthIntent.SetPin("12")).join()
-        assertEquals("12", c.container.stateFlow.first().pin)
+        c.onIntent(AuthIntent.SetPin("1234")).join()
+        assertEquals("1234", c.container.stateFlow.first().pin)
         assertNull(c.container.stateFlow.first().error)
     }
 
     @Test
-    fun `submit posts LoggedIn side effect on success`() = runTest {
+    fun `Submit with blank pin is a no-op`() = runTest {
+        val c = component()
+        c.container.sideEffectFlow.test {
+            c.onIntent(AuthIntent.Submit).join()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `Submit with non-blank pin posts LoggedIn on success`() = runTest {
         val c = component()
         c.container.sideEffectFlow.test {
             c.onIntent(AuthIntent.SetPin("1234"))
+            c.onIntent(AuthIntent.Submit)
             val effect = awaitItem()
             assertIs<AuthEffect.LoggedIn>(effect)
             assertEquals(sampleSession, effect.session)
@@ -108,7 +118,7 @@ class AuthComponentTest {
     }
 
     @Test
-    fun `submit reduces error into state on network failure`() = runTest {
+    fun `Submit reduces error into state on network failure`() = runTest {
         val failing = StaticAuthRepository(Either.Failure(DataError.Network.Server(401, "wrong")))
         val c = component(loginRepo = failing)
         c.container.stateFlow.test {
@@ -116,10 +126,18 @@ class AuthComponentTest {
             c.onIntent(AuthIntent.SetPin("1234"))
             val withPin = awaitItem()
             assertEquals("1234", withPin.pin)
+            c.onIntent(AuthIntent.Submit)
             val errored = awaitItem()
             assertIs<AuthError>(errored.error)
             cancelAndIgnoreRemainingEvents()
         }
+    }
+
+    @Test
+    fun `pin longer than 4 chars is preserved (no silent truncation)`() = runTest {
+        val c = component()
+        c.onIntent(AuthIntent.SetPin("1234567890")).join()
+        assertEquals("1234567890", c.container.stateFlow.first().pin)
     }
 }
 
