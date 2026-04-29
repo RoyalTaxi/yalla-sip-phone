@@ -98,6 +98,15 @@ data class AppTokens(
     val splashSpinnerSize: Dp = 36.dp,
     val splashSpinnerStroke: Dp = 3.dp,
 
+    val settingsPanelWidth: Dp = 260.dp,
+    val settingsPanelCloseButton: Dp = 28.dp,
+    val settingsPanelCloseIcon: Dp = 14.dp,
+
+    val sipChipGap: Dp = 6.dp,
+    val sipChipPaddingTrim: Dp = 2.dp,
+    val phoneFieldMinWidth: Dp = 180.dp,
+    val phoneFieldMaxWidth: Dp = 220.dp,
+
     val progressSmall: Dp = 18.dp,
     val progressStrokeSmall: Dp = 2.dp,
 

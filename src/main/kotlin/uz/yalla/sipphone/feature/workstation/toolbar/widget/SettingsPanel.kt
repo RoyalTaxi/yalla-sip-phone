@@ -27,7 +27,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -42,8 +41,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import uz.yalla.sipphone.domain.BuildVersion
 import uz.yalla.sipphone.domain.agent.AgentInfo
-import uz.yalla.sipphone.domain.sip.SipConstants
 import uz.yalla.sipphone.ui.component.YallaSegmentedControl
 import uz.yalla.sipphone.ui.component.hoverClickable
 import uz.yalla.sipphone.ui.strings.LocalStrings
@@ -91,7 +90,7 @@ fun SettingsPanel(
         ) {
             Column(
                 modifier = Modifier
-                    .width(260.dp)
+                    .width(tokens.settingsPanelWidth)
                     .fillMaxHeight()
                     .background(colors.backgroundSecondary)
                     .padding(tokens.spacingMd)
@@ -110,7 +109,7 @@ fun SettingsPanel(
                     )
                     Box(
                         modifier = Modifier
-                            .size(28.dp)
+                            .size(tokens.settingsPanelCloseButton)
                             .clip(tokens.shapeXs)
                             .background(colors.backgroundTertiary, tokens.shapeXs)
                             .hoverClickable(
@@ -123,7 +122,7 @@ fun SettingsPanel(
                     ) {
                         Icon(
                             Icons.Filled.Close, null,
-                            modifier = Modifier.size(14.dp),
+                            modifier = Modifier.size(tokens.settingsPanelCloseIcon),
                             tint = colors.textBase,
                         )
                     }
@@ -212,7 +211,7 @@ fun SettingsPanel(
                 Spacer(Modifier.height(tokens.spacingXs))
 
                 Text(
-                    text = "v${SipConstants.APP_VERSION}",
+                    text = "v${BuildVersion.CURRENT}",
                     fontSize = tokens.textXs,
                     color = colors.textSubtle,
                     modifier = Modifier.align(Alignment.CenterHorizontally),

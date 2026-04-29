@@ -39,9 +39,10 @@ fun SipChipRow(
     onChipClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val tokens = LocalAppTokens.current
     Row(
         modifier = modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End),
+        horizontalArrangement = Arrangement.spacedBy(tokens.sipChipGap, Alignment.End),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         accounts.forEach { account ->
@@ -128,7 +129,7 @@ private fun SipChip(
                     enabled = isClickable,
                     onClick = onClick,
                 )
-                .padding(horizontal = tokens.spacingMdSm - 2.dp),
+                .padding(horizontal = tokens.spacingMdSm - tokens.sipChipPaddingTrim),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

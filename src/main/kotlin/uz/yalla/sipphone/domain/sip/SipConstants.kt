@@ -4,9 +4,8 @@ import uz.yalla.sipphone.domain.BuildVersion
 
 object SipConstants {
 
-    val APP_VERSION: String = BuildVersion.CURRENT
     const val DEFAULT_PORT = 5060
-    val USER_AGENT: String = "YallaSipPhone/$APP_VERSION"
+    val USER_AGENT: String = "YallaSipPhone/${BuildVersion.CURRENT}"
     const val AUTH_SCHEME_DIGEST = "digest"
     const val AUTH_REALM_ANY = "*"
     const val AUTH_DATA_TYPE_PLAINTEXT = 0

@@ -10,8 +10,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import javax.swing.SwingUtilities
 import kotlinx.serialization.encodeToString
 import org.cef.browser.CefBrowser
+import uz.yalla.sipphone.domain.BuildVersion
 import uz.yalla.sipphone.domain.agent.AgentInfo
-import uz.yalla.sipphone.domain.sip.SipConstants
 import java.util.concurrent.atomic.AtomicInteger
 
 private val logger = KotlinLogging.logger {}
@@ -28,7 +28,7 @@ class BridgeEventEmitter(
 
     @Volatile
     var agentInfo: AgentInfo = AgentInfo("", "")
-    val version: String = SipConstants.APP_VERSION
+    val version: String = BuildVersion.CURRENT
     val capabilities: List<String> = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer")
 
     fun nextSeq(): Int = seqCounter.incrementAndGet()

@@ -32,6 +32,7 @@ import uz.yalla.sipphone.domain.call.CallState
 import uz.yalla.sipphone.domain.sip.PhoneNumberValidator
 import uz.yalla.sipphone.domain.sip.SipAccountManager
 import uz.yalla.sipphone.domain.sip.SipAccountState
+import uz.yalla.sipphone.domain.BuildVersion
 import uz.yalla.sipphone.domain.sip.SipConstants
 
 private val logger = KotlinLogging.logger {}
@@ -433,7 +434,7 @@ class BridgeRouter(
 
     private fun handleGetVersion(): CommandResult {
         val info = BridgeVersionInfo(
-            version = SipConstants.APP_VERSION,
+            version = BuildVersion.CURRENT,
             capabilities = listOf("call", "agentStatus", "callQuality", "dtmf", "transfer"),
         )
         return CommandResult.success(data = bridgeJson.encodeToJsonElement(BridgeVersionInfo.serializer(), info))
