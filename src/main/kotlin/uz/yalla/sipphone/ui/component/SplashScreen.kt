@@ -14,35 +14,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import uz.yalla.sipphone.ui.strings.LocalStrings
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
+import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
 @Composable
 fun SplashScreen() {
+    val tokens = LocalAppTokens.current
+    val colors = LocalYallaColors.current
+    val strings = LocalStrings.current
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.linearGradient(
-                    colors = listOf(Color(0xFF7957FF), Color(0xFF3812CE)),
+                    listOf(colors.loginGradientStart, colors.loginGradientEnd),
                 ),
             ),
         contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(tokens.splashStackSpacing),
         ) {
             Text(
-                text = "Yalla SIP",
+                text = strings.appTitle,
                 color = Color.White,
-                fontSize = 32.sp,
+                fontSize = tokens.splashLogoFontSize,
                 fontWeight = FontWeight.SemiBold,
             )
             CircularProgressIndicator(
-                modifier = Modifier.size(36.dp),
+                modifier = Modifier.size(tokens.splashSpinnerSize),
                 color = Color.White,
-                strokeWidth = 3.dp,
+                strokeWidth = tokens.splashSpinnerStroke,
             )
         }
     }

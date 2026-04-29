@@ -45,7 +45,9 @@ import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.RootComponent
 import uz.yalla.sipphone.navigation.RootContent
 import uz.yalla.sipphone.ui.component.SplashScreen
-import uz.yalla.sipphone.ui.strings.Strings
+import uz.yalla.sipphone.ui.strings.RuStrings
+import uz.yalla.sipphone.ui.strings.StringResources
+import uz.yalla.sipphone.ui.strings.UzStrings
 import uz.yalla.sipphone.ui.theme.YallaSipPhoneTheme
 
 private val logger = KotlinLogging.logger {}
@@ -72,7 +74,8 @@ fun main() {
     val lifecycle: SipStackLifecycle = koin.get()
     val initResult = runBlocking { lifecycle.initialize() }
     if (initResult.isFailure) {
-        showFatalDialog(initResult.exceptionOrNull()?.message)
+        val strings = stringsForLocale(koin.get<uz.yalla.sipphone.core.prefs.UserPreferences>().current().locale)
+        showFatalDialog(strings, initResult.exceptionOrNull()?.message)
         return
     }
 
@@ -123,9 +126,10 @@ fun main() {
             position = WindowPosition(Alignment.Center),
         )
 
+        val strings = stringsForLocale(userPrefs.locale)
         val agentName = (childStack.active.instance as? RootComponent.Child.Workstation)
             ?.component?.container?.stateFlow?.value?.agentInfo?.name.orEmpty()
-        val windowTitle = if (isWorkstation) "${Strings.APP_TITLE} — $agentName" else Strings.APP_TITLE
+        val windowTitle = if (isWorkstation) "${strings.appTitle} — $agentName" else strings.appTitle
 
         Window(
             onCloseRequest = {
@@ -223,14 +227,17 @@ private fun handleKeyboardShortcut(
     event.consume()
 }
 
-private fun showFatalDialog(reason: String?) {
+private fun showFatalDialog(strings: StringResources, reason: String?) {
     javax.swing.JOptionPane.showMessageDialog(
         null,
-        Strings.errorInitMessage(reason),
-        Strings.ERROR_INIT_TITLE,
+        strings.errorInitMessage(reason),
+        strings.errorInitTitle,
         javax.swing.JOptionPane.ERROR_MESSAGE,
     )
 }
+
+private fun stringsForLocale(locale: String): StringResources =
+    if (locale.equals("ru", ignoreCase = true)) RuStrings else UzStrings
 
 private fun <T> runOnUiThread(block: () -> T): T {
     if (SwingUtilities.isEventDispatchThread()) return block()

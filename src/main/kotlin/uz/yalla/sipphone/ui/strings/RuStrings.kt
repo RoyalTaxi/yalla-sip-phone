@@ -35,6 +35,9 @@ object RuStrings : StringResources {
     override val settingsLogoutConfirm = "Вы хотите выйти из системы?"
     override val settingsLogoutConfirmTitle = "Выход"
     override val appTitle = "Yalla SIP Phone"
+    override val errorInitTitle = "Yalla SIP Phone — Ошибка"
+    override fun errorInitMessage(reason: String?): String =
+        "Не удалось инициализировать SIP-движок:\n${reason ?: "неизвестная причина"}"
     override val buttonConnect = "Подключить"
     override val buttonCancel = "Отмена"
     override val labelServer = "Сервер"

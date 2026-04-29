@@ -43,6 +43,9 @@ interface StringResources {
     val placeholderPhone: String
 
     val appTitle: String
+    val errorInitTitle: String
+    fun errorInitMessage(reason: String?): String
+
     val buttonConnect: String
     val buttonCancel: String
     val labelServer: String

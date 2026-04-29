@@ -14,16 +14,12 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
-import androidx.compose.ui.unit.dp
-import uz.yalla.sipphone.data.update.manager.UpdateManager
 import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationIntent
 import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationState
 import uz.yalla.sipphone.feature.workstation.toolbar.widget.AgentStatusButton
@@ -39,12 +35,10 @@ import uz.yalla.sipphone.ui.theme.LocalYallaColors
 internal fun WorkstationToolbar(
     state: WorkstationState,
     onIntent: (WorkstationIntent) -> Unit,
-    updateManager: UpdateManager,
     modifier: Modifier = Modifier,
 ) {
     val tokens = LocalAppTokens.current
     val colors = LocalYallaColors.current
-    val updateUiState by updateManager.state.collectAsState()
 
     Box(
         modifier = modifier
@@ -95,7 +89,7 @@ internal fun WorkstationToolbar(
 
             SipChipRow(
                 accounts = state.accounts,
-                activeCallAccountId = state.activeCallAccountId.takeIf { it?.isNotEmpty() == true },
+                activeCallAccountId = state.activeCallAccountId.takeIf { !it.isNullOrEmpty() },
                 onChipClick = { onIntent(WorkstationIntent.OnSipChipClick(it)) },
             )
 
@@ -104,27 +98,41 @@ internal fun WorkstationToolbar(
             Spacer(Modifier.width(tokens.toolbarZoneGap))
 
             UpdateBadge(
-                state = updateManager.state,
+                state = state.updateState,
                 onClick = { onIntent(WorkstationIntent.ShowUpdateDialog) },
             )
 
-            IconButton(
+            SettingsToggleButton(
+                visible = state.settingsVisible,
                 onClick = {
-                    if (state.settingsVisible) onIntent(WorkstationIntent.CloseSettings)
-                    else onIntent(WorkstationIntent.OpenSettings)
+                    val nextIntent = if (state.settingsVisible) {
+                        WorkstationIntent.CloseSettings
+                    } else {
+                        WorkstationIntent.OpenSettings
+                    }
+                    onIntent(nextIntent)
                 },
-                modifier = Modifier
-                    .size(tokens.iconButtonSize)
-                    .pointerHoverIcon(PointerIcon.Hand),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = null,
-                    modifier = Modifier.size(tokens.iconDefault),
-                    tint = colors.iconSubtle,
-                )
-            }
+            )
         }
+    }
+}
+
+@Composable
+private fun SettingsToggleButton(visible: Boolean, onClick: () -> Unit) {
+    val tokens = LocalAppTokens.current
+    val colors = LocalYallaColors.current
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(tokens.iconButtonSize)
+            .pointerHoverIcon(PointerIcon.Hand),
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Settings,
+            contentDescription = null,
+            modifier = Modifier.size(tokens.iconDefault),
+            tint = colors.iconSubtle,
+        )
     }
 }
 
@@ -135,8 +143,7 @@ private fun VerticalDivider() {
     Box(
         Modifier
             .height(tokens.dividerHeight)
-            .width(1.dp)
-            .background(colors.borderDefault)
+            .width(tokens.dividerThickness)
+            .background(colors.borderDefault),
     )
 }
-

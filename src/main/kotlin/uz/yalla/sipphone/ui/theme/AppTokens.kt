@@ -90,6 +90,14 @@ data class AppTokens(
     val loginManualAccountListMaxHeight: Dp = 120.dp,
     val loginManualRemoveIconSize: Dp = 20.dp,
 
+    val updateDialogMaxHeight: Dp = 400.dp,
+    val updateDiagnosticsMaxHeight: Dp = 500.dp,
+
+    val splashStackSpacing: Dp = 20.dp,
+    val splashLogoFontSize: TextUnit = 32.sp,
+    val splashSpinnerSize: Dp = 36.dp,
+    val splashSpinnerStroke: Dp = 3.dp,
+
     val progressSmall: Dp = 18.dp,
     val progressStrokeSmall: Dp = 2.dp,
 

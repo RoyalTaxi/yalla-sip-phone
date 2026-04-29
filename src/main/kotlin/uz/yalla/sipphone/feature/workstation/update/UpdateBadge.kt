@@ -17,58 +17,62 @@ import androidx.compose.material.icons.outlined.ArrowCircleUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.StateFlow
 import uz.yalla.sipphone.domain.update.UpdateState
 import uz.yalla.sipphone.ui.theme.LocalAppTokens
 import uz.yalla.sipphone.ui.theme.LocalYallaColors
 
 @Composable
 fun UpdateBadge(
-    state: StateFlow<UpdateState>,
+    state: UpdateState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val current by state.collectAsState()
-    val visible = current !is UpdateState.Idle && current !is UpdateState.Checking
+    val tokens = LocalAppTokens.current
+    val visible = state !is UpdateState.Idle && state !is UpdateState.Checking
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(LocalAppTokens.current.animFast)) + scaleIn(initialScale = 0.85f),
-        exit = fadeOut(tween(LocalAppTokens.current.animFast)) + scaleOut(targetScale = 0.85f),
+        enter = fadeIn(tween(tokens.animFast)) + scaleIn(initialScale = BADGE_ENTER_SCALE),
+        exit = fadeOut(tween(tokens.animFast)) + scaleOut(targetScale = BADGE_ENTER_SCALE),
         modifier = modifier,
     ) {
-        val colors = LocalYallaColors.current
-        val tokens = LocalAppTokens.current
-        val targetTint = when (current) {
-            is UpdateState.Failed -> colors.destructive
-            is UpdateState.ReadyToInstall -> colors.statusOnline
-            else -> colors.brandPrimary
-        }
-        val tint by animateColorAsState(targetTint, tween(tokens.animMedium), label = "updateBadgeTint")
-
-        Box {
-            IconButton(
-                onClick = onClick,
-                modifier = Modifier.padding(horizontal = 4.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.ArrowCircleUp,
-                    contentDescription = "Update",
-                    tint = tint,
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 8.dp)
-                    .size(8.dp)
-                    .background(tint, CircleShape),
-            )
-        }
+        BadgeContent(state, onClick)
     }
 }
+
+@Composable
+private fun BadgeContent(state: UpdateState, onClick: () -> Unit) {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    val targetTint = when (state) {
+        is UpdateState.Failed -> colors.destructive
+        is UpdateState.ReadyToInstall -> colors.statusOnline
+        else -> colors.brandPrimary
+    }
+    val tint by animateColorAsState(targetTint, tween(tokens.animMedium), label = "updateBadgeTint")
+
+    Box {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.padding(horizontal = tokens.spacingXs),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.ArrowCircleUp,
+                contentDescription = null,
+                tint = tint,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = tokens.spacingSm, end = tokens.spacingSm)
+                .size(tokens.indicatorDot)
+                .background(tint, CircleShape),
+        )
+    }
+}
+
+private const val BADGE_ENTER_SCALE = 0.85f

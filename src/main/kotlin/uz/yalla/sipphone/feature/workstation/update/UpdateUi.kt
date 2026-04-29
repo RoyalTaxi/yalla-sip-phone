@@ -15,39 +15,27 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.StateFlow
 import uz.yalla.sipphone.domain.call.CallState
+import uz.yalla.sipphone.domain.update.UpdateRelease
 import uz.yalla.sipphone.domain.update.UpdateState
 import uz.yalla.sipphone.ui.strings.LocalStrings
 import uz.yalla.sipphone.ui.strings.StringResources
+import uz.yalla.sipphone.ui.theme.LocalAppTokens
 
 @Composable
 fun UpdateDialog(
-    stateFlow: StateFlow<UpdateState>,
-    callStateFlow: StateFlow<CallState>,
-    dismissedFlow: StateFlow<Boolean>,
+    state: UpdateState,
+    callState: CallState,
+    dismissed: Boolean,
     onInstall: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val state by stateFlow.collectAsState()
-    val callState by callStateFlow.collectAsState()
-    val dismissed by dismissedFlow.collectAsState()
-    val strings = LocalStrings.current
-
     if (state is UpdateState.Idle || state is UpdateState.Checking || dismissed) return
 
-    val release = when (val s = state) {
-        is UpdateState.Downloading -> s.release
-        is UpdateState.Verifying -> s.release
-        is UpdateState.ReadyToInstall -> s.release
-        is UpdateState.Installing -> s.release
-        else -> null
-    }
-
+    val strings = LocalStrings.current
+    val tokens = LocalAppTokens.current
+    val release = state.release()
     val callIsIdle = callState is CallState.Idle
     val canInstall = state is UpdateState.ReadyToInstall && callIsIdle
 
@@ -56,39 +44,14 @@ fun UpdateDialog(
         title = { Text(strings.updateAvailableDialogTitle + (release?.version?.let { " — v$it" } ?: "")) },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = tokens.updateDialogMaxHeight)
+                    .verticalScroll(rememberScrollState()),
             ) {
-                val statusText = when (val s = state) {
-                    is UpdateState.Downloading -> "${strings.updateDownloadingMessage} (${percentOf(s.bytesRead, s.total)}%)"
-                    is UpdateState.Verifying -> strings.updateVerifyingMessage
-                    is UpdateState.Installing -> strings.updateInstallingMessage
-                    is UpdateState.Failed -> failureText(s, strings)
-                    is UpdateState.ReadyToInstall -> if (!callIsIdle) strings.updateWaitingForCallMessage else ""
-                    else -> ""
-                }
-                if (statusText.isNotEmpty()) {
-                    Text(statusText, style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(8.dp))
-                }
-
-                val downloading = state as? UpdateState.Downloading
-                if (downloading != null) {
-                    LinearProgressIndicator(
-                        progress = {
-                            if (downloading.total > 0) downloading.bytesRead.toFloat() / downloading.total else 0f
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
-
-                if (release != null && release.releaseNotes.isNotBlank()) {
-                    Text(strings.updateReleaseNotesHeader, style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(4.dp))
-                    SelectionContainer {
-                        Text(release.releaseNotes, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
+                StatusLine(state, callIsIdle, strings)
+                DownloadProgress(state)
+                ReleaseNotes(release, strings)
             }
         },
         confirmButton = {
@@ -103,38 +66,67 @@ fun UpdateDialog(
 }
 
 @Composable
+private fun StatusLine(state: UpdateState, callIsIdle: Boolean, strings: StringResources) {
+    val tokens = LocalAppTokens.current
+    val text = state.statusText(callIsIdle, strings)
+    if (text.isEmpty()) return
+    Text(text, style = MaterialTheme.typography.bodyMedium)
+    Spacer(Modifier.height(tokens.spacingSm))
+}
+
+@Composable
+private fun DownloadProgress(state: UpdateState) {
+    val tokens = LocalAppTokens.current
+    val downloading = state as? UpdateState.Downloading ?: return
+    LinearProgressIndicator(
+        progress = { downloading.progressFraction() },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(tokens.spacingMdSm))
+}
+
+@Composable
+private fun ReleaseNotes(release: UpdateRelease?, strings: StringResources) {
+    val tokens = LocalAppTokens.current
+    if (release == null || release.releaseNotes.isBlank()) return
+    Text(strings.updateReleaseNotesHeader, style = MaterialTheme.typography.titleSmall)
+    Spacer(Modifier.height(tokens.spacingXs))
+    SelectionContainer {
+        Text(release.releaseNotes, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
 fun UpdateDiagnosticsDialog(
     visible: Boolean,
-    installId: String,
-    channel: String,
-    currentVersion: String,
-    stateText: String,
-    lastCheckText: String,
-    lastErrorText: String,
-    logTail: String,
+    snapshot: UpdateDiagnosticsSnapshot,
     onCopy: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
     val strings = LocalStrings.current
+    val tokens = LocalAppTokens.current
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.updateDiagnosticsTitle) },
         text = {
             Column(
-                modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = tokens.updateDiagnosticsMaxHeight)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(tokens.spacingXs),
             ) {
-                Text("${strings.updateCurrentVersion}: $currentVersion")
-                Text("${strings.updateDiagnosticsInstallId}: $installId")
-                Text("${strings.updateDiagnosticsChannel}: $channel")
-                Text("${strings.updateDiagnosticsState}: $stateText")
-                Text("${strings.updateDiagnosticsLastCheck}: $lastCheckText")
-                Text("${strings.updateDiagnosticsLastError}: $lastErrorText")
-                Spacer(Modifier.height(8.dp))
+                Text("${strings.updateCurrentVersion}: ${snapshot.currentVersion}")
+                Text("${strings.updateDiagnosticsInstallId}: ${snapshot.installId}")
+                Text("${strings.updateDiagnosticsChannel}: ${snapshot.channel}")
+                Text("${strings.updateDiagnosticsState}: ${snapshot.stateText}")
+                Text("${strings.updateDiagnosticsLastCheck}: ${snapshot.lastCheckText}")
+                Text("${strings.updateDiagnosticsLastError}: ${snapshot.lastErrorText}")
+                Spacer(Modifier.height(tokens.spacingSm))
                 Text(strings.updateDiagnosticsLogTail, style = MaterialTheme.typography.titleSmall)
                 SelectionContainer {
-                    Text(logTail, style = MaterialTheme.typography.bodySmall)
+                    Text(snapshot.logTail, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
@@ -142,6 +134,36 @@ fun UpdateDiagnosticsDialog(
         dismissButton = { TextButton(onClick = onDismiss) { Text(strings.updateDiagnosticsClose) } },
     )
 }
+
+data class UpdateDiagnosticsSnapshot(
+    val installId: String,
+    val channel: String,
+    val currentVersion: String,
+    val stateText: String,
+    val lastCheckText: String,
+    val lastErrorText: String,
+    val logTail: String,
+)
+
+private fun UpdateState.release(): UpdateRelease? = when (this) {
+    is UpdateState.Downloading -> release
+    is UpdateState.Verifying -> release
+    is UpdateState.ReadyToInstall -> release
+    is UpdateState.Installing -> release
+    else -> null
+}
+
+private fun UpdateState.statusText(callIsIdle: Boolean, strings: StringResources): String = when (this) {
+    is UpdateState.Downloading -> "${strings.updateDownloadingMessage} (${percentOf(bytesRead, total)}%)"
+    is UpdateState.Verifying -> strings.updateVerifyingMessage
+    is UpdateState.Installing -> strings.updateInstallingMessage
+    is UpdateState.Failed -> failureText(this, strings)
+    is UpdateState.ReadyToInstall -> if (!callIsIdle) strings.updateWaitingForCallMessage else ""
+    else -> ""
+}
+
+private fun UpdateState.Downloading.progressFraction(): Float =
+    if (total > 0) bytesRead.toFloat() / total else 0f
 
 private fun percentOf(read: Long, total: Long): Int =
     if (total <= 0) 0 else ((read.toDouble() / total) * 100).toInt().coerceIn(0, 100)

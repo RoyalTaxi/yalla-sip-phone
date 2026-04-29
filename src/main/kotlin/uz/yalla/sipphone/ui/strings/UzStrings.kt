@@ -35,6 +35,9 @@ object UzStrings : StringResources {
     override val settingsLogoutConfirm = "Tizimdan chiqmoqchimisiz?"
     override val settingsLogoutConfirmTitle = "Chiqish"
     override val appTitle = "Yalla SIP Phone"
+    override val errorInitTitle = "Yalla SIP Phone — Xato"
+    override fun errorInitMessage(reason: String?): String =
+        "SIP-tizimni ishga tushirib bo'lmadi:\n${reason ?: "noma'lum sabab"}"
     override val buttonConnect = "Ulanish"
     override val buttonCancel = "Bekor qilish"
     override val labelServer = "Server"
