@@ -37,9 +37,16 @@ fun AuthRoute(
 
     if (state.showManualSheet) {
         ManualConnectionSheet(
-            loading = loading,
-            onConnect = { entries ->
-                component.onIntent(AuthIntent.ManualConnect(entries.map { it.toSipAccountInfo() }))
+            isLoading = loading,
+            onConnect = { accounts, dispatcherUrl, backendUrl, pin ->
+                component.onIntent(
+                    AuthIntent.ManualConnect(
+                        accounts = accounts,
+                        dispatcherUrl = dispatcherUrl,
+                        backendUrl = backendUrl,
+                        pin = pin,
+                    ),
+                )
             },
             onDismiss = { component.onIntent(AuthIntent.DismissManualSheet) },
         )

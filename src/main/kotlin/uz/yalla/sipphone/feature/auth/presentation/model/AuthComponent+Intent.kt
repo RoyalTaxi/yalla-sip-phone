@@ -13,7 +13,12 @@ fun AuthComponent.onIntent(intent: AuthIntent) = intent {
         }
         AuthIntent.OpenManualSheet -> reduce { state.copy(showManualSheet = true) }
         AuthIntent.DismissManualSheet -> reduce { state.copy(showManualSheet = false) }
-        is AuthIntent.ManualConnect -> manualConnect(intent.accounts)
+        is AuthIntent.ManualConnect -> manualConnect(
+            accounts = intent.accounts,
+            dispatcherUrl = intent.dispatcherUrl,
+            backendUrl = intent.backendUrl,
+            pin = intent.pin,
+        )
     }
 }
 

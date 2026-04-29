@@ -5,10 +5,15 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.destroy
 import com.arkivanov.essenty.lifecycle.resume
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import uz.yalla.sipphone.core.auth.SessionStore
 import uz.yalla.sipphone.core.error.DataError
+import uz.yalla.sipphone.core.prefs.ConfigPreferences
+import uz.yalla.sipphone.core.prefs.ConfigPreferencesValues
 import uz.yalla.sipphone.core.result.Either
 import uz.yalla.sipphone.domain.auth.model.AuthError
 import uz.yalla.sipphone.domain.auth.model.Profile
@@ -67,7 +72,12 @@ class AuthComponentTest {
     ): AuthComponent = AuthComponent(
         componentContext = DefaultComponentContext(lifecycle = lifecycle),
         loginUseCase = LoginUseCase(loginRepo, sipManager, sessionStore),
-        manualConnectUseCase = ManualConnectUseCase(sipManager, sessionStore),
+        manualConnectUseCase = ManualConnectUseCase(
+            sipAccountManager = sipManager,
+            sessionStore = sessionStore,
+            authRepository = loginRepo,
+            configPreferences = NoopConfigPreferences,
+        ),
     ).also { lifecycle.resume() }
 
     @Test
@@ -111,6 +121,17 @@ class AuthComponentTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+}
+
+private object NoopConfigPreferences : ConfigPreferences {
+    private val state = MutableStateFlow(
+        ConfigPreferencesValues(backendUrl = "", dispatcherUrl = "", updateChannel = "stable", installId = "test"),
+    )
+    override val values: StateFlow<ConfigPreferencesValues> = state.asStateFlow()
+    override fun current(): ConfigPreferencesValues = state.value
+    override fun setBackendUrl(url: String) {}
+    override fun setDispatcherUrl(url: String) {}
+    override fun setUpdateChannel(channel: String) {}
 }
 
 private class StaticAuthRepository(
