@@ -46,7 +46,6 @@ import uz.yalla.sipphone.domain.sip.SipStackLifecycle
 import uz.yalla.sipphone.domain.update.UpdateChannel
 import uz.yalla.sipphone.feature.auth.di.AuthModule
 import uz.yalla.sipphone.feature.workstation.sideeffect.CallSideEffects
-import uz.yalla.sipphone.feature.workstation.sideeffect.NotificationService
 import uz.yalla.sipphone.feature.workstation.sideeffect.RingtonePlayer
 import uz.yalla.sipphone.navigation.ComponentFactory
 import uz.yalla.sipphone.navigation.ComponentFactoryImpl
@@ -155,8 +154,7 @@ private val updateModule = module {
 
 private val workstationModule = module {
     factory { RingtonePlayer() }
-    factory { NotificationService() }
-    factory { CallSideEffects(ringtone = get(), notifications = get()) }
+    factory { CallSideEffects(ringtone = get()) }
     factory { CallEventBridgeEmitter(callEngine = get(), eventEmitter = get()) }
     factory { SipConnectionBridgeEmitter(sipAccountManager = get(), eventEmitter = get()) }
     factory { AgentStatusBridgeEmitter(agentStatusHolder = get(), eventEmitter = get()) }

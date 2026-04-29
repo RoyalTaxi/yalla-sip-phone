@@ -5,15 +5,13 @@ import uz.yalla.sipphone.data.workstation.bridge.AgentStatusBridgeEmitter
 import uz.yalla.sipphone.data.workstation.bridge.CallEventBridgeEmitter
 import uz.yalla.sipphone.data.workstation.bridge.SipConnectionBridgeEmitter
 import uz.yalla.sipphone.feature.workstation.sideeffect.CallSideEffects
-import uz.yalla.sipphone.feature.workstation.sideeffect.NotificationService
 import uz.yalla.sipphone.feature.workstation.sideeffect.RingtonePlayer
 
 object WorkstationModule {
 
     private val sideEffectModule = module {
         factory { RingtonePlayer() }
-        factory { NotificationService() }
-        factory { CallSideEffects(ringtone = get(), notifications = get()) }
+        factory { CallSideEffects(ringtone = get()) }
     }
 
     private val bridgeModule = module {
