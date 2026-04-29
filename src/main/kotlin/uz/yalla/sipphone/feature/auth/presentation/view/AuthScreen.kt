@@ -21,6 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +55,8 @@ fun AuthScreen(
     val tokens = LocalAppTokens.current
     val strings = LocalStrings.current
     val colors = LocalYallaColors.current
+
+    var pin by rememberSaveable { mutableStateOf("") }
 
     Box(
         modifier = Modifier.fillMaxSize().background(colors.loginGradientBrush()),
@@ -83,20 +89,23 @@ fun AuthScreen(
             }
 
             LockPasswordField(
-                value = state.pin,
-                onValueChange = { onIntent(AuthIntent.SetPin(it.filter(Char::isDigit))) },
+                value = pin,
+                onValueChange = { newValue ->
+                    pin = newValue.filter(Char::isDigit)
+                    if (state.error != null) onIntent(AuthIntent.ClearError)
+                },
                 placeholder = strings.loginPasswordPlaceholder,
                 enabled = !loading,
                 isError = state.error is AuthError.WrongCredentials,
-                onSubmit = { onIntent(AuthIntent.Submit) },
+                onSubmit = { onIntent(AuthIntent.Submit(pin)) },
                 modifier = Modifier.fillMaxWidth(),
             )
 
             SubmitButton(
                 text = submitButtonText(loading, state.error, strings),
                 loading = loading,
-                enabled = !loading && state.canSubmit,
-                onClick = { onIntent(AuthIntent.Submit) },
+                enabled = !loading && pin.isNotBlank(),
+                onClick = { onIntent(AuthIntent.Submit(pin)) },
             )
 
             Column(

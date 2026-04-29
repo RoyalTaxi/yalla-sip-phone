@@ -5,7 +5,6 @@ import uz.yalla.sipphone.feature.workstation.presentation.intent.WorkstationInte
 
 fun WorkstationComponent.onIntent(intent: WorkstationIntent): Job = intent {
     when (intent) {
-        is WorkstationIntent.SetPhoneInput -> reduce { state.copy(phoneInput = intent.value) }
         is WorkstationIntent.SubmitCall -> dispatchCall(intent.number)
         WorkstationIntent.AnswerCall -> answer()
         WorkstationIntent.RejectCall -> hangup()

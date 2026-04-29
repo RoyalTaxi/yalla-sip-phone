@@ -123,19 +123,6 @@ class WorkstationComponent(
             }
         }
 
-        scope.launch {
-            callEngine.callState.collect { s ->
-                intent {
-                    reduce {
-                        when {
-                            s is CallState.Ringing && !s.isOutbound -> state.copy(phoneInput = s.callerNumber)
-                            s is CallState.Idle -> state.copy(phoneInput = "")
-                            else -> state
-                        }
-                    }
-                }
-            }
-        }
     }
 
     internal fun triggerLogout() {

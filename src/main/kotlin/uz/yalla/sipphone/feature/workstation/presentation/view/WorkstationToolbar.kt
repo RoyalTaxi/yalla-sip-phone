@@ -15,7 +15,13 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import uz.yalla.sipphone.domain.call.CallState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.RectangleShape
@@ -68,6 +74,16 @@ private fun RowScope.LeftZone(
     onIntent: (WorkstationIntent) -> Unit,
 ) {
     val tokens = LocalAppTokens.current
+    var phoneInput by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(state.call) {
+        when (val c = state.call) {
+            is CallState.Ringing -> if (!c.isOutbound) phoneInput = c.callerNumber
+            is CallState.Idle -> phoneInput = ""
+            else -> Unit
+        }
+    }
+
     Row(
         modifier = Modifier.weight(1f),
         verticalAlignment = Alignment.CenterVertically,
@@ -78,15 +94,15 @@ private fun RowScope.LeftZone(
             onStatusSelected = { onIntent(WorkstationIntent.SetAgentStatus(it)) },
         )
         PhoneField(
-            phoneNumber = state.phoneInput,
-            onValueChange = { onIntent(WorkstationIntent.SetPhoneInput(it)) },
+            phoneNumber = phoneInput,
+            onValueChange = { phoneInput = it },
             callState = state.call,
         )
         VerticalDivider()
         CallActions(
             callState = state.call,
-            phoneInputEmpty = state.phoneInput.isBlank(),
-            onCall = { onIntent(WorkstationIntent.SubmitCall(state.phoneInput)) },
+            phoneInputEmpty = phoneInput.isBlank(),
+            onCall = { onIntent(WorkstationIntent.SubmitCall(phoneInput)) },
             onAnswer = { onIntent(WorkstationIntent.AnswerCall) },
             onReject = { onIntent(WorkstationIntent.RejectCall) },
             onHangup = { onIntent(WorkstationIntent.HangupCall) },

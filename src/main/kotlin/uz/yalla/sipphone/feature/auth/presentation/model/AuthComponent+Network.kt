@@ -5,8 +5,7 @@ import uz.yalla.sipphone.core.result.onSuccess
 import uz.yalla.sipphone.feature.auth.presentation.intent.AuthEffect
 import uz.yalla.sipphone.feature.auth.presentation.intent.ManualAccountEntry
 
-internal fun AuthComponent.submit() = intent {
-    val pin = state.pin
+internal fun AuthComponent.submit(pin: String) = intent {
     withLoading {
         loginUseCase(pin)
             .onSuccess { session -> postSideEffect(AuthEffect.LoggedIn(session)) }

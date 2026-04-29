@@ -1,8 +1,8 @@
 package uz.yalla.sipphone.feature.auth.presentation.intent
 
 sealed interface AuthIntent {
-    data class SetPin(val value: String) : AuthIntent
-    data object Submit : AuthIntent
+    data object ClearError : AuthIntent
+    data class Submit(val pin: String) : AuthIntent
     data object OpenManualSheet : AuthIntent
     data object DismissManualSheet : AuthIntent
     data class ManualConnect(

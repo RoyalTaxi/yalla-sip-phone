@@ -3,7 +3,6 @@ package uz.yalla.sipphone.feature.workstation.presentation.intent
 import uz.yalla.sipphone.domain.agent.AgentStatus
 
 sealed interface WorkstationIntent {
-    data class SetPhoneInput(val value: String) : WorkstationIntent
     data class SubmitCall(val number: String) : WorkstationIntent
     data object AnswerCall : WorkstationIntent
     data object RejectCall : WorkstationIntent

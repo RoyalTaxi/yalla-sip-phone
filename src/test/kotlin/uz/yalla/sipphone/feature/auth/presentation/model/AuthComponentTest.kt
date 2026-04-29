@@ -22,7 +22,6 @@ import uz.yalla.sipphone.domain.auth.repository.AuthRepository
 import uz.yalla.sipphone.domain.auth.usecase.LoginUseCase
 import uz.yalla.sipphone.domain.auth.usecase.ManualConnectUseCase
 import uz.yalla.sipphone.domain.sip.SipAccountInfo
-import uz.yalla.sipphone.domain.sip.SipAccountState
 import uz.yalla.sipphone.domain.sip.SipCredentials
 import uz.yalla.sipphone.feature.auth.presentation.intent.AuthEffect
 import uz.yalla.sipphone.feature.auth.presentation.intent.AuthIntent
@@ -32,7 +31,6 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class AuthComponentTest {
@@ -81,25 +79,17 @@ class AuthComponentTest {
     ).also { lifecycle.resume() }
 
     @Test
-    fun `initial state is INITIAL`() = runTest {
+    fun `initial state has no error and manual sheet hidden`() = runTest {
         val s = component().container.stateFlow.first()
-        assertEquals("", s.pin)
         assertNull(s.error)
-    }
-
-    @Test
-    fun `SetPin updates state without auto-submitting`() = runTest {
-        val c = component()
-        c.onIntent(AuthIntent.SetPin("1234")).join()
-        assertEquals("1234", c.container.stateFlow.first().pin)
-        assertNull(c.container.stateFlow.first().error)
+        assertEquals(false, s.showManualSheet)
     }
 
     @Test
     fun `Submit with blank pin is a no-op`() = runTest {
         val c = component()
         c.container.sideEffectFlow.test {
-            c.onIntent(AuthIntent.Submit).join()
+            c.onIntent(AuthIntent.Submit("")).join()
             expectNoEvents()
         }
     }
@@ -108,8 +98,7 @@ class AuthComponentTest {
     fun `Submit with non-blank pin posts LoggedIn on success`() = runTest {
         val c = component()
         c.container.sideEffectFlow.test {
-            c.onIntent(AuthIntent.SetPin("1234"))
-            c.onIntent(AuthIntent.Submit)
+            c.onIntent(AuthIntent.Submit("1234"))
             val effect = awaitItem()
             assertIs<AuthEffect.LoggedIn>(effect)
             assertEquals(sampleSession, effect.session)
@@ -122,11 +111,8 @@ class AuthComponentTest {
         val failing = StaticAuthRepository(Either.Failure(DataError.Network.Server(401, "wrong")))
         val c = component(loginRepo = failing)
         c.container.stateFlow.test {
-            assertEquals("", awaitItem().pin)
-            c.onIntent(AuthIntent.SetPin("1234"))
-            val withPin = awaitItem()
-            assertEquals("1234", withPin.pin)
-            c.onIntent(AuthIntent.Submit)
+            assertNull(awaitItem().error)
+            c.onIntent(AuthIntent.Submit("1234"))
             val errored = awaitItem()
             assertIs<AuthError>(errored.error)
             cancelAndIgnoreRemainingEvents()
@@ -134,10 +120,30 @@ class AuthComponentTest {
     }
 
     @Test
-    fun `pin longer than 4 chars is preserved (no silent truncation)`() = runTest {
+    fun `ClearError removes error from state`() = runTest {
+        val failing = StaticAuthRepository(Either.Failure(DataError.Network.Server(401, "wrong")))
+        val c = component(loginRepo = failing)
+        c.container.stateFlow.test {
+            assertNull(awaitItem().error)
+            c.onIntent(AuthIntent.Submit("1234"))
+            val errored = awaitItem()
+            assertIs<AuthError>(errored.error)
+            c.onIntent(AuthIntent.ClearError)
+            val cleared = awaitItem()
+            assertNull(cleared.error)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `Submit accepts arbitrary pin length (no client-side cap)`() = runTest {
         val c = component()
-        c.onIntent(AuthIntent.SetPin("1234567890")).join()
-        assertEquals("1234567890", c.container.stateFlow.first().pin)
+        c.container.sideEffectFlow.test {
+            c.onIntent(AuthIntent.Submit("1234567890"))
+            val effect = awaitItem()
+            assertIs<AuthEffect.LoggedIn>(effect)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }
 
