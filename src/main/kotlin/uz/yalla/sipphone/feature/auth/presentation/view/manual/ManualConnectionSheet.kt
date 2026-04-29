@@ -71,8 +71,6 @@ fun ManualConnectionSheet(
                     modifier = Modifier.fillMaxWidth(),
                 )
 
-                Spacer(Modifier.height(tokens.spacingXs))
-
                 AccountList(
                     accounts = form.accounts,
                     isLoading = isLoading,

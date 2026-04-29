@@ -1,6 +1,7 @@
 package uz.yalla.sipphone.feature.auth.presentation.view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -62,20 +63,24 @@ fun AuthScreen(
                 .background(colors.loginCardBackground)
                 .padding(horizontal = tokens.loginCardPaddingH, vertical = tokens.spacingXl),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(tokens.spacingMd),
         ) {
             BrandBadge()
-            Spacer(Modifier.height(tokens.spacingMd))
-            Text(
-                text = strings.loginTitle,
-                style = TextStyle(
-                    fontSize = tokens.textTitle,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.loginCardTextPrimary,
-                ),
-            )
-            Spacer(Modifier.height(tokens.spacingSm))
-            SubtitleOrError(error = state.error, defaultText = strings.loginSubtitle)
-            Spacer(Modifier.height(tokens.spacingLg))
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(tokens.spacingSm),
+            ) {
+                Text(
+                    text = strings.loginTitle,
+                    style = TextStyle(
+                        fontSize = tokens.textTitle,
+                        fontWeight = FontWeight.Bold,
+                        color = colors.loginCardTextPrimary,
+                    ),
+                )
+                SubtitleOrError(error = state.error, defaultText = strings.loginSubtitle)
+            }
 
             LockPasswordField(
                 value = state.pin,
@@ -87,8 +92,6 @@ fun AuthScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
-            Spacer(Modifier.height(tokens.spacingMd))
-
             SubmitButton(
                 text = submitButtonText(loading, state.error, strings),
                 loading = loading,
@@ -96,27 +99,27 @@ fun AuthScreen(
                 onClick = { onIntent(AuthIntent.Submit) },
             )
 
-            Spacer(Modifier.height(tokens.spacingMdSm))
-
-            TextButton(
-                onClick = { onIntent(AuthIntent.OpenManualSheet) },
-                enabled = !loading,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(tokens.spacingSm),
             ) {
+                TextButton(
+                    onClick = { onIntent(AuthIntent.OpenManualSheet) },
+                    enabled = !loading,
+                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand),
+                ) {
+                    Text(
+                        text = strings.loginManualConnection,
+                        color = colors.loginCardTextSecondary,
+                        fontSize = tokens.textMd,
+                    )
+                }
                 Text(
-                    strings.loginManualConnection,
-                    color = colors.loginCardTextSecondary,
-                    fontSize = tokens.textMd,
+                    text = "v${BuildVersion.CURRENT}",
+                    color = colors.loginCardBorder,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
-
-            Spacer(Modifier.height(tokens.spacingSm))
-
-            Text(
-                "v${BuildVersion.CURRENT}",
-                color = colors.loginCardBorder,
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
 }

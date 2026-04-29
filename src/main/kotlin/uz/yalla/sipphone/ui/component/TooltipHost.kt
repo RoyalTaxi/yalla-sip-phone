@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 
 internal class TooltipHostState {
-
     var content: (@Composable () -> Unit)? by mutableStateOf(null)
         private set
 

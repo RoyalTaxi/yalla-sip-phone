@@ -1,9 +1,10 @@
 package uz.yalla.sipphone.feature.workstation.presentation.view
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -53,72 +54,84 @@ internal fun WorkstationToolbar(
                 .height(tokens.toolbarHeight)
                 .padding(horizontal = tokens.toolbarPaddingH),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            AgentStatusButton(
-                currentStatus = state.agent,
-                onStatusSelected = { onIntent(WorkstationIntent.SetAgentStatus(it)) },
-            )
-
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-
-            PhoneField(
-                phoneNumber = state.phoneInput,
-                onValueChange = { onIntent(WorkstationIntent.SetPhoneInput(it)) },
-                callState = state.call,
-            )
-
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-            VerticalDivider()
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-
-            CallActions(
-                callState = state.call,
-                phoneInputEmpty = state.phoneInput.isBlank(),
-                onCall = { onIntent(WorkstationIntent.SubmitCall(state.phoneInput)) },
-                onAnswer = { onIntent(WorkstationIntent.AnswerCall) },
-                onReject = { onIntent(WorkstationIntent.RejectCall) },
-                onHangup = { onIntent(WorkstationIntent.HangupCall) },
-                onToggleMute = { onIntent(WorkstationIntent.ToggleMute) },
-                onToggleHold = { onIntent(WorkstationIntent.ToggleHold) },
-            )
-
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-            CallTimer(duration = state.callDuration)
-
-            Spacer(Modifier.weight(1f))
-
-            SipChipRow(
-                accounts = state.accounts,
-                activeCallAccountId = state.activeCallAccountId.takeIf { !it.isNullOrEmpty() },
-                onChipClick = { onIntent(WorkstationIntent.OnSipChipClick(it)) },
-            )
-
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-            VerticalDivider()
-            Spacer(Modifier.width(tokens.toolbarZoneGap))
-
-            UpdateBadge(
-                state = state.updateState,
-                onClick = { onIntent(WorkstationIntent.ShowUpdateDialog) },
-            )
-
-            SettingsToggleButton(
-                visible = state.settingsVisible,
-                onClick = {
-                    val nextIntent = if (state.settingsVisible) {
-                        WorkstationIntent.CloseSettings
-                    } else {
-                        WorkstationIntent.OpenSettings
-                    }
-                    onIntent(nextIntent)
-                },
-            )
+            LeftZone(state, onIntent)
+            RightZone(state, onIntent)
         }
     }
 }
 
 @Composable
-private fun SettingsToggleButton(visible: Boolean, onClick: () -> Unit) {
+private fun RowScope.LeftZone(
+    state: WorkstationState,
+    onIntent: (WorkstationIntent) -> Unit,
+) {
+    val tokens = LocalAppTokens.current
+    Row(
+        modifier = Modifier.weight(1f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(tokens.toolbarZoneGap),
+    ) {
+        AgentStatusButton(
+            currentStatus = state.agent,
+            onStatusSelected = { onIntent(WorkstationIntent.SetAgentStatus(it)) },
+        )
+        PhoneField(
+            phoneNumber = state.phoneInput,
+            onValueChange = { onIntent(WorkstationIntent.SetPhoneInput(it)) },
+            callState = state.call,
+        )
+        VerticalDivider()
+        CallActions(
+            callState = state.call,
+            phoneInputEmpty = state.phoneInput.isBlank(),
+            onCall = { onIntent(WorkstationIntent.SubmitCall(state.phoneInput)) },
+            onAnswer = { onIntent(WorkstationIntent.AnswerCall) },
+            onReject = { onIntent(WorkstationIntent.RejectCall) },
+            onHangup = { onIntent(WorkstationIntent.HangupCall) },
+            onToggleMute = { onIntent(WorkstationIntent.ToggleMute) },
+            onToggleHold = { onIntent(WorkstationIntent.ToggleHold) },
+        )
+        CallTimer(duration = state.callDuration)
+    }
+}
+
+@Composable
+private fun RightZone(
+    state: WorkstationState,
+    onIntent: (WorkstationIntent) -> Unit,
+) {
+    val tokens = LocalAppTokens.current
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(tokens.toolbarZoneGap),
+    ) {
+        SipChipRow(
+            accounts = state.accounts,
+            activeCallAccountId = state.activeCallAccountId.takeIf { !it.isNullOrEmpty() },
+            onChipClick = { onIntent(WorkstationIntent.OnSipChipClick(it)) },
+        )
+        VerticalDivider()
+        UpdateBadge(
+            state = state.updateState,
+            onClick = { onIntent(WorkstationIntent.ShowUpdateDialog) },
+        )
+        SettingsToggleButton(
+            onClick = {
+                val nextIntent = if (state.settingsVisible) {
+                    WorkstationIntent.CloseSettings
+                } else {
+                    WorkstationIntent.OpenSettings
+                }
+                onIntent(nextIntent)
+            },
+        )
+    }
+}
+
+@Composable
+private fun SettingsToggleButton(onClick: () -> Unit) {
     val tokens = LocalAppTokens.current
     val colors = LocalYallaColors.current
     IconButton(

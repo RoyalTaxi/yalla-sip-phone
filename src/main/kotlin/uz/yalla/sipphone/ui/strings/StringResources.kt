@@ -3,7 +3,6 @@ package uz.yalla.sipphone.ui.strings
 import androidx.compose.runtime.staticCompositionLocalOf
 
 interface StringResources {
-
     val loginTitle: String
     val loginSubtitle: String
     val loginPasswordPlaceholder: String

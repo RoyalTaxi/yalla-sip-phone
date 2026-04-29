@@ -77,7 +77,6 @@ fun YallaTooltip(
         val gapPx = with(density) { 8.dp.roundToPx() }
 
         val chosen = if (tooltipSize == IntSize.Zero) {
-
             IntOffset(-10_000, -10_000)
         } else {
             computePosition(bounds, tooltipSize, windowSize.width, windowSize.height, gapPx)

@@ -2,9 +2,7 @@ package uz.yalla.sipphone.feature.workstation.update
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -48,6 +46,7 @@ fun UpdateDialog(
                     .fillMaxWidth()
                     .heightIn(max = tokens.updateDialogMaxHeight)
                     .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(tokens.spacingSm),
             ) {
                 StatusLine(state, callIsIdle, strings)
                 DownloadProgress(state)
@@ -67,32 +66,29 @@ fun UpdateDialog(
 
 @Composable
 private fun StatusLine(state: UpdateState, callIsIdle: Boolean, strings: StringResources) {
-    val tokens = LocalAppTokens.current
     val text = state.statusText(callIsIdle, strings)
     if (text.isEmpty()) return
     Text(text, style = MaterialTheme.typography.bodyMedium)
-    Spacer(Modifier.height(tokens.spacingSm))
 }
 
 @Composable
 private fun DownloadProgress(state: UpdateState) {
-    val tokens = LocalAppTokens.current
     val downloading = state as? UpdateState.Downloading ?: return
     LinearProgressIndicator(
         progress = { downloading.progressFraction() },
         modifier = Modifier.fillMaxWidth(),
     )
-    Spacer(Modifier.height(tokens.spacingMdSm))
 }
 
 @Composable
 private fun ReleaseNotes(release: UpdateRelease?, strings: StringResources) {
     val tokens = LocalAppTokens.current
     if (release == null || release.releaseNotes.isBlank()) return
-    Text(strings.updateReleaseNotesHeader, style = MaterialTheme.typography.titleSmall)
-    Spacer(Modifier.height(tokens.spacingXs))
-    SelectionContainer {
-        Text(release.releaseNotes, style = MaterialTheme.typography.bodySmall)
+    Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingXs)) {
+        Text(strings.updateReleaseNotesHeader, style = MaterialTheme.typography.titleSmall)
+        SelectionContainer {
+            Text(release.releaseNotes, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }
 
@@ -115,18 +111,21 @@ fun UpdateDiagnosticsDialog(
                     .fillMaxWidth()
                     .heightIn(max = tokens.updateDiagnosticsMaxHeight)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(tokens.spacingXs),
+                verticalArrangement = Arrangement.spacedBy(tokens.spacingSm),
             ) {
-                Text("${strings.updateCurrentVersion}: ${snapshot.currentVersion}")
-                Text("${strings.updateDiagnosticsInstallId}: ${snapshot.installId}")
-                Text("${strings.updateDiagnosticsChannel}: ${snapshot.channel}")
-                Text("${strings.updateDiagnosticsState}: ${snapshot.stateText}")
-                Text("${strings.updateDiagnosticsLastCheck}: ${snapshot.lastCheckText}")
-                Text("${strings.updateDiagnosticsLastError}: ${snapshot.lastErrorText}")
-                Spacer(Modifier.height(tokens.spacingSm))
-                Text(strings.updateDiagnosticsLogTail, style = MaterialTheme.typography.titleSmall)
-                SelectionContainer {
-                    Text(snapshot.logTail, style = MaterialTheme.typography.bodySmall)
+                Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingXs)) {
+                    Text("${strings.updateCurrentVersion}: ${snapshot.currentVersion}")
+                    Text("${strings.updateDiagnosticsInstallId}: ${snapshot.installId}")
+                    Text("${strings.updateDiagnosticsChannel}: ${snapshot.channel}")
+                    Text("${strings.updateDiagnosticsState}: ${snapshot.stateText}")
+                    Text("${strings.updateDiagnosticsLastCheck}: ${snapshot.lastCheckText}")
+                    Text("${strings.updateDiagnosticsLastError}: ${snapshot.lastErrorText}")
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingXs)) {
+                    Text(strings.updateDiagnosticsLogTail, style = MaterialTheme.typography.titleSmall)
+                    SelectionContainer {
+                        Text(snapshot.logTail, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         },

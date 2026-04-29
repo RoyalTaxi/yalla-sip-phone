@@ -12,11 +12,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -78,7 +78,6 @@ fun SettingsPanel(
     ) {
         AnimatedVisibility(
             visibleState = animState,
-
             enter = slideInHorizontally(
                 initialOffsetX = { it },
                 animationSpec = tween(tokens.animMedium, easing = LinearOutSlowInEasing),
@@ -95,127 +94,29 @@ fun SettingsPanel(
                     .background(colors.backgroundSecondary)
                     .padding(tokens.spacingMd)
                     .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(tokens.spacingMd),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = strings.settingsTitle,
-                        fontSize = tokens.textXl,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.textBase,
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(tokens.settingsPanelCloseButton)
-                            .clip(tokens.shapeXs)
-                            .background(colors.backgroundTertiary, tokens.shapeXs)
-                            .hoverClickable(
-
-                                hoverBackground = colors.borderDefault,
-                                shape = tokens.shapeXs,
-                                onClick = onDismiss,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Filled.Close, null,
-                            modifier = Modifier.size(tokens.settingsPanelCloseIcon),
-                            tint = colors.textBase,
-                        )
-                    }
-                }
-
-                Spacer(Modifier.height(tokens.spacingMd))
-
-                if (agentInfo != null) {
-                    AgentInfoCard(agentInfo)
-                    Spacer(Modifier.height(tokens.spacingMd))
-                }
-
+                Header(strings.settingsTitle, onDismiss)
+                if (agentInfo != null) AgentInfoCard(agentInfo)
                 HorizontalDivider(color = colors.borderDefault)
-                Spacer(Modifier.height(tokens.spacingMd))
 
-                SettingsRow(label = strings.settingsTheme) {
-                    YallaSegmentedControl(
-                        selectedIndex = if (isDarkTheme) 1 else 0,
-                        onSelect = { index ->
-                            val wantDark = index == 1
-                            if (wantDark != isDarkTheme) onThemeToggle()
-                        },
-                        first = {
-                            Icon(
-                                Icons.Filled.LightMode, null,
-                                modifier = Modifier.size(tokens.iconSmall),
-                                tint = if (!isDarkTheme) colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                        second = {
-                            Icon(
-                                Icons.Filled.DarkMode, null,
-                                modifier = Modifier.size(tokens.iconSmall),
-                                tint = if (isDarkTheme) colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                    )
-                }
-
-                Spacer(Modifier.height(tokens.spacingMdSm))
-
-                SettingsRow(label = strings.settingsLocale) {
-                    YallaSegmentedControl(
-                        selectedIndex = if (locale == "ru") 1 else 0,
-                        onSelect = { index -> onLocaleChange(if (index == 0) "uz" else "ru") },
-                        first = {
-                            Text(
-                                "UZ", fontSize = tokens.textBase, fontWeight = FontWeight.Medium,
-                                color = if (locale == "uz") colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                        second = {
-                            Text(
-                                "RU", fontSize = tokens.textBase, fontWeight = FontWeight.Medium,
-                                color = if (locale == "ru") colors.brandPrimary else colors.textSubtle,
-                            )
-                        },
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingMdSm)) {
+                    SettingsRow(label = strings.settingsTheme) {
+                        ThemeSegment(isDarkTheme, onThemeToggle)
+                    }
+                    SettingsRow(label = strings.settingsLocale) {
+                        LocaleSegment(locale, onLocaleChange)
+                    }
                 }
 
                 Spacer(Modifier.weight(1f))
 
-                HorizontalDivider(color = colors.borderDefault)
-                Spacer(Modifier.height(tokens.spacingSm))
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(tokens.shapeSmall)
-                        .hoverClickable(
-                            hoverBackground = colors.destructive.copy(alpha = tokens.alphaSubtle),
-                            shape = tokens.shapeSmall,
-                            onClick = onLogout,
-                        )
-                        .padding(vertical = tokens.spacingSm),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        strings.settingsLogout,
-                        fontSize = tokens.textMd,
-                        fontWeight = FontWeight.Medium,
-                        color = colors.destructive,
-                    )
+                Column(verticalArrangement = Arrangement.spacedBy(tokens.spacingSm)) {
+                    HorizontalDivider(color = colors.borderDefault)
+                    LogoutButton(strings.settingsLogout, onLogout)
                 }
 
-                Spacer(Modifier.height(tokens.spacingXs))
-
-                Text(
-                    text = "v${BuildVersion.CURRENT}",
-                    fontSize = tokens.textXs,
-                    color = colors.textSubtle,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                )
+                VersionLabel()
             }
         }
     }
@@ -234,18 +135,22 @@ private fun AgentInfoCard(agentInfo: AgentInfo) {
     }
 
     Row(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
             .background(colors.backgroundTertiary, tokens.shapeMedium)
             .padding(tokens.spacingMdSm),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(tokens.spacingMdSm),
     ) {
         Box(
-            modifier = Modifier.size(tokens.iconButtonSizeLarge).clip(CircleShape).background(colors.brandPrimary),
+            modifier = Modifier
+                .size(tokens.iconButtonSizeLarge)
+                .clip(CircleShape)
+                .background(colors.brandPrimary),
             contentAlignment = Alignment.Center,
         ) {
             Text(initials, fontSize = tokens.textLg, fontWeight = FontWeight.Bold, color = Color.White)
         }
-        Spacer(Modifier.width(tokens.spacingMdSm))
         Column {
             Text(agentInfo.name, fontSize = tokens.textLg, fontWeight = FontWeight.Medium, color = colors.textBase)
             Text("ID: ${agentInfo.id}", fontSize = tokens.textBase, color = colors.textSubtle)
@@ -254,10 +159,46 @@ private fun AgentInfoCard(agentInfo: AgentInfo) {
 }
 
 @Composable
+private fun Header(title: String, onDismiss: () -> Unit) {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = title,
+            fontSize = tokens.textXl,
+            fontWeight = FontWeight.SemiBold,
+            color = colors.textBase,
+        )
+        Box(
+            modifier = Modifier
+                .size(tokens.settingsPanelCloseButton)
+                .clip(tokens.shapeXs)
+                .background(colors.backgroundTertiary, tokens.shapeXs)
+                .hoverClickable(
+                    hoverBackground = colors.borderDefault,
+                    shape = tokens.shapeXs,
+                    onClick = onDismiss,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Close,
+                contentDescription = null,
+                modifier = Modifier.size(tokens.settingsPanelCloseIcon),
+                tint = colors.textBase,
+            )
+        }
+    }
+}
+
+@Composable
 private fun SettingsRow(label: String, content: @Composable () -> Unit) {
     val colors = LocalYallaColors.current
     val tokens = LocalAppTokens.current
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -267,3 +208,98 @@ private fun SettingsRow(label: String, content: @Composable () -> Unit) {
         content()
     }
 }
+
+@Composable
+private fun ThemeSegment(isDark: Boolean, onToggle: () -> Unit) {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    YallaSegmentedControl(
+        selectedIndex = if (isDark) 1 else 0,
+        onSelect = { index ->
+            val wantDark = index == 1
+            if (wantDark != isDark) onToggle()
+        },
+        first = {
+            Icon(
+                imageVector = Icons.Filled.LightMode,
+                contentDescription = null,
+                modifier = Modifier.size(tokens.iconSmall),
+                tint = if (!isDark) colors.brandPrimary else colors.textSubtle,
+            )
+        },
+        second = {
+            Icon(
+                imageVector = Icons.Filled.DarkMode,
+                contentDescription = null,
+                modifier = Modifier.size(tokens.iconSmall),
+                tint = if (isDark) colors.brandPrimary else colors.textSubtle,
+            )
+        },
+    )
+}
+
+@Composable
+private fun LocaleSegment(locale: String, onChange: (String) -> Unit) {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    YallaSegmentedControl(
+        selectedIndex = if (locale == LOCALE_RU) 1 else 0,
+        onSelect = { index -> onChange(if (index == 0) LOCALE_UZ else LOCALE_RU) },
+        first = {
+            Text(
+                text = "UZ",
+                fontSize = tokens.textBase,
+                fontWeight = FontWeight.Medium,
+                color = if (locale == LOCALE_UZ) colors.brandPrimary else colors.textSubtle,
+            )
+        },
+        second = {
+            Text(
+                text = "RU",
+                fontSize = tokens.textBase,
+                fontWeight = FontWeight.Medium,
+                color = if (locale == LOCALE_RU) colors.brandPrimary else colors.textSubtle,
+            )
+        },
+    )
+}
+
+@Composable
+private fun LogoutButton(label: String, onLogout: () -> Unit) {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(tokens.shapeSmall)
+            .hoverClickable(
+                hoverBackground = colors.destructive.copy(alpha = tokens.alphaSubtle),
+                shape = tokens.shapeSmall,
+                onClick = onLogout,
+            )
+            .padding(vertical = tokens.spacingSm),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = label,
+            fontSize = tokens.textMd,
+            fontWeight = FontWeight.Medium,
+            color = colors.destructive,
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.VersionLabel() {
+    val colors = LocalYallaColors.current
+    val tokens = LocalAppTokens.current
+    Text(
+        text = "v${BuildVersion.CURRENT}",
+        fontSize = tokens.textXs,
+        color = colors.textSubtle,
+        modifier = Modifier.align(Alignment.CenterHorizontally),
+    )
+}
+
+private const val LOCALE_UZ = "uz"
+private const val LOCALE_RU = "ru"
